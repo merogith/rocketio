@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RocketIO | Modern Warfare Hex Strategy</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <canvas id="gameCanvas"></canvas>
+        
+        <div id="ui-overlay">
+            <div id="top-bar" class="glass">
+                <div class="resource">
+                    <span class="label">GOLD</span>
+                    <span id="gold-count" class="value">0</span>
+                </div>
+                <div class="resource">
+                    <span class="label">TILES</span>
+                    <span id="tile-count" class="value">0</span>
+                </div>
+                <div class="resource">
+                    <span class="label">MISSILES</span>
+                    <span id="missile-count" class="value">0</span>
+                </div>
+            </div>
+
+            <div id="side-panel" class="glass">
+                <h3>CONSTRUCTION</h3>
+                <div class="build-group">
+                    <button class="build-btn" data-type="G" title="[1] Government: Expand Borders">
+                        <div class="shortcut-tag">1</div>
+                        <div class="icon">🏛️</div>
+                        <div class="name">Gov</div>
+                    </button>
+                    <button class="build-btn" data-type="RL" title="[2] Rocket Launcher: Attack Enemies">
+                        <div class="shortcut-tag">2</div>
+                        <div class="icon">🚀</div>
+                        <div class="name">RL</div>
+                    </button>
+                    <button class="build-btn" data-type="AAS" title="[3] Anti-Air System: Defense">
+                        <div class="shortcut-tag">3</div>
+                        <div class="icon">🛡️</div>
+                        <div class="name">AAS</div>
+                    </button>
+                    <button class="build-btn" data-type="MF" title="[4] Missile Factory: Production">
+                        <div class="shortcut-tag">4</div>
+                        <div class="icon">🏭</div>
+                        <div class="name">Factory</div>
+                    </button>
+                    <button class="build-btn" data-type="B" title="[5] Barracks: Ground Troops (uninterceptable, counters Militia/Drones)">
+                        <div class="shortcut-tag">5</div>
+                        <div class="icon">🪖</div>
+                        <div class="name">Barracks</div>
+                    </button>
+                </div>
+                <h3>DEPLOYMENT</h3>
+                <div class="build-group">
+                    <button class="build-btn" data-type="M" title="[6] Militia: Disrupt Occupancy">
+                        <div class="shortcut-tag">6</div>
+                        <div class="icon">🔫</div>
+                        <div class="name">Militia</div>
+                    </button>
+                    <button class="build-btn" data-type="D" title="[7] Drone: Tactical Offense">
+                        <div class="shortcut-tag">7</div>
+                        <div class="icon">🚁</div>
+                        <div class="name">Drone</div>
+                    </button>
+                    <button class="build-btn" data-type="AS" title="[8] Air Strike: Direct Damage">
+                        <div class="shortcut-tag">8</div>
+                        <div class="icon">💥</div>
+                        <div class="name">Strike</div>
+                    </button>
+                </div>
+            </div>
+
+            <div id="info-panel" class="glass hidden">
+                <div id="info-content"></div>
+                <button id="upgrade-btn" class="action-btn hidden">UPGRADE</button>
+                <button id="clear-target-btn" class="action-btn hidden">CLEAR TARGET</button>
+                <button id="close-info" class="action-btn">CLOSE</button>
+            </div>
+            
+            <div id="notis"></div>
+        </div>
+
+        <div id="instructions" class="glass">
+            <p>WASD to Pan • Scroll to Zoom • 1-8 for Quick Build</p>
+            <p>Drag from any RL / Barracks / Drone / Militia to a tile to assign its target.</p>
+        </div>
+    </div>
+    <script type="module" src="main.js"></script>
+</body>
+</html>

@@ -1,0 +1,237 @@
+:root {
+    --bg-dark: #0a0a0f;
+    --glass-bg: rgba(20, 20, 30, 0.8);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --accent-blue: #00e5ff;
+    --accent-red: #ff3d00;
+    --text-primary: #e0e0e0;
+    --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background: var(--bg-dark);
+    color: var(--text-primary);
+    font-family: 'Segoe UI', Roboto, sans-serif;
+    overflow: hidden;
+    user-select: none;
+}
+
+#app {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+}
+
+canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.glass {
+    background: var(--glass-bg);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+}
+
+#ui-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    padding: 20px;
+}
+
+#ui-overlay > * {
+    pointer-events: auto;
+}
+
+#top-bar {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 30px;
+    padding: 10px 40px;
+    z-index: 100;
+}
+
+.resource {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.resource .label {
+    font-size: 0.7rem;
+    color: var(--accent-blue);
+    font-family: var(--font-mono);
+    letter-spacing: 2px;
+}
+
+.resource .value {
+    font-size: 1.2rem;
+    font-weight: bold;
+    font-family: var(--font-mono);
+}
+
+#side-panel {
+    position: absolute;
+    top: 100px;
+    left: 20px;
+    width: 180px;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+h3 {
+    font-size: 0.8rem;
+    color: var(--accent-blue);
+    letter-spacing: 1px;
+    border-bottom: 1px solid var(--glass-border);
+    padding-bottom: 5px;
+}
+
+.build-btn {
+    position: relative;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--glass-border);
+    padding: 10px;
+    border-radius: 6px;
+    color: white;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+}
+
+.shortcut-tag {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: var(--accent-blue);
+    color: black;
+    font-size: 0.6rem;
+    padding: 2px 5px;
+    border-radius: 10px;
+    font-weight: bold;
+    font-family: var(--font-mono);
+}
+
+.build-btn:hover {
+    background: rgba(0, 229, 255, 0.2);
+    border-color: var(--accent-blue);
+    transform: translateY(-2px);
+}
+
+.build-btn.active {
+    background: var(--accent-blue);
+    color: black;
+}
+
+.build-btn .icon {
+    font-size: 1.5rem;
+}
+
+.build-btn .name {
+    font-size: 0.6rem;
+    font-weight: bold;
+}
+
+#info-panel {
+    position: absolute;
+    top: 100px;
+    right: 20px;
+    width: 250px;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+#info-panel.hidden,
+.hidden {
+    display: none !important;
+}
+
+.target-line {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px dashed var(--glass-border);
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+}
+.target-line .auto { color: var(--accent-blue); font-weight: bold; }
+.target-line .oor  { color: var(--accent-red); font-size: 0.7rem; margin-left: 4px; }
+.hint {
+    margin-top: 6px;
+    font-size: 0.7rem;
+    color: rgba(255,255,255,0.5);
+    font-style: italic;
+}
+
+.action-btn {
+    background: var(--accent-blue);
+    border: none;
+    padding: 8px;
+    border-radius: 4px;
+    color: black;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.action-btn:hover {
+    opacity: 0.9;
+}
+
+#close-info {
+    background: transparent;
+    border: 1px solid var(--glass-border);
+    color: white;
+}
+
+#instructions {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 10px 20px;
+    text-align: center;
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+#notis {
+    position: absolute;
+    bottom: 100px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.noti {
+    padding: 10px 20px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    animation: slideIn 0.3s ease-out;
+}
+
+.noti.error { background: rgba(255, 61, 0, 0.8); }
+.noti.success { background: rgba(0, 229, 255, 0.8); color: black; }
+
+@keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
