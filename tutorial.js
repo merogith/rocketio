@@ -7,15 +7,15 @@ export const TUTORIAL_PAGES = [
         <div class="tut-steps">
             <div class="tut-step">
                 <span class="tut-step-num">1</span>
-                <div><b>Build a Missile Factory</b> <span class="tut-dim">($130) — press <span class="key-badge">4</span></span><br>You start with one. Build a second immediately — rockets need ammo.</div>
+                <div><b>Build a Missile Factory</b> <span class="tut-dim">($230) — press <span class="key-badge">4</span></span><br>You start with one. Build a second immediately — rockets need ammo.</div>
             </div>
             <div class="tut-step">
                 <span class="tut-step-num">2</span>
-                <div><b>Build Rocket Launchers</b> <span class="tut-dim">($125) — press <span class="key-badge">2</span></span><br>Your main damage dealers. Place 2–3 near your border.</div>
+                <div><b>Build Rocket Launchers</b> <span class="tut-dim">($225) — press <span class="key-badge">2</span></span><br>Your main damage dealers. Place 2–3 near your border.</div>
             </div>
             <div class="tut-step">
                 <span class="tut-step-num">3</span>
-                <div><b>Build an Anti-Air System</b> <span class="tut-dim">($105) — press <span class="key-badge">3</span></span><br>Intercepts enemy missiles. Protect your Government!</div>
+                <div><b>Build an Anti-Air System</b> <span class="tut-dim">($205) — press <span class="key-badge">3</span></span><br>Intercepts enemy missiles. Protect your Government!</div>
             </div>
             <div class="tut-step">
                 <span class="tut-step-num">4</span>
@@ -38,18 +38,18 @@ export const TUTORIAL_PAGES = [
         <h3>YOUR UNITS</h3>
 
         <div class="tut-role-label tut-role-attack">⚔️ ATTACK</div>
-        <div class="unit-card"><div class="uc-icon">🚀</div><div class="uc-info"><div class="uc-name">Rocket Launcher <span class="tut-cost">$125</span></div><div class="uc-desc">Long-range missile. Your bread and butter. Needs ammo from Factories.</div></div></div>
+        <div class="unit-card"><div class="uc-icon">🚀</div><div class="uc-info"><div class="uc-name">Rocket Launcher <span class="tut-cost">$225</span></div><div class="uc-desc">Long-range missile. Your bread and butter. Needs ammo from Factories.</div></div></div>
         <div class="unit-card"><div class="uc-icon">🪖</div><div class="uc-info"><div class="uc-name">Barracks <span class="tut-cost">$425</span></div><div class="uc-desc">Short-range ground fire. Can't be intercepted by Anti-Air. Also a supply hub. Lv3 fires every 3s.</div></div></div>
-        <div class="unit-card"><div class="uc-icon">🚁</div><div class="uc-info"><div class="uc-name">Drone Operator <span class="tut-cost">$105</span></div><div class="uc-desc">Cheap, fast chip damage. Lv3 fires 3 shots — overwhelms Anti-Air defenses.</div></div></div>
+        <div class="unit-card"><div class="uc-icon">🚁</div><div class="uc-info"><div class="uc-name">Drone Operator <span class="tut-cost">$155</span></div><div class="uc-desc">Cheap, fast chip damage. Lv3 fires 3 shots — overwhelms Anti-Air defenses.</div></div></div>
         <div class="unit-card"><div class="uc-icon">✈️</div><div class="uc-info"><div class="uc-name">Air Base <span class="tut-cost">$350</span></div><div class="uc-desc">Heavy strike. High alpha damage but can be intercepted. Lv1 costs only 1 missile.</div></div></div>
 
         <div class="tut-role-label tut-role-defend">🛡️ DEFENSE</div>
-        <div class="unit-card"><div class="uc-icon">🛡️</div><div class="uc-info"><div class="uc-name">Anti-Air System <span class="tut-cost">$105</span></div><div class="uc-desc">Auto-intercepts rockets, air strikes, and drones. Ground fire bypasses it. Always keep one near your Government.</div></div></div>
+        <div class="unit-card"><div class="uc-icon">🛡️</div><div class="uc-info"><div class="uc-name">Anti-Air System <span class="tut-cost">$205</span></div><div class="uc-desc">Auto-intercepts rockets, air strikes, and drones. Ground fire bypasses it. Always keep one near your Government.</div></div></div>
 
         <div class="tut-role-label tut-role-econ">💰 ECONOMY & EXPANSION</div>
         <div class="unit-card"><div class="uc-icon">🏛️</div><div class="uc-info"><div class="uc-name">Government <span class="tut-cost">$450</span></div><div class="uc-desc">Claims territory via influence. More territory = more gold. Lose all Govs = you lose.</div></div></div>
-        <div class="unit-card"><div class="uc-icon">🏭</div><div class="uc-info"><div class="uc-name">Missile Factory <span class="tut-cost">$130</span></div><div class="uc-desc">Produces ammo for Rockets and Air Bases. No ammo = no missiles fired.</div></div></div>
-        <div class="unit-card"><div class="uc-icon">🔫</div><div class="uc-info"><div class="uc-name">Militia <span class="tut-cost">$85</span></div><div class="uc-desc">Place anywhere visible — even on enemy tiles! Lv3 transforms into a mini-Government.</div></div></div>
+        <div class="unit-card"><div class="uc-icon">🏭</div><div class="uc-info"><div class="uc-name">Missile Factory <span class="tut-cost">$230</span></div><div class="uc-desc">Produces ammo for Rockets and Air Bases. No ammo = no missiles fired.</div></div></div>
+        <div class="unit-card"><div class="uc-icon">🔫</div><div class="uc-info"><div class="uc-name">Militia <span class="tut-cost">$135</span></div><div class="uc-desc">Place anywhere visible — even on enemy tiles! Lv3 transforms into a mini-Government.</div></div></div>
     `,
 
     /* 3 — ECONOMY */

@@ -78,25 +78,25 @@ export const UNIT_STATS = {
     RL: {
         name: "Rocket Launcher",
         levels: [
-            { id: "RL1", hp: 100, range: 7,  damage: 50,  cost: 125, interval: 10000, missilesPerShot: 1, projectiles: 1, interceptable: true, vision: 6  },
-            { id: "RL2", hp: 180, range: 10, damage: 70,  cost: 225, interval: 7000,  missilesPerShot: 1, projectiles: 1, interceptable: true, vision: 8  },
-            { id: "RL3", hp: 300, range: 14, damage: 100, cost: 325, interval: 5000,  missilesPerShot: 2, projectiles: 1, interceptable: true, vision: 11 }
+            { id: "RL1", hp: 100, range: 7,  damage: 50,  cost: 225, interval: 10500, missilesPerShot: 1, projectiles: 1, interceptable: true, vision: 6  },
+            { id: "RL2", hp: 180, range: 10, damage: 70,  cost: 325, interval: 7300,  missilesPerShot: 1, projectiles: 1, interceptable: true, vision: 8  },
+            { id: "RL3", hp: 300, range: 14, damage: 100, cost: 425, interval: 5200,  missilesPerShot: 2, projectiles: 1, interceptable: true, vision: 11 }
         ]
     },
     AAS: {
         name: "Anti-Air System",
         levels: [
-            { id: "AAS1", hp: 100, range: 4, cost: 105, rechargeInterval: 10000, missilesRecharged: 1, chargeCap: 6,  vision: 5 },
-            { id: "AAS2", hp: 180, range: 6, cost: 205, rechargeInterval: 12000, missilesRecharged: 2, chargeCap: 10, vision: 7 },
-            { id: "AAS3", hp: 300, range: 9, cost: 305, rechargeInterval: 9000, missilesRecharged: 3, chargeCap: 15, vision: 9 }
+            { id: "AAS1", hp: 100, range: 4, cost: 205, rechargeInterval: 9500, missilesRecharged: 1, chargeCap: 6,  vision: 5 },
+            { id: "AAS2", hp: 180, range: 6, cost: 305, rechargeInterval: 11400, missilesRecharged: 2, chargeCap: 10, vision: 7 },
+            { id: "AAS3", hp: 300, range: 9, cost: 405, rechargeInterval: 8550, missilesRecharged: 3, chargeCap: 15, vision: 9 }
         ]
     },
     MF: {
         name: "Missile Factory",
         levels: [
-            { id: "MF1", hp: 100, cost: 130, produceInterval: 10000, missilesProduced: 2, vision: 4 },
-            { id: "MF2", hp: 170, cost: 230, produceInterval: 10000, missilesProduced: 4, vision: 5 },
-            { id: "MF3", hp: 300, cost: 330, produceInterval: 10000, missilesProduced: 7, vision: 6 }
+            { id: "MF1", hp: 100, cost: 230, produceInterval: 11111, missilesProduced: 2, vision: 4 },
+            { id: "MF2", hp: 170, cost: 330, produceInterval: 11111, missilesProduced: 4, vision: 5 },
+            { id: "MF3", hp: 300, cost: 430, produceInterval: 11111, missilesProduced: 7, vision: 6 }
         ]
     },
     G: {
@@ -110,26 +110,26 @@ export const UNIT_STATS = {
     D: {
         name: "Drone Operator",
         levels: [
-            { id: "D1", hp: 60,  range: 5, damage: 20, cost: 105, interval: 6000, projectiles: 1, interceptable: true, vision: 5 },
-            { id: "D2", hp: 100, range: 6, damage: 25, cost: 155, interval: 5000, projectiles: 2, interceptable: true, vision: 6 },
-            { id: "D3", hp: 175, range: 7, damage: 25, cost: 205, interval: 4500, projectiles: 3, interceptable: true, vision: 7 }
+            { id: "D1", hp: 60,  range: 5, damage: 20, cost: 155, interval: 6400, projectiles: 1, interceptable: true, vision: 5 },
+            { id: "D2", hp: 100, range: 6, damage: 25, cost: 205, interval: 5350, projectiles: 2, interceptable: true, vision: 6 },
+            { id: "D3", hp: 175, range: 7, damage: 25, cost: 255, interval: 4850, projectiles: 3, interceptable: true, vision: 7 }
         ]
     },
     M: {
         name: "Militia",
         levels: [
-            { id: "M1", hp: 50,  range: 1, damage: 35, cost: 85,  interval: 8000,  projectiles: 1, interceptable: false, vision: 4 },
-            { id: "M2", hp: 100, range: 2, damage: 50, cost: 135, interval: 5000,  projectiles: 1, interceptable: false, vision: 5 },
-            { id: "M3", hp: 200, radius: 2, cost: 225, transformsToGov: true, influence: 750, vision: 6, goldPerTile: 0.5 }
+            { id: "M1", hp: 50,  range: 1, damage: 35, cost: 135, interval: 8000,  projectiles: 1, interceptable: false, vision: 4 },
+            { id: "M2", hp: 100, range: 2, damage: 50, cost: 185, interval: 5000,  projectiles: 1, interceptable: false, vision: 5 },
+            { id: "M3", hp: 200, radius: 2, cost: 275, transformsToGov: true, influence: 750, vision: 6, goldPerTile: 0.5 }
         ],
         limit: 10
     },
     AB: {
         name: "Air Base",
         levels: [
-            { id: "AB1", hp: 175, range: 7,  damage: 130, cost: 350,  interval: 15000, missilesPerShot: 1, projectiles: 1, interceptable: true, projectileSpeed: 4.5, vision: 7  },
-            { id: "AB2", hp: 300, range: 10, damage: 200, cost: 750,  interval: 12000, missilesPerShot: 2, projectiles: 1, interceptable: true, projectileSpeed: 5.5, vision: 9  },
-            { id: "AB3", hp: 475, range: 13, damage: 300, cost: 1400, interval: 9000,  missilesPerShot: 3, projectiles: 1, interceptable: true, projectileSpeed: 6.5, vision: 11 }
+            { id: "AB1", hp: 175, range: 7,  damage: 130, cost: 350,  interval: 15800, missilesPerShot: 1, projectiles: 1, interceptable: true, projectileSpeed: 4.5, vision: 7  },
+            { id: "AB2", hp: 300, range: 10, damage: 200, cost: 750,  interval: 12600, missilesPerShot: 2, projectiles: 1, interceptable: true, projectileSpeed: 5.5, vision: 9  },
+            { id: "AB3", hp: 475, range: 13, damage: 300, cost: 1400, interval: 9500,  missilesPerShot: 3, projectiles: 1, interceptable: true, projectileSpeed: 6.5, vision: 11 }
         ]
     },
     B: {
