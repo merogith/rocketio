@@ -457,7 +457,8 @@ export class Renderer {
 
         // AAS radar sweep
         if (structure.type === 'AAS' && structure.charge !== undefined) {
-            const chargeRatio = (structure.charge || 0) / 10;
+            const cap = structure.stats?.chargeCap || 10;
+            const chargeRatio = (structure.charge || 0) / cap;
             const angle = (t * 0.002) % (Math.PI * 2);
             ctx.save();
             ctx.globalAlpha = 0.15 + chargeRatio * 0.2;

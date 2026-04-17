@@ -73,6 +73,33 @@ function canAffordUpgrade(player, tile) {
 
 function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
 
+const MAX_TARGET_GOV = 12;
+
+/** Desired Government count scales with owned tiles, map size, and difficulty (capped). */
+function computeTargetGovCount(game, p, snap, shared) {
+    const landScale = Math.max(1, (shared.totalLandTiles || 400) / 400);
+    const tc = p.tileCount;
+    const difficulty = game.aiDifficulty || 'normal';
+    let n = 2 + Math.floor((tc * landScale) / 42);
+    if (difficulty === 'hard') n += 1;
+    else if (difficulty === 'easy') n -= 1;
+    return clamp(n, 2, MAX_TARGET_GOV);
+}
+
+/** Applies doctrine G preference (ECONOMIST builds more, baseline 2). */
+function effectiveTargetGovCount(game, p, snap, shared, doctrine) {
+    const base = computeTargetGovCount(game, p, snap, shared);
+    const mult = clamp((doctrine?.G ?? 2) / 2, 0.75, 2);
+    return clamp(Math.round(base * mult), 2, MAX_TARGET_GOV);
+}
+
+function phasedGovNeed(targetG, phase) {
+    if (phase === PHASES.EXPAND) return Math.min(targetG, Math.max(1, Math.ceil(targetG * 0.4)));
+    if (phase === PHASES.FORTIFY) return Math.min(targetG, Math.max(2, Math.ceil(targetG * 0.55)));
+    if (phase === PHASES.PRESSURE) return Math.min(targetG, Math.max(3, Math.ceil(targetG * 0.75)));
+    return targetG;
+}
+
 // ============================================================================
 //  GLOBAL ASSESSMENT (shared across AIs in a single frame)
 // ============================================================================
@@ -111,11 +138,15 @@ function computeSharedAssessment(game) {
         if (!tile.contested) {
             if (s.type === 'MF') {
                 const ms = s.stats;
-                missileProd.set(pid, missileProd.get(pid) + (ms.missilesProduced / (ms.produceInterval / 1000)));
+                const eff = game.effFor(tile);
+                const sec = (ms.produceInterval * eff) / 1000;
+                missileProd.set(pid, missileProd.get(pid) + (ms.missilesProduced / sec));
             }
             if (s.type === 'RL' || s.type === 'AB') {
                 const ms = s.stats;
-                missileCons.set(pid, missileCons.get(pid) + (ms.missilesPerShot / (ms.interval / 1000)));
+                const eff = game.effFor(tile);
+                const sec = (ms.interval * eff) / 1000;
+                missileCons.set(pid, missileCons.get(pid) + (ms.missilesPerShot / sec));
             }
         }
     }
@@ -306,7 +337,7 @@ function detectPhase(game, p, snap, shared) {
     const scaledPressure = Math.round(18 * landScale);
     const scaledDominate = Math.round(40 * landScale);
 
-    if (p.gold > 1400 || snap.govCount >= 4 || (tc > scaledDominate && hasCombat))
+    if ((p.gold > 1400 && hasCombat && tc > scaledPressure) || (tc > scaledDominate && hasCombat))
         return PHASES.DOMINATE;
     if (tc > scaledPressure && hasCombat)
         return PHASES.PRESSURE;
@@ -323,6 +354,8 @@ function detectPhase(game, p, snap, shared) {
 //  MAIN ENTRY POINT
 // ============================================================================
 export function updateAI(game, time) {
+    computeSharedAssessment(game);
+
     let dIdx = 0;
     for (const p of game.players) {
         if (p.id === game.humanId) continue;
@@ -500,13 +533,13 @@ function runAITick(game, p, time) {
     if (tryEmergencyDefense(game, p, snap, tileLoss)) goto_done(p);
     else if (tryCounterPlay(game, p, snap)) goto_done(p);
     else if (tryFocusFire(game, p, snap, shared)) {
-        tryEconomy(game, p, snap, phase) ||
+        tryEconomy(game, p, snap, phase, shared, doctrine) ||
         tryStrategicBuild(game, p, snap, shared, phase, doctrine) ||
         tryMilitiaGovStrategy(game, p, snap, phase) ||
         tryUpgrade(game, p, snap, doctrine, shared);
         goto_done(p);
     } else {
-        tryEconomy(game, p, snap, phase) ||
+        tryEconomy(game, p, snap, phase, shared, doctrine) ||
         tryStrategicBuild(game, p, snap, shared, phase, doctrine) ||
         tryMilitiaGovStrategy(game, p, snap, phase) ||
         tryUpgrade(game, p, snap, doctrine, shared) ||
@@ -716,6 +749,32 @@ function tryCounterPlay(game, p, snap) {
         }
     }
 
+    const enemyGovNearFrontier = snap.visibleEnemies.filter(e =>
+        e.structure.type === 'G' &&
+        snap.frontier.some(ft => Hex.distance(ft, e) <= 12)
+    );
+    if (enemyGovNearFrontier.length > 0 &&
+        snap.missileProd >= snap.missileCons * 0.7 &&
+        p.missiles >= 2 &&
+        snap.mfCount > 0) {
+        const govTargets = enemyGovNearFrontier.map(e => {
+            let md = Infinity;
+            for (const ft of snap.frontier) {
+                const d = Hex.distance(ft, e);
+                if (d < md) md = d;
+            }
+            return { e, md };
+        }).sort((a, b) => a.md - b.md).map(x => x.e);
+        if (canAffordType(p, 'RL')) {
+            const spot = pickPlacementForType(game, p, snap, 'RL', govTargets);
+            if (spot) return game.buildStructure(spot, 'RL', p.id);
+        }
+        if (canAffordType(p, 'AB')) {
+            const spot = pickPlacementForType(game, p, snap, 'AB', govTargets);
+            if (spot) return game.buildStructure(spot, 'AB', p.id);
+        }
+    }
+
     return false;
 }
 
@@ -728,6 +787,21 @@ function tryFocusFire(game, p, snap, shared) {
     );
     if (attackers.length === 0) return false;
     if (snap.visibleEnemies.length === 0) return false;
+
+    const prod = snap.missileProd, cons = snap.missileCons;
+    const missileShort = (cons > 0 && prod < cons * 0.85) || (p.missiles < 2 && cons > 0);
+    let incomingShooterKeys = null;
+    if (missileShort) {
+        incomingShooterKeys = new Set();
+        for (const proj of game.projectiles) {
+            if (!proj.interceptable || !proj.fromQR) continue;
+            if (proj.owner === p.id || game.areAllied(proj.owner, p.id)) continue;
+            const tgt = game.grid.getTile(proj.targetQR.q, proj.targetQR.r);
+            if (!tgt?.structure) continue;
+            if (tgt.owner !== p.id && !game.areAllied(tgt.owner, p.id)) continue;
+            incomingShooterKeys.add(`${proj.fromQR.q},${proj.fromQR.r}`);
+        }
+    }
 
     const scored = [];
     for (const en of snap.visibleEnemies) {
@@ -742,6 +816,15 @@ function tryFocusFire(game, p, snap, shared) {
         else if (hpFrac < 0.5) value *= 1.6;
         else if (hpFrac < 0.7) value *= 1.2;
 
+        if (missileShort && incomingShooterKeys?.has(`${en.q},${en.r}`)) {
+            value *= 1.55;
+        }
+        if (missileShort && (t === 'RL' || t === 'AB' || t === 'D')) {
+            const st = en.structure.stats;
+            const edps = (st.damage || 0) / Math.max(1, (st.interval || 1000) / 1000);
+            value *= 1 + Math.min(0.85, edps / 45);
+        }
+
         // Proximity to our territory matters — closer targets are higher priority
         let minDistToUs = Infinity;
         for (const ft of snap.frontier.slice(0, 20)) {
@@ -749,6 +832,14 @@ function tryFocusFire(game, p, snap, shared) {
             if (d < minDistToUs) minDistToUs = d;
         }
         value *= 1 + clamp(1 - minDistToUs / 15, 0, 0.5);
+
+        if (snap.attackVectors.length >= 2) {
+            const avgQ = snap.attackVectors.reduce((s, v) => s + v.q, 0) / snap.attackVectors.length;
+            const avgR = snap.attackVectors.reduce((s, v) => s + v.r, 0) / snap.attackVectors.length;
+            const dPress = Hex.distance({ q: avgQ, r: avgR }, en);
+            if (dPress < 10) value *= 1.35;
+            else if (dPress < 16) value *= 1.15;
+        }
 
         let inRangeCount = 0;
         let totalDpsInRange = 0;
@@ -830,7 +921,7 @@ function tryFocusFire(game, p, snap, shared) {
 // ============================================================================
 //  PRIORITY 4 — ECONOMY
 // ============================================================================
-function tryEconomy(game, p, snap, phase) {
+function tryEconomy(game, p, snap, phase, shared, doctrine) {
     const prod = snap.missileProd, cons = snap.missileCons;
     const missileShort = (cons > 0 && prod < cons * 0.85) || (p.missiles < 2 && cons > 0);
 
@@ -848,7 +939,9 @@ function tryEconomy(game, p, snap, phase) {
         }
     }
 
-    if (p.gold > 650 && snap.govCount < 4) {
+    const wantG = effectiveTargetGovCount(game, p, snap, shared, doctrine);
+    const goldThreshold = snap.govCount < wantG * 0.45 ? 380 : 650;
+    if (p.gold > goldThreshold && snap.govCount < wantG) {
         if (canAffordType(p, 'G')) {
             const spot = findGovSpot(game, p.id, snap);
             if (spot) return game.buildStructure(spot, 'G', p.id);
@@ -868,9 +961,8 @@ function tryEconomy(game, p, snap, phase) {
 //  PRIORITY 5 — STRATEGIC BUILD
 // ============================================================================
 function tryStrategicBuild(game, p, snap, shared, phase, doctrine) {
-    const govNeed = phase === PHASES.EXPAND ? 1
-                  : phase === PHASES.FORTIFY ? 2
-                  : phase === PHASES.PRESSURE ? 3 : 4;
+    const targetG = effectiveTargetGovCount(game, p, snap, shared, doctrine);
+    const govNeed = phasedGovNeed(targetG, phase);
     if (snap.govCount < govNeed && canAffordType(p, 'G')) {
         const spot = findGovSpot(game, p.id, snap);
         if (spot) return game.buildStructure(spot, 'G', p.id);

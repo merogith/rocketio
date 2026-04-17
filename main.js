@@ -25,6 +25,7 @@ const goldEl = document.getElementById('gold-count');
 const tileEl = document.getElementById('tile-count');
 const missileEl = document.getElementById('missile-count');
 const goldRateEl = document.getElementById('gold-rate');
+const missileRateEl = document.getElementById('missile-rate');
 const buildBtns = document.querySelectorAll('.build-btn');
 const infoPanel = document.getElementById('info-panel');
 const infoContent = document.getElementById('info-content');
@@ -1714,6 +1715,12 @@ function loop(time) {
         tileEl.innerText = p1.tileCount;
         missileEl.innerText = p1.missiles;
         goldRateEl.innerText = `+${(p1.goldRate).toFixed(1)}/s`;
+
+        const shared = game._aiShared;
+        const mp = shared?.missileProd?.get(p1.id) ?? 0;
+        const mc = shared?.missileCons?.get(p1.id) ?? 0;
+        missileRateEl.innerText = `+${mp.toFixed(1)}/s · -${mc.toFixed(1)}/s`;
+        missileRateEl.title = 'Missiles per second: produced (factories) · max consumption (rocket launchers + air bases, if firing continuously)';
 
         if (p1.missiles === 0 && (p1.units.RL > 0 || p1.units.AB > 0)) {
             if (missileStarvedSince === 0) missileStarvedSince = time;

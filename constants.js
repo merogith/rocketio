@@ -41,10 +41,31 @@ export const GAME_CONFIG = {
     CONTESTED_EPSILON: 0.01,     // relative threshold for contested detection
     UPGRADE_COST_MULT: 0.80,     // upgrades cost 20% less than fresh build
     DEMOLISH_REFUND_MULT: 0.20,  // fraction of total gold spent on structure returned on demolish
-    GOV_GOLD_STACK_MULT: 0.3,    // secondary gov effects contribute 30% (anti-stack)
     GOV_WARMUP_MS: 10000,        // new Govs produce 0 gold for 10s (anti-rush)
     MAP_RADII: { small: 20, medium: 30, large: 45 },
     MAX_PARTICLES: 400,
+    // Auto-target: reduce overkill on one tile by treating in-flight shots as committed damage.
+    // Interceptable projectiles count at a fraction (AA may shoot them down).
+    AUTO_TARGET_USE_PENDING_DAMAGE: true,
+    AUTO_TARGET_INTERCEPT_PENDING_MULT: 0.5,
+    AUTO_TARGET_OVERKILL_BUFFER_HP: 8,
+    AUTO_TARGET_FALLBACK_WHEN_ALL_SATURATED: true,
+    // Within this many hexes of the closest enemy, prefer higher AUTO_TARGET_STRUCT_WEIGHT before HP tie-break.
+    AUTO_TARGET_DISTANCE_TIE_HEXES: 1,
+    AUTO_TARGET_STRUCT_WEIGHT: {
+        G: 100,
+        MF: 85,
+        AB: 45,
+        RL: 40,
+        AAS: 35,
+        B: 28,
+        D: 22,
+        M: 18,
+    },
+    // Missile-starved: prioritize targets (incoming shooters > enemy DPS > Gov > AAS/MF) and RL/AB fire order.
+    MISSILE_SMART_PRIORITY: true,
+    // When true, only apply smart targeting / launcher ordering if missiles < total demand from ready RL+AB this tick.
+    MISSILE_SMART_STARVED_ONLY: true,
     // Initial build cooldowns: time (ms) before a newly built structure can act for the first time.
     // lastAction is set to (gameTime + cooldown - interval) so the first action fires at T + cooldown.
     BUILD_COOLDOWNS: {
@@ -86,9 +107,9 @@ export const UNIT_STATS = {
     AAS: {
         name: "Anti-Air System",
         levels: [
-            { id: "AAS1", hp: 100, range: 4, cost: 205, rechargeInterval: 9500, missilesRecharged: 1, chargeCap: 6,  vision: 5 },
-            { id: "AAS2", hp: 180, range: 6, cost: 305, rechargeInterval: 11400, missilesRecharged: 2, chargeCap: 10, vision: 7 },
-            { id: "AAS3", hp: 300, range: 9, cost: 405, rechargeInterval: 8550, missilesRecharged: 3, chargeCap: 15, vision: 9 }
+            { id: "AAS1", hp: 100, range: 4, cost: 205, rechargeInterval: 9500, missilesRecharged: 1, chargeCap: 4,  vision: 5 },
+            { id: "AAS2", hp: 180, range: 6, cost: 305, rechargeInterval: 11400, missilesRecharged: 2, chargeCap: 6, vision: 7 },
+            { id: "AAS3", hp: 300, range: 9, cost: 405, rechargeInterval: 8550, missilesRecharged: 3, chargeCap: 9, vision: 9 }
         ]
     },
     MF: {
