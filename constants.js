@@ -103,8 +103,8 @@ export const UNIT_STATS = {
         name: "Government",
         levels: [
             { id: "G1", hp: 350,  radius: 4,  cost: 450,  influence: 1000, vision: 8,  goldPerTile: 0.5  },
-            { id: "G2", hp: 625,  radius: 7,  cost: 1000, influence: 2200, vision: 10, goldPerTile: 0.8  },
-            { id: "G3", hp: 1000, radius: 11, cost: 1950, influence: 4000, vision: 12, goldPerTile: 1.1  }
+            { id: "G2", hp: 625,  radius: 7,  cost: 1000, influence: 2200, vision: 10, goldPerTile: 0.5  },
+            { id: "G3", hp: 1000, radius: 11, cost: 1950, influence: 4000, vision: 12, goldPerTile: 0.5  }
         ]
     },
     D: {
