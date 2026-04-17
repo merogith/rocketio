@@ -4,92 +4,345 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RocketIO | Modern Warfare Hex Strategy</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div id="app">
+
+    <!-- ==================== HOMEPAGE ==================== -->
+    <div id="homepage">
+        <div class="stars"></div>
+        <div class="scanline-overlay"></div>
+        <div class="homepage-content">
+            <div class="logo-section">
+                <h1 class="game-title">ROCKET<span class="accent">IO</span></h1>
+                <p class="tagline">Hex Warfare. Total Domination.</p>
+            </div>
+
+            <div class="menu-card">
+                <div class="input-group">
+                    <label for="player-name">COMMANDER NAME</label>
+                    <input type="text" id="player-name" placeholder="Enter your callsign..." maxlength="16" autocomplete="off" spellcheck="false">
+                </div>
+
+                <div class="input-group">
+                    <label>OPPONENTS</label>
+                    <div class="option-row" id="player-count-row">
+                        <button class="option-btn" data-value="2">2</button>
+                        <button class="option-btn" data-value="3">3</button>
+                        <button class="option-btn selected" data-value="4">4</button>
+                        <button class="option-btn" data-value="5">5</button>
+                        <button class="option-btn" data-value="6">6</button>
+                        <button class="option-btn" data-value="7">7</button>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>MAP SIZE</label>
+                    <div class="option-row" id="map-size-row">
+                        <button class="option-btn map-btn" data-value="small"><span class="opt-icon">&#9632;</span><span>Small</span></button>
+                        <button class="option-btn map-btn selected" data-value="medium"><span class="opt-icon">&#9632;&#9632;</span><span>Medium</span></button>
+                        <button class="option-btn map-btn" data-value="large"><span class="opt-icon">&#9632;&#9632;&#9632;</span><span>Large</span></button>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>MAP STYLE</label>
+                    <div class="option-row" id="map-style-row">
+                        <button class="option-btn selected" data-value="pangaea">Pangaea</button>
+                        <button class="option-btn" data-value="continents">Continents</button>
+                        <button class="option-btn" data-value="archipelago">Archipelago</button>
+                        <button class="option-btn" data-value="inland_sea">Inland Sea</button>
+                        <button class="option-btn" data-value="fractal">Fractal</button>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>DIFFICULTY</label>
+                    <div class="option-row" id="difficulty-row">
+                        <button class="option-btn" data-value="easy">Easy</button>
+                        <button class="option-btn selected" data-value="normal">Normal</button>
+                        <button class="option-btn" data-value="hard">Hard</button>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>VICTORY CONDITION</label>
+                    <div class="option-row" id="victory-mode-row">
+                        <button class="option-btn selected" data-value="conquest">Conquest</button>
+                        <button class="option-btn" data-value="domination">Domination</button>
+                        <button class="option-btn" data-value="regime_change">Regime Change</button>
+                        <button class="option-btn" data-value="blitz">Blitz</button>
+                        <button class="option-btn" data-value="last_stand">Last Stand</button>
+                    </div>
+                    <div id="victory-sub-picker" class="option-row sub-picker hidden"></div>
+                </div>
+
+                <button id="play-btn" class="play-button">
+                    <span class="play-icon">&#9654;</span> LAUNCH GAME
+                </button>
+
+                <div class="menu-bottom-row">
+                    <button id="tutorial-btn" class="tutorial-button">HOW TO PLAY</button>
+                    <button id="settings-btn-home" class="tutorial-button">SETTINGS</button>
+                </div>
+            </div>
+
+            <div class="version-tag">v0.3 &mdash; Land Control · Air Base · Map Styles · Victory Modes</div>
+        </div>
+    </div>
+
+    <!-- ==================== TUTORIAL ==================== -->
+    <div id="tutorial-overlay" class="hidden">
+        <div class="tutorial-backdrop"></div>
+        <div class="tutorial-container glass">
+            <div class="tutorial-header">
+                <h2>HOW TO PLAY</h2>
+                <div class="tutorial-progress">
+                    <span id="tut-step-label">1 / 5</span>
+                    <div class="progress-bar"><div id="tut-progress-fill" class="progress-fill" style="width:20%"></div></div>
+                </div>
+            </div>
+            <div class="tutorial-body" id="tutorial-body"></div>
+            <div class="tutorial-footer">
+                <button id="tut-prev" class="tut-nav-btn" disabled>BACK</button>
+                <button id="tut-next" class="tut-nav-btn primary">NEXT</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== SETTINGS ==================== -->
+    <div id="settings-overlay" class="hidden">
+        <div class="tutorial-backdrop"></div>
+        <div class="tutorial-container glass settings-container">
+            <div class="tutorial-header">
+                <h2>SETTINGS</h2>
+                <button id="settings-close" class="tut-nav-btn">CLOSE</button>
+            </div>
+            <div class="tutorial-body settings-body" id="settings-body">
+                <h3>KEYBINDS</h3>
+                <div id="keybind-list" class="keybind-list"></div>
+                <button id="reset-keybinds-btn" class="action-btn" style="margin-top:12px">RESET TO DEFAULTS</button>
+
+                <h3 style="margin-top:24px">GAMEPLAY</h3>
+                <div class="settings-toggles">
+                    <label class="toggle-row"><input type="checkbox" id="opt-quick-build" checked><span>Quick Build Mode</span><span class="toggle-desc">Build mode stays active after placement</span></label>
+                    <label class="toggle-row"><input type="checkbox" id="opt-hover-upgrade" checked><span>Hover Upgrade</span><span class="toggle-desc">Space upgrades hovered structure</span></label>
+                    <label class="toggle-row"><input type="checkbox" id="opt-drag-paint" checked><span>Drag-Paint Build</span><span class="toggle-desc">Drag to place structures on multiple hexes</span></label>
+                    <label class="toggle-row"><input type="checkbox" id="opt-diplomacy" checked><span>Diplomacy</span><span class="toggle-desc">Allow peace proposals between commanders</span></label>
+                </div>
+
+                <h3 style="margin-top:24px">VISUALS</h3>
+                <div class="settings-toggles">
+                    <label class="toggle-row"><input type="checkbox" id="opt-screen-shake"><span>Screen Shake</span></label>
+                    <label class="toggle-row"><input type="checkbox" id="opt-threat-rings" checked><span>Threat Rings</span></label>
+                    <label class="toggle-row"><input type="checkbox" id="opt-fullscreen"><span>Fullscreen</span><span class="toggle-desc">Toggle browser fullscreen mode</span></label>
+                </div>
+
+                <h3 style="margin-top:24px">SOUND EFFECTS</h3>
+                <div class="settings-toggles">
+                    <label class="toggle-row"><input type="checkbox" id="opt-sfx" checked><span>Enable SFX</span><span class="toggle-desc">Weapon fire, impacts, interceptions</span></label>
+                    <label class="toggle-row"><span>SFX Volume</span><input type="range" id="opt-sfx-volume" min="0" max="100" value="70" style="flex:1;margin-left:12px"></label>
+                </div>
+
+                <h3 style="margin-top:24px">MUSIC</h3>
+                <div class="settings-toggles">
+                    <label class="toggle-row"><input type="checkbox" id="opt-music" checked><span>Enable Music</span><span class="toggle-desc">Ambient score, intensifies under attack</span></label>
+                    <label class="toggle-row"><span>Music Volume</span><input type="range" id="opt-music-volume" min="0" max="100" value="70" style="flex:1;margin-left:12px"></label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== GAME ==================== -->
+    <div id="app" class="hidden">
         <canvas id="gameCanvas"></canvas>
-        
+        <div class="scanline-overlay game-scanlines"></div>
+
         <div id="ui-overlay">
-            <div id="top-bar" class="glass">
+
+            <!-- TOP HUD -->
+            <div id="top-bar" class="glass hud-panel">
+                <div id="player-portrait" class="player-portrait hidden"></div>
+                <div id="player-label" class="player-name-label"></div>
+
                 <div class="resource">
                     <span class="label">GOLD</span>
                     <span id="gold-count" class="value">0</span>
-                </div>
-                <div class="resource">
-                    <span class="label">TILES</span>
-                    <span id="tile-count" class="value">0</span>
+                    <span id="gold-rate" class="rate">+0/s</span>
                 </div>
                 <div class="resource">
                     <span class="label">MISSILES</span>
                     <span id="missile-count" class="value">0</span>
                 </div>
+                <div class="resource">
+                    <span class="label">TILES</span>
+                    <span id="tile-count" class="value">0</span>
+                </div>
+                <div class="resource threat">
+                    <span class="label">THREAT</span>
+                    <span id="threat-count" class="value">0</span>
+                </div>
+
+                <div class="speed-controls">
+                    <button id="speed-pause" class="speed-btn" title="Pause (P)">⏸</button>
+                    <button id="speed-1x" class="speed-btn active" title="1x">▶</button>
+                    <button id="speed-2x" class="speed-btn" title="2x">⏩</button>
+                    <button id="speed-3x" class="speed-btn" title="3x">⏭</button>
+                </div>
+
+                <button id="diplomacy-btn" class="gear-button diplomacy-btn hidden" title="Diplomacy">🕊<span id="diplomacy-badge" class="diplo-badge hidden">0</span></button>
+                <button id="gear-btn" class="gear-button" title="Menu">⚙</button>
             </div>
 
-            <div id="side-panel" class="glass">
+            <!-- BUILD PANEL -->
+            <div id="side-panel" class="glass hud-panel">
                 <h3>CONSTRUCTION</h3>
                 <div class="build-group">
                     <button class="build-btn" data-type="G" title="[1] Government: Expand Borders">
                         <div class="shortcut-tag">1</div>
                         <div class="icon">🏛️</div>
                         <div class="name">Gov</div>
+                        <div class="cost">$450</div>
                     </button>
                     <button class="build-btn" data-type="RL" title="[2] Rocket Launcher: Attack Enemies">
                         <div class="shortcut-tag">2</div>
                         <div class="icon">🚀</div>
                         <div class="name">RL</div>
+                        <div class="cost">$125</div>
                     </button>
                     <button class="build-btn" data-type="AAS" title="[3] Anti-Air System: Defense">
                         <div class="shortcut-tag">3</div>
                         <div class="icon">🛡️</div>
                         <div class="name">AAS</div>
+                        <div class="cost">$105</div>
                     </button>
                     <button class="build-btn" data-type="MF" title="[4] Missile Factory: Production">
                         <div class="shortcut-tag">4</div>
                         <div class="icon">🏭</div>
                         <div class="name">Factory</div>
+                        <div class="cost">$130</div>
                     </button>
-                    <button class="build-btn" data-type="B" title="[5] Barracks: Ground Troops (uninterceptable, counters Militia/Drones)">
+                    <button class="build-btn" data-type="B" title="[5] Barracks: Ground Troops, Supply Hub">
                         <div class="shortcut-tag">5</div>
                         <div class="icon">🪖</div>
                         <div class="name">Barracks</div>
+                        <div class="cost">$425</div>
                     </button>
                 </div>
                 <h3>DEPLOYMENT</h3>
                 <div class="build-group">
-                    <button class="build-btn" data-type="M" title="[6] Militia: Disrupt Occupancy">
+                    <button class="build-btn" data-type="M" title="[6] Militia: Disrupt Enemy Ground">
                         <div class="shortcut-tag">6</div>
                         <div class="icon">🔫</div>
                         <div class="name">Militia</div>
+                        <div class="cost">$85</div>
                     </button>
-                    <button class="build-btn" data-type="D" title="[7] Drone: Tactical Offense">
+                    <button class="build-btn" data-type="D" title="[7] Drone: Saturation Fire">
                         <div class="shortcut-tag">7</div>
                         <div class="icon">🚁</div>
                         <div class="name">Drone</div>
+                        <div class="cost">$105</div>
                     </button>
-                    <button class="build-btn" data-type="AS" title="[8] Air Strike: Direct Damage">
+                    <button class="build-btn" data-type="AB" title="[8] Air Base: Heavy Interceptable Strike">
                         <div class="shortcut-tag">8</div>
-                        <div class="icon">💥</div>
-                        <div class="name">Strike</div>
+                        <div class="icon">✈️</div>
+                        <div class="name">Air Base</div>
+                        <div class="cost">$350</div>
                     </button>
                 </div>
             </div>
 
-            <div id="info-panel" class="glass hidden">
+            <!-- INFO PANEL -->
+            <div id="info-panel" class="glass hud-panel hidden">
                 <div id="info-content"></div>
                 <button id="upgrade-btn" class="action-btn hidden">UPGRADE</button>
+                <button id="upgrade-all-btn" class="action-btn upgrade-all-btn hidden">UPGRADE ALL [U]</button>
+                <button id="demolish-btn" class="action-btn demolish-btn hidden">DEMOLISH</button>
                 <button id="clear-target-btn" class="action-btn hidden">CLEAR TARGET</button>
                 <button id="close-info" class="action-btn">CLOSE</button>
             </div>
-            
+
+            <!-- HOVER UPGRADE CHIP -->
+            <div id="hover-chip" class="hidden"></div>
+
+            <!-- BUILD TOOLTIP -->
+            <div id="build-tooltip" class="glass hidden"></div>
+
+            <!-- MINIMAP -->
+            <div id="minimap-wrap" class="glass hud-panel">
+                <div class="minimap-label">TACTICAL MAP</div>
+                <canvas id="minimap" width="220" height="180"></canvas>
+                <div id="scoreboard" class="scoreboard"></div>
+            </div>
+
+            <!-- BUILD MODE BANNER -->
+            <div id="build-mode-banner" class="glass hud-panel hidden"></div>
+
+            <!-- COMBAT LOG -->
+            <div id="combat-log" class="glass hud-panel">
+                <div class="combat-log-header">
+                    <span class="minimap-label">COMBAT LOG</span>
+                    <button id="combat-log-toggle" class="log-toggle-btn">−</button>
+                </div>
+                <div id="combat-log-entries" class="combat-log-entries"></div>
+            </div>
+
             <div id="notis"></div>
         </div>
 
         <div id="instructions" class="glass">
-            <p>WASD to Pan • Scroll to Zoom • 1-8 for Quick Build</p>
-            <p>Drag from any RL / Barracks / Drone / Militia to a tile to assign its target.</p>
+            <p><b>WASD</b> pan · <b>Scroll</b> zoom · <b>1–8</b> quick build · <b>Space</b> upgrade · <b>U</b> upgrade all · <b>X</b> demolish · <b>ESC</b> menu</p>
+            <p><b>Ctrl+Click</b> multi-select · Drag from attacker to assign target · <b>P</b> pause · <b>L</b> log</p>
+        </div>
+
+        <!-- PAUSE OVERLAY -->
+        <div id="pause-overlay" class="hidden">
+            <div class="pause-text">PAUSED</div>
+            <p class="pause-sub">Press P to resume</p>
         </div>
     </div>
+
+    <!-- ==================== GAME MENU ==================== -->
+    <div id="game-menu" class="hidden">
+        <div class="tutorial-backdrop"></div>
+        <div class="end-card glass" style="min-width:320px">
+            <h2 style="font-family:var(--font-title);color:var(--accent-blue);letter-spacing:3px;margin-bottom:20px">MENU</h2>
+            <button id="menu-resume" class="menu-action-btn">RESUME</button>
+            <button id="menu-settings" class="menu-action-btn">SETTINGS</button>
+            <button id="menu-restart" class="menu-action-btn">RESTART</button>
+            <button id="menu-surrender" class="menu-action-btn danger">SURRENDER</button>
+            <button id="menu-quit" class="menu-action-btn danger">RETURN TO MENU</button>
+        </div>
+    </div>
+
+    <!-- ==================== DIPLOMACY PANEL ==================== -->
+    <div id="diplomacy-panel" class="hidden">
+        <div class="tutorial-backdrop"></div>
+        <div class="tutorial-container glass diplomacy-container">
+            <div class="tutorial-header">
+                <h2>DIPLOMACY</h2>
+                <div class="diplo-cap-label"><span id="diplomacy-cap-used">0</span>/<span id="diplomacy-cap-max">0</span> PEACES</div>
+                <button id="diplomacy-close" class="tut-nav-btn">CLOSE</button>
+            </div>
+            <div class="tutorial-body diplomacy-body" id="diplomacy-list"></div>
+        </div>
+    </div>
+
+    <!-- ==================== END OVERLAY ==================== -->
+    <div id="end-overlay" class="hidden">
+        <div class="end-backdrop"></div>
+        <div class="end-card glass">
+            <h1 id="end-title" class="end-title">VICTORY</h1>
+            <p id="end-sub" class="end-sub"></p>
+            <div id="end-stats" class="end-stats"></div>
+            <button id="end-restart" class="play-button">
+                <span class="play-icon">&#9654;</span> RETURN TO COMMAND
+            </button>
+        </div>
+    </div>
+
     <script type="module" src="main.js"></script>
 </body>
 </html>
