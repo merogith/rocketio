@@ -131,9 +131,9 @@ export const UNIT_STATS = {
     D: {
         name: "Drone Operator",
         levels: [
-            { id: "D1", hp: 60,  range: 5, damage: 20, cost: 155, interval: 6400, projectiles: 1, interceptable: true, vision: 5 },
-            { id: "D2", hp: 100, range: 6, damage: 25, cost: 205, interval: 5350, projectiles: 2, interceptable: true, vision: 6 },
-            { id: "D3", hp: 175, range: 7, damage: 25, cost: 255, interval: 4850, projectiles: 3, interceptable: true, vision: 7 }
+            { id: "D1", hp: 60,  range: 5, damage: 10, cost: 155, interval: 6400, projectiles: 1, interceptable: true, vision: 5 },
+            { id: "D2", hp: 100, range: 6, damage: 12, cost: 205, interval: 5350, projectiles: 2, interceptable: true, vision: 6 },
+            { id: "D3", hp: 175, range: 7, damage: 12, cost: 255, interval: 4850, projectiles: 3, interceptable: true, vision: 7 }
         ]
     },
     M: {
