@@ -37,6 +37,11 @@ const upgradeAllBtn = document.getElementById('upgrade-all-btn');
 const playerLabelEl = document.getElementById('player-label');
 const threatEl = document.getElementById('threat-count');
 const scoreboardEl = document.getElementById('scoreboard');
+const minimapStatsLabelEl = document.getElementById('minimap-stats-label');
+const minimapStatsLine1El = document.getElementById('minimap-stats-line1');
+const minimapStatsLine2El = document.getElementById('minimap-stats-line2');
+const minimapStatsPrevBtn = document.getElementById('minimap-stats-prev');
+const minimapStatsNextBtn = document.getElementById('minimap-stats-next');
 const endOverlay = document.getElementById('end-overlay');
 const endTitle = document.getElementById('end-title');
 const endSub = document.getElementById('end-sub');
@@ -660,6 +665,10 @@ function handleInput() {
         if (entries && log) {
             entries.classList.toggle('hidden');
         }
+    }
+
+    if (Input.consumePress('cycle_minimap_stats')) {
+        minimapStatPage = (minimapStatPage + 1) % MINIMAP_STAT_PAGE_COUNT;
     }
 
     if (Input.consumePress('upgrade') && !isDragging) {
@@ -1638,6 +1647,7 @@ function renderEndStats() {
         <div class="end-stat-card"><div class="stat-label">Gold Earned</div><div class="stat-value">${Math.floor(s.goldEarned)}</div></div>
         <div class="end-stat-card"><div class="stat-label">Gold Spent</div><div class="stat-value">${Math.floor(s.goldSpent)}</div></div>
         <div class="end-stat-card"><div class="stat-label">Damage Dealt</div><div class="stat-value">${Math.floor(s.damageDealt)}</div></div>
+        <div class="end-stat-card"><div class="stat-label">Intercepted</div><div class="stat-value">${Math.floor(s.missilesIntercepted)}</div></div>
         <div class="end-stat-card"><div class="stat-label">Peak Tiles</div><div class="stat-value">${s.peakTiles}</div></div>
     `;
 }
@@ -1661,42 +1671,121 @@ let lastMusicIntensityUpdate = 0;
 let musicIntensitySmoothed = 0;
 let lastDamageTakenSample = 0;
 
+const MINIMAP_STAT_PAGE_COUNT = 4;
+let minimapStatPage = 0;
+
+function sumStructureCount(shared, pid) {
+    const o = shared?.structuresByPlayer?.get(pid);
+    if (!o) return 0;
+    let n = 0;
+    for (const v of Object.values(o)) n += v;
+    return n;
+}
+
+function fmtCompactGold(n) {
+    const x = Math.floor(Math.abs(n));
+    if (x >= 10000) return `${(x / 1000).toFixed(1)}k`;
+    return String(x);
+}
+
+function refreshMinimapStatsOverlay() {
+    if (!minimapStatsLabelEl || !minimapStatsLine1El || !minimapStatsLine2El || !game) return;
+    const p = game.players[game.humanId - 1];
+    if (!p) return;
+    const shared = game._aiShared;
+    const mp = shared?.missileProd?.get(p.id) ?? 0;
+    const mc = shared?.missileCons?.get(p.id) ?? 0;
+    const bld = sumStructureCount(shared, p.id);
+    const s = p.stats;
+    const page = ((minimapStatPage % MINIMAP_STAT_PAGE_COUNT) + MINIMAP_STAT_PAGE_COUNT) % MINIMAP_STAT_PAGE_COUNT;
+    switch (page) {
+        case 0:
+            minimapStatsLabelEl.textContent = 'ECONOMY';
+            minimapStatsLine1El.textContent = `$${Math.floor(p.gold)}`;
+            minimapStatsLine2El.textContent = `+${p.goldRate.toFixed(1)}/s`;
+            break;
+        case 1:
+            minimapStatsLabelEl.textContent = 'MISSILES';
+            minimapStatsLine1El.textContent = String(Math.floor(p.missiles));
+            minimapStatsLine2El.textContent = `+${mp.toFixed(1)}/s · -${mc.toFixed(1)}/s`;
+            break;
+        case 2:
+            minimapStatsLabelEl.textContent = 'TERRITORY';
+            minimapStatsLine1El.textContent = `${p.tileCount} tiles`;
+            minimapStatsLine2El.textContent = `${bld} structures`;
+            break;
+        case 3:
+        default:
+            minimapStatsLabelEl.textContent = 'COMBAT';
+            minimapStatsLine1El.textContent = `${Math.floor(s.damageDealt)} dmg`;
+            minimapStatsLine2El.textContent = `${Math.floor(s.missilesIntercepted)} intercepted`;
+            break;
+    }
+}
+
 function refreshScoreboard() {
     if (!scoreboardEl || !game) return;
+    const shared = game._aiShared;
+    const humanId = game.humanId;
+
     const rows = game.players.map(p => {
         const alive = !game.defeated.has(p.id);
         const color = COLORS[`PLAYER${p.id}`] || '#888';
-        const name = p.id === 1 ? (p.name || 'YOU') : (p.name || `CPU ${p.id}`);
-        const tiles = alive ? p.tileCount : '\u2014';
-        const rate = (p.id === 1) ? `+${p.goldRate.toFixed(1)}/s` : '';
+        const name = p.id === humanId ? (p.name || 'YOU') : (p.name || `CPU-${p.id}`);
+        const mp = shared?.missileProd?.get(p.id) ?? 0;
+        const mc = shared?.missileCons?.get(p.id) ?? 0;
+        const bld = sumStructureCount(shared, p.id);
+        const s = p.stats;
         let stance = '';
-        if (p.id !== 1 && alive && game.diplomacyEnabled) {
-            if (game.areAllied(1, p.id)) stance = '<span class="sb-stance allied" title="Allied">\uD83E\uDD1D</span>';
+        if (p.id !== humanId && alive && game.diplomacyEnabled) {
+            if (game.areAllied(humanId, p.id)) stance = '<span class="sb-stance allied" title="Allied">\uD83E\uDD1D</span>';
             else {
-                const rel = game.getRelation(1, p.id);
+                const rel = game.getRelation(humanId, p.id);
                 if (rel && rel.status === 'pending') stance = '<span class="sb-stance pending" title="Pending">\u29D6</span>';
             }
         }
-        return { id: p.id, alive, color, name, tiles, rate, stance };
+        const metrics = alive
+            ? `<span class="sb-tiles">${p.tileCount}</span><span class="sb-sep">·</span><span class="sb-gold">$${fmtCompactGold(p.gold)}</span><span class="sb-sep">·</span><span class="sb-miss">M${Math.floor(p.missiles)}</span>`
+            : `<span class="sb-tiles">\u2014</span><span class="sb-sep">·</span><span class="sb-gold">\u2014</span><span class="sb-sep">·</span><span class="sb-miss">\u2014</span>`;
+        const detail = alive
+            ? `+${p.goldRate.toFixed(1)}/s · M +${mp.toFixed(1)}/-${mc.toFixed(1)}/s · DMG ${Math.floor(s.damageDealt)} · INT ${Math.floor(s.missilesIntercepted)} · BLD ${bld}`
+            : '\u2014';
+        return { id: p.id, alive, color, name, stance, metrics, detail, tileSort: alive ? p.tileCount : -1 };
     });
     rows.sort((a, b) => {
         if (a.alive !== b.alive) return a.alive ? -1 : 1;
-        if (a.id === 1) return -1;
-        if (b.id === 1) return 1;
-        return (b.tiles|0) - (a.tiles|0);
+        if (a.id === humanId) return -1;
+        if (b.id === humanId) return 1;
+        return b.tileSort - a.tileSort;
     });
     scoreboardEl.innerHTML = rows.map(r =>
-        `<div class="sb-row ${r.alive ? '' : 'dead'}" data-pid="${r.id}"><span class="sb-dot" style="background:${r.color}"></span><span class="sb-name">${escapeXml(r.name)}</span>${r.stance}<span class="sb-tiles">${r.tiles}</span><span class="sb-rate">${r.rate}</span></div>`
+        `<div class="sb-row ${r.alive ? '' : 'dead'}" data-pid="${r.id}">` +
+            `<div class="sb-line1">` +
+                `<span class="sb-dot" style="background:${r.color}"></span>` +
+                `<div class="sb-identity"><span class="sb-name">${escapeXml(r.name)}</span>${r.stance}</div>` +
+                `<div class="sb-metrics">${r.metrics}</div>` +
+            `</div>` +
+            `<div class="sb-line2">${escapeXml(r.detail)}</div>` +
+        `</div>`
     ).join('');
-    // Click-through to diplomacy panel
     scoreboardEl.querySelectorAll('.sb-row').forEach(row => {
         const pid = parseInt(row.dataset.pid, 10);
-        if (pid && pid !== 1 && game.diplomacyEnabled && game.playerCount >= 3) {
+        if (pid && pid !== humanId && game.diplomacyEnabled && game.playerCount >= 3) {
             row.addEventListener('click', () => openDiplomacyPanel());
             row.style.cursor = 'pointer';
         }
     });
 }
+
+minimapStatsPrevBtn?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    minimapStatPage = (minimapStatPage + MINIMAP_STAT_PAGE_COUNT - 1) % MINIMAP_STAT_PAGE_COUNT;
+});
+minimapStatsNextBtn?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    minimapStatPage = (minimapStatPage + 1) % MINIMAP_STAT_PAGE_COUNT;
+});
+
 let lastBuildRefresh = 0;
 
 function loop(time) {
@@ -1721,6 +1810,8 @@ function loop(time) {
         const mc = shared?.missileCons?.get(p1.id) ?? 0;
         missileRateEl.innerText = `+${mp.toFixed(1)}/s · -${mc.toFixed(1)}/s`;
         missileRateEl.title = 'Missiles per second: produced (factories) · max consumption (rocket launchers + air bases, if firing continuously)';
+
+        refreshMinimapStatsOverlay();
 
         if (p1.missiles === 0 && (p1.units.RL > 0 || p1.units.AB > 0)) {
             if (missileStarvedSince === 0) missileStarvedSince = time;

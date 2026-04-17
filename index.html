@@ -274,7 +274,18 @@
             <!-- MINIMAP -->
             <div id="minimap-wrap" class="glass hud-panel">
                 <div class="minimap-label">TACTICAL MAP</div>
-                <canvas id="minimap" width="220" height="180"></canvas>
+                <div class="minimap-canvas-wrap">
+                    <canvas id="minimap" width="220" height="180"></canvas>
+                </div>
+                <div id="minimap-stats" class="minimap-stats" aria-live="polite">
+                    <div class="minimap-stats-head">
+                        <button type="button" id="minimap-stats-prev" class="minimap-stats-btn" aria-label="Previous intel panel">◀</button>
+                        <span id="minimap-stats-label" class="minimap-stats-label">ECONOMY</span>
+                        <button type="button" id="minimap-stats-next" class="minimap-stats-btn" aria-label="Next intel panel">▶</button>
+                    </div>
+                    <div id="minimap-stats-line1" class="minimap-stats-line1">—</div>
+                    <div id="minimap-stats-line2" class="minimap-stats-line2"></div>
+                </div>
                 <div id="scoreboard" class="scoreboard"></div>
             </div>
 
@@ -295,7 +306,7 @@
 
         <div id="instructions" class="glass">
             <p><b>WASD</b> pan · <b>Scroll</b> zoom · <b>1–8</b> quick build · <b>Space</b> upgrade · <b>U</b> upgrade all · <b>X</b> demolish · <b>ESC</b> menu</p>
-            <p><b>Ctrl+Click</b> multi-select · Drag from attacker to assign target · <b>P</b> pause · <b>L</b> log</p>
+            <p><b>Ctrl+Click</b> multi-select · Drag from attacker to assign target · <b>P</b> pause · <b>L</b> log · <b>]</b> cycle minimap intel</p>
         </div>
 
         <!-- PAUSE OVERLAY -->

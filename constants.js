@@ -207,6 +207,7 @@ export const DEFAULT_KEYBINDS = {
     speed_down: 'Minus',
     demolish:   'KeyX',
     toggle_log: 'KeyL',
+    cycle_minimap_stats: 'BracketRight',
     settings:   'Comma',
     select_all_type: 'KeyQ',
     upgrade_all: 'KeyU',

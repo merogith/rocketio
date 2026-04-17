@@ -157,6 +157,7 @@ export class Game {
                     damageDealt: 0,
                     damageTaken: 0,
                     peakTiles: 0,
+                    missilesIntercepted: 0,
                 },
             });
             this.metPlayers[i] = new Set();
@@ -1073,6 +1074,8 @@ export class Game {
                 }
             }
             best.structure.charge--;
+            const interceptor = best.owner ? this.players[best.owner - 1] : null;
+            if (interceptor?.stats) interceptor.stats.missilesIntercepted++;
             return true;
         }
         return false;
