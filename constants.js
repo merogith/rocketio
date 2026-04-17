@@ -226,6 +226,16 @@ export const DEFAULT_SETTINGS = {
     musicEnabled: true,
     sfxVolume: 0.7,
     musicVolume: 0.7,
+    /** Visual-only cap: low / medium / high, or unlimited (no culling). */
+    projectileVisual: 'medium',
+};
+
+/** Renderer-only limits; simulation keeps all projectiles. */
+export const PROJECTILE_VISUAL_PRESETS = {
+    low: { global: 55, perTargetType: 2 },
+    medium: { global: 110, perTargetType: 3 },
+    high: { global: 200, perTargetType: 5 },
+    unlimited: null,
 };
 
 export const COLORS = {

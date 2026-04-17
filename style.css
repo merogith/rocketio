@@ -768,6 +768,19 @@ h3 {
 }
 .toggle-desc { font-size: 0.68rem; color: rgba(255,255,255,0.35); margin-left: auto; }
 
+.settings-option-block {
+    padding: 6px 0;
+    font-family: var(--font-ui);
+    font-size: 0.85rem;
+    color: rgba(255,255,255,0.7);
+}
+.settings-inline-label { font-weight: 600; color: rgba(255,255,255,0.85); }
+.settings-projectile-row {
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.settings-projectile-row .option-btn { min-width: 52px; font-size: 0.78rem; padding: 6px 10px; }
+
 /* SUB PICKER */
 .sub-picker { margin-top: 6px; }
 .sub-picker .option-btn { min-width: 40px; font-size: 0.85rem; }

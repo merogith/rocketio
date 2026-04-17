@@ -96,6 +96,7 @@ function initWorld(mapSize, mapStyle, playerCount, playerName, victoryConfig, di
     renderer.settings.screenShake = Input.getSetting('screenShake');
     renderer.settings.threatRings = Input.getSetting('threatRings');
     renderer.settings.hoverRange = Input.getSetting('hoverRange') !== false;
+    renderer.settings.projectileVisual = getProjectileVisualSetting();
 
     camera.x = 0; camera.y = 0; camera.scale = 0.6;
 
@@ -324,6 +325,12 @@ document.getElementById('reset-keybinds-btn')?.addEventListener('click', () => {
     renderKeybindList();
 });
 
+function getProjectileVisualSetting() {
+    const v = Input.getSetting('projectileVisual');
+    if (v === 'low' || v === 'medium' || v === 'high' || v === 'unlimited') return v;
+    return 'medium';
+}
+
 function syncSettingsToggles() {
     const qb = document.getElementById('opt-quick-build');
     const hu = document.getElementById('opt-hover-upgrade');
@@ -347,6 +354,13 @@ function syncSettingsToggles() {
     if (mx) mx.checked = Input.getSetting('musicEnabled') !== false;
     if (sVol) sVol.value = Math.round((Input.getSetting('sfxVolume') ?? 0.7) * 100);
     if (mVol) mVol.value = Math.round((Input.getSetting('musicVolume') ?? 0.7) * 100);
+    const pvRow = document.getElementById('opt-projectile-visual-row');
+    if (pvRow) {
+        const sel = getProjectileVisualSetting();
+        pvRow.querySelectorAll('.option-btn').forEach(btn => {
+            btn.classList.toggle('selected', btn.dataset.value === sel);
+        });
+    }
 }
 ['opt-quick-build', 'opt-hover-upgrade', 'opt-drag-paint', 'opt-screen-shake', 'opt-threat-rings', 'opt-diplomacy', 'opt-sfx', 'opt-music'].forEach(id => {
     const el = document.getElementById(id);
@@ -366,6 +380,7 @@ function syncSettingsToggles() {
         if (renderer) {
             renderer.settings.screenShake = Input.getSetting('screenShake');
             renderer.settings.threatRings = Input.getSetting('threatRings');
+            renderer.settings.projectileVisual = getProjectileVisualSetting();
         }
         if (key === 'diplomacyEnabled' && game) {
             game.setDiplomacyEnabled(el.checked);
@@ -387,6 +402,21 @@ function _wireVolumeSlider(id, settingKey, apply) {
 }
 _wireVolumeSlider('opt-sfx-volume', 'sfxVolume', v => SFX.setSfxVolume(v));
 _wireVolumeSlider('opt-music-volume', 'musicVolume', v => SFX.setMusicVolume(v));
+
+(function wireProjectileVisualRow() {
+    const row = document.getElementById('opt-projectile-visual-row');
+    if (!row) return;
+    row.querySelectorAll('.option-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const v = btn.dataset.value;
+            Input.setSetting('projectileVisual', v);
+            if (renderer) renderer.settings.projectileVisual = v;
+            row.querySelectorAll('.option-btn').forEach(b => {
+                b.classList.toggle('selected', b.dataset.value === v);
+            });
+        });
+    });
+})();
 
 const fsToggle = document.getElementById('opt-fullscreen');
 if (fsToggle) {

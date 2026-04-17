@@ -1,4 +1,4 @@
-import { COLORS, UNIT_STATS } from './constants.js';
+import { COLORS, UNIT_STATS, PROJECTILE_VISUAL_PRESETS } from './constants.js';
 
 const TARGETABLE_TYPES = new Set(['RL', 'B', 'D', 'M', 'AB']);
 
@@ -13,7 +13,7 @@ export class Renderer {
         this.buildGhostLevel = 0;
         this.radarAngle = 0;
         this.time = 0;
-        this.settings = { screenShake: true, threatRings: true, hoverRange: true };
+        this.settings = { screenShake: true, threatRings: true, hoverRange: true, projectileVisual: 'medium' };
         this.multiSelected = [];
     }
 
@@ -669,10 +669,74 @@ export class Renderer {
         ctx.restore();
     }
 
+    /**
+     * Visual-only subset: thins same-target same-type stacks and caps global draw count.
+     * Game logic still uses full `gameState.projectiles`.
+     */
+    _visibleProjectilesForRender(gameState) {
+        const projs = gameState.projectiles;
+        const mode = (this.settings.projectileVisual
+            && Object.prototype.hasOwnProperty.call(PROJECTILE_VISUAL_PRESETS, this.settings.projectileVisual))
+            ? this.settings.projectileVisual
+            : 'medium';
+        const preset = PROJECTILE_VISUAL_PRESETS[mode];
+        if (preset == null) return projs;
+
+        const { global: G, perTargetType: K } = preset;
+        const groupKey = (p) => `${p.targetQR.q},${p.targetQR.r}|${p.type}`;
+        const groups = new Map();
+        for (const p of projs) {
+            const k = groupKey(p);
+            if (!groups.has(k)) groups.set(k, []);
+            groups.get(k).push(p);
+        }
+
+        const picked = [];
+        for (const arr of groups.values()) {
+            const n = arr.length;
+            if (n <= K) {
+                picked.push(...arr);
+                continue;
+            }
+            const byProgress = arr.slice().sort((a, b) => {
+                const da = Math.hypot(a.targetX - a.x, a.targetY - a.y);
+                const db = Math.hypot(b.targetX - b.x, b.targetY - b.y);
+                return da - db;
+            });
+            if (K === 1) {
+                picked.push(byProgress[Math.floor((n - 1) / 2)]);
+                continue;
+            }
+            for (let j = 0; j < K; j++) {
+                const idx = Math.round((j * (n - 1)) / (K - 1));
+                picked.push(byProgress[idx]);
+            }
+        }
+
+        if (picked.length <= G) return picked;
+
+        const byTarget = new Map();
+        for (const p of picked) {
+            const tk = `${p.targetQR.q},${p.targetQR.r}`;
+            if (!byTarget.has(tk)) byTarget.set(tk, []);
+            byTarget.get(tk).push(p);
+        }
+        const queues = Array.from(byTarget.values());
+        const out = [];
+        let qi = 0;
+        while (out.length < G && queues.some(q => q.length)) {
+            const q = queues[qi % queues.length];
+            if (q.length) out.push(q.shift());
+            qi++;
+        }
+        return out;
+    }
+
     // ------------------------------------------------------------------ PROJECTILES (per-type visuals)
     drawProjectiles(gameState) {
         const { ctx, camera, canvas } = this;
-        for (const p of gameState.projectiles) {
+        const visible = this._visibleProjectilesForRender(gameState);
+        for (const p of visible) {
             const sp = camera.worldToScreen(p.x, p.y, this._cw, this._ch);
             const sc = camera.scale;
 
@@ -893,12 +957,18 @@ export class Renderer {
             ctx.restore();
         }
 
-        // Incoming projectile threat preview
+        // Incoming projectile threat preview (one ring per threatened tile, not per missile)
+        const incomingHumanTargets = new Set();
         for (const proj of gameState.projectiles) {
             if (proj.owner === humanId) continue;
             const tile = grid.getTile(proj.targetQR.q, proj.targetQR.r);
             if (!tile || tile.owner !== humanId) continue;
-
+            incomingHumanTargets.add(`${proj.targetQR.q},${proj.targetQR.r}`);
+        }
+        for (const key of incomingHumanTargets) {
+            const [q, r] = key.split(',').map(Number);
+            const tile = grid.getTile(q, r);
+            if (!tile) continue;
             const pos = grid.hexToPixel(tile.q, tile.r);
             const sp = camera.worldToScreen(pos.x, pos.y, this._cw, this._ch);
 
