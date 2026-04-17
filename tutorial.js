@@ -49,7 +49,7 @@ export const TUTORIAL_PAGES = [
         <div class="tut-role-label tut-role-econ">💰 ECONOMY & EXPANSION</div>
         <div class="unit-card"><div class="uc-icon">🏛️</div><div class="uc-info"><div class="uc-name">Government <span class="tut-cost">$450</span></div><div class="uc-desc">Claims territory via influence. More territory = more gold. Lose all Govs = you lose.</div></div></div>
         <div class="unit-card"><div class="uc-icon">🏭</div><div class="uc-info"><div class="uc-name">Missile Factory <span class="tut-cost">$230</span></div><div class="uc-desc">Produces ammo for Rockets and Air Bases. No ammo = no missiles fired.</div></div></div>
-        <div class="unit-card"><div class="uc-icon">🔫</div><div class="uc-info"><div class="uc-name">Militia <span class="tut-cost">$135</span></div><div class="uc-desc">Place anywhere visible — even on enemy tiles! Lv3 transforms into a mini-Government.</div></div></div>
+        <div class="unit-card"><div class="uc-icon">🔫</div><div class="uc-info"><div class="uc-name">Militia <span class="tut-cost">$135</span></div><div class="uc-desc">Place on visible tiles you own or neutral land. Lv3 transforms into a mini-Government.</div></div></div>
     `,
 
     /* 3 — ECONOMY */

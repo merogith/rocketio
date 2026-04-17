@@ -589,10 +589,9 @@ export class Renderer {
         } else {
             const isOwn = tile.owner === gameState.humanId;
             const isNeutral = tile.owner == null && !tile.contested;
-            const isEnemy = tile.owner != null && tile.owner !== gameState.humanId;
             if (this.buildGhostType === 'M') {
                 const humanVisible = gameState.players[gameState.humanId - 1]?.fogVisible.has(`${tile.q},${tile.r}`);
-                valid = (isOwn || isNeutral || isEnemy) && !tile.structure && !tile.contested && humanVisible;
+                valid = (isOwn || isNeutral) && !tile.structure && !tile.contested && humanVisible;
             }
             else valid = isOwn && !tile.structure && !tile.contested;
         }

@@ -1,3 +1,5 @@
+import { UNIT_STATS } from './constants.js';
+
 export class Hex {
     constructor(q, r) {
         this.q = q;
@@ -26,8 +28,6 @@ export class Hex {
         return `${this.q},${this.r}`;
     }
 }
-
-import { UNIT_STATS } from './constants.js';
 
 function mulberry32(seed) {
     return function() {

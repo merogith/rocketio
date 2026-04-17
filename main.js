@@ -414,6 +414,7 @@ canvas.addEventListener('mousedown', (e) => {
                     if (!tile.buildable) showNoti("Can't build on water", "error");
                     else if (tile.contested) showNoti("Tile is contested", "error");
                     else if (selectedBuildType === 'M' && !game.isVisibleTo(tile, 1)) showNoti("No vision — need a structure nearby", "error");
+                    else if (selectedBuildType === 'M' && tile.owner && tile.owner !== 1) showNoti("Militia: your territory or neutral only", "error");
                     else if (tile.owner !== 1 && selectedBuildType !== 'M') showNoti("Must build on your territory", "error");
                     else showNoti("Insufficient gold, limit reached, or occupied", "error");
                 }
@@ -873,7 +874,7 @@ buildBtns.forEach(btn => {
         const lvl = def.levels[0];
         const label = def.name.toUpperCase();
         const costStr = `$${lvl.cost}`;
-        const hint = type === 'M' ? 'PLACE on any VISIBLE tile (own / neutral / enemy)' : 'PLACE on your own territory';
+        const hint = type === 'M' ? 'PLACE on a VISIBLE tile you own or neutral land' : 'PLACE on your own territory';
         buildModeBanner.innerHTML = `<b>${label}</b> — ${costStr} <span class="dim">· ${hint} · ESC to cancel</span>`;
         buildModeBanner.classList.remove('hidden');
     });

@@ -1353,8 +1353,7 @@ function findMilitiaSpot(game, playerId, snap) {
         for (const nh of nbrs) {
             const nt = game.grid.getTile(nh.q, nh.r);
             if (!nt || !nt.buildable || nt.structure || nt.contested) continue;
-            if (nt.owner === playerId) continue;
-            if (nt.owner && game.areAllied(nt.owner, playerId)) continue;
+            if (nt.owner && nt.owner !== playerId) continue;
             if (!visible.has(tileKey(nt))) continue;
             candidates.push(nt);
         }
@@ -1362,14 +1361,10 @@ function findMilitiaSpot(game, playerId, snap) {
     if (!candidates.length) return null;
 
     candidates.sort((a, b) => {
-        const aIsEnemy   = a.owner != null && a.owner !== playerId ? 1 : 0;
-        const bIsEnemy   = b.owner != null && b.owner !== playerId ? 1 : 0;
-        if (aIsEnemy !== bIsEnemy) return bIsEnemy - aIsEnemy;
-        const aIsNeutral = a.owner == null ? 1 : 0;
-        const bIsNeutral = b.owner == null ? 1 : 0;
-        if (aIsNeutral !== bIsNeutral) return bIsNeutral - aIsNeutral;
+        const aNeutral = a.owner == null ? 1 : 0;
+        const bNeutral = b.owner == null ? 1 : 0;
+        if (aNeutral !== bNeutral) return bNeutral - aNeutral;
 
-        // Bias toward enemy direction
         const aDot = (a.q - snap.centroidQ) * snap.enemyDirQ + (a.r - snap.centroidR) * snap.enemyDirR;
         const bDot = (b.q - snap.centroidQ) * snap.enemyDirQ + (b.r - snap.centroidR) * snap.enemyDirR;
         if (Math.abs(aDot - bDot) > 0.5) return bDot - aDot;

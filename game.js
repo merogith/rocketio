@@ -1004,11 +1004,10 @@ export class Game {
 
         const isOwn     = tile.owner === ownerId;
         const isNeutral = tile.owner == null;
-        const isEnemy   = tile.owner != null && tile.owner !== ownerId;
 
         if (type === 'M') {
             if (!this.isVisibleTo(tile, ownerId)) return false;
-            if (tile.owner && tile.owner !== ownerId && this.areAllied(tile.owner, ownerId)) return false;
+            if (!isOwn && !isNeutral) return false;
         } else {
             if (!isOwn) return false;
         }
