@@ -27,6 +27,8 @@ export class Hex {
     }
 }
 
+import { UNIT_STATS } from './constants.js';
+
 function mulberry32(seed) {
     return function() {
         seed |= 0; seed = seed + 0x6D2B79F5 | 0;
@@ -401,6 +403,15 @@ export class HexGrid {
         }
     }
 
+    /** Buildable tiles within starter Government (G1) influence radius — used to pick spawn centers with a full land disk. */
+    countBuildableInGovDisk(center, radius) {
+        let n = 0;
+        for (const t of this.getTilesInRadius(center, radius)) {
+            if (t.buildable) n++;
+        }
+        return n;
+    }
+
     findSpawnPoints(playerCount) {
         const spawns = [];
         if (this.islands.length === 0 || playerCount <= 0) return spawns;
@@ -408,6 +419,8 @@ export class HexGrid {
         // Assign players round-robin across islands large enough to host them
         const usableIslands = this.islands.filter(isl => isl.length >= 12);
         if (usableIslands.length === 0) return spawns;
+
+        const spawnGovRadius = UNIT_STATS.G.levels[0].radius;
 
         const assignments = usableIslands.map(() => []);
         for (let i = 0; i < playerCount; i++) {
@@ -421,11 +434,14 @@ export class HexGrid {
 
             for (let p = 0; p < playerIndices.length; p++) {
                 let bestTile = null;
+                let bestLandDisk = -1;
                 let bestMinDist = -1;
 
                 for (const key of island) {
                     const tile = this.tiles.get(key);
-                    if (!tile) continue;
+                    if (!tile || !tile.buildable) continue;
+
+                    const landDisk = this.countBuildableInGovDisk(tile, spawnGovRadius);
 
                     let minDist = Infinity;
                     for (const existing of spawns) {
@@ -435,7 +451,9 @@ export class HexGrid {
 
                     if (spawns.length === 0) minDist = Hex.distance(origin, tile);
 
-                    if (minDist > bestMinDist) {
+                    if (landDisk > bestLandDisk ||
+                        (landDisk === bestLandDisk && minDist > bestMinDist)) {
+                        bestLandDisk = landDisk;
                         bestMinDist = minDist;
                         bestTile = tile;
                     }
