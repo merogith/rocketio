@@ -229,8 +229,18 @@ export class Game {
         return spawns;
     }
 
+    _landTileCountForVictory() {
+        let n = this.grid.landTileCount || 0;
+        if (n > 0) return n;
+        for (const t of this.grid.tiles.values()) {
+            if (t.buildable) n++;
+        }
+        return Math.max(1, n);
+    }
+
     _findNearestBuildable(q, r) {
-        for (let d = 0; d < 30; d++) {
+        const maxD = Math.max(60, (this.grid.radius || 20) * 3);
+        for (let d = 0; d < maxD; d++) {
             for (let dq = -d; dq <= d; dq++) {
                 for (let dr = Math.max(-d, -dq - d); dr <= Math.min(d, -dq + d); dr++) {
                     const tile = this.grid.getTile(q + dq, r + dr);
@@ -252,10 +262,11 @@ export class Game {
         const gameDt = realDt * this.speedMultiplier;
         this.gameTime += gameDt;
 
-        const dt = this.gameTime - this.lastTick;
-        if (dt >= this.tickRate && !this.winner) {
+        let tickBudget = GAME_CONFIG.MAX_TICKS_CATCHUP_PER_FRAME ?? 120;
+        while (tickBudget-- > 0 && !this.winner) {
+            if (this.gameTime - this.lastTick < this.tickRate) break;
             this.tick();
-            this.lastTick = this.gameTime;
+            this.lastTick += this.tickRate;
         }
 
         this.updateProjectiles();
@@ -718,6 +729,32 @@ export class Game {
         return map;
     }
 
+    /** Projectile `type` string used for AUTO_TARGET_MAX_INBOUND_BY_PROJECTILE_TYPE, or null if inbound cap does not apply. */
+    _inboundProjectileTypeForSource(source) {
+        const s = source?.structure;
+        if (!s) return null;
+        const t = s.type;
+        if (t === 'RL') return 'rocket';
+        if (t === 'AB') return 'airstrike';
+        if (t === 'D') return 'drone';
+        if (t === 'B') return 'ground';
+        if (t === 'M' && s.stats?.damage) return 'militia';
+        return null;
+    }
+
+    /** In-flight projectile count per enemy target hex for one projectile type (owner + allies). */
+    _inboundProjectileCountByTarget(ownerId, projectileType) {
+        const map = new Map();
+        if (!projectileType) return map;
+        for (const p of this.projectiles) {
+            if (p.owner !== ownerId && !this.areAllied(p.owner, ownerId)) continue;
+            if (p.type !== projectileType) continue;
+            const k = `${p.targetQR.q},${p.targetQR.r}`;
+            map.set(k, (map.get(k) || 0) + 1);
+        }
+        return map;
+    }
+
     /** Enemy structure hex keys with interceptable shots in flight toward defender's structures. */
     _incomingShooterKeysForDefender(defenderId) {
         const set = new Set();
@@ -821,13 +858,21 @@ export class Game {
         const missileSmart = !!opts.missileSmart && this._missileSmartPlayers?.has(source.owner);
         const inc = missileSmart ? this._incomingShooterKeysForDefender(source.owner) : null;
 
-        if (!GAME_CONFIG.AUTO_TARGET_USE_PENDING_DAMAGE) {
-            this._sortAutoTargetCandidates(candidates, source.owner, missileSmart, inc);
-            return candidates[0].tile;
-        }
+        const inboundType = this._inboundProjectileTypeForSource(source);
+        const caps = GAME_CONFIG.AUTO_TARGET_MAX_INBOUND_BY_PROJECTILE_TYPE || {};
+        const inboundCap = inboundType ? (caps[inboundType] ?? 0) : 0;
+        const inboundByHex = inboundCap > 0 ? this._inboundProjectileCountByTarget(source.owner, inboundType) : null;
+
+        const isInboundBlocked = (c) => {
+            if (!inboundByHex) return false;
+            const k = `${c.tile.q},${c.tile.r}`;
+            return (inboundByHex.get(k) || 0) >= inboundCap;
+        };
 
         const buffer = GAME_CONFIG.AUTO_TARGET_OVERKILL_BUFFER_HP;
-        const pending = this._pendingDamageToEnemyStructures(source.owner);
+        const pending = GAME_CONFIG.AUTO_TARGET_USE_PENDING_DAMAGE
+            ? this._pendingDamageToEnemyStructures(source.owner)
+            : null;
 
         const isSaturated = (c) => {
             const key = `${c.tile.q},${c.tile.r}`;
@@ -836,13 +881,17 @@ export class Game {
             return pend >= thresh;
         };
 
-        const unsaturated = candidates.filter(c => !isSaturated(c));
-        if (unsaturated.length) {
-            this._sortAutoTargetCandidates(unsaturated, source.owner, missileSmart, inc);
-            return unsaturated[0].tile;
+        const blockedByPending = (c) => !!GAME_CONFIG.AUTO_TARGET_USE_PENDING_DAMAGE && isSaturated(c);
+        const preferred = candidates.filter(c => !isInboundBlocked(c) && !blockedByPending(c));
+
+        if (preferred.length) {
+            this._sortAutoTargetCandidates(preferred, source.owner, missileSmart, inc);
+            return preferred[0].tile;
         }
 
-        if (GAME_CONFIG.AUTO_TARGET_FALLBACK_WHEN_ALL_SATURATED) {
+        const allowFallback =
+            !GAME_CONFIG.AUTO_TARGET_USE_PENDING_DAMAGE || GAME_CONFIG.AUTO_TARGET_FALLBACK_WHEN_ALL_SATURATED;
+        if (allowFallback) {
             this._sortAutoTargetCandidates(candidates, source.owner, missileSmart, inc);
             return candidates[0].tile;
         }
@@ -1339,11 +1388,36 @@ export class Game {
 
         p.gold -= upgradeCost;
         p.stats.goldSpent += upgradeCost;
+
+        const prevMaxHp = tile.maxHp;
+        const prevHp = tile.hp;
+        const prevLevelStats = def.levels[tile.structure.level];
+
         tile.structure.level++;
         tile.structure.stats = { ...nextLevel };
 
-        tile.maxHp = nextLevel.hp || tile.maxHp;
-        tile.hp = nextLevel.hp || tile.hp;
+        const newMaxHp = nextLevel.hp || prevMaxHp;
+        tile.maxHp = newMaxHp;
+        const hpGain = Math.max(0, newMaxHp - prevMaxHp);
+        tile.hp = Math.min(newMaxHp, (prevHp ?? 0) + hpGain);
+
+        const newStats = tile.structure.stats;
+        const newInterval =
+            type === 'MF'  ? (newStats.produceInterval  || 10000) :
+            type === 'AAS' ? (newStats.rechargeInterval || 12000) :
+                             (newStats.interval ?? prevLevelStats?.interval ?? 10000);
+        if (tile.buildCooldownUntil && this.gameTime < tile.buildCooldownUntil) {
+            const remaining = tile.buildCooldownUntil - this.gameTime;
+            const newRemaining = Math.max(0, remaining - 1000);
+            if (newRemaining > 0) {
+                tile.buildCooldownUntil = this.gameTime + newRemaining;
+                tile.lastAction = this.gameTime + (newRemaining - newInterval);
+            } else {
+                tile.buildCooldownStart = 0;
+                tile.buildCooldownUntil = 0;
+                tile.lastAction = this.gameTime - newInterval;
+            }
+        }
 
         if (tile.structure.type === 'M' && nextLevel.transformsToGov) {
             tile.structure.target = null;
@@ -1483,7 +1557,7 @@ export class Game {
 
         if (mode === 'domination') {
             const pct = this.victoryConfig.param || 0.60;
-            const landCount = this.grid.landTileCount || this.grid.tiles.size;
+            const landCount = this._landTileCountForVictory();
             for (const p of this.players) {
                 if (this.defeated.has(p.id)) continue;
                 if (p.tileCount / landCount >= pct) {

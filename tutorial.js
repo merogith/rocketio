@@ -76,7 +76,7 @@ export const TUTORIAL_PAGES = [
         <div class="tut-role-label tut-role-econ">💰 ECONOMY & EXPANSION</div>
         <div class="unit-card"><div class="uc-icon">🏛️</div><div class="uc-info"><div class="uc-name">Government <span class="tut-cost">$${L1.G.cost}</span></div><div class="uc-desc">Claims territory via influence. More territory = more gold. Lose all Govs = you lose.</div></div></div>
         <div class="unit-card"><div class="uc-icon">🏭</div><div class="uc-info"><div class="uc-name">Missile Factory <span class="tut-cost">$${L1.MF.cost}</span></div><div class="uc-desc">Produces ammo for Rockets and Air Bases (${L1.MF.missilesProduced} missiles / ${secStr(L1.MF.produceInterval)} cycle Lv1).</div></div></div>
-        <div class="unit-card"><div class="uc-icon">🔫</div><div class="uc-info"><div class="uc-name">Militia <span class="tut-cost">$${L1.M.cost}</span></div><div class="uc-desc">Place on visible tiles you own or neutral land. Lv3 transforms into a mini-Government (influence ${US.M.levels[2].influence}).</div></div></div>
+        <div class="unit-card"><div class="uc-icon">🔫</div><div class="uc-info"><div class="uc-name">Militia <span class="tut-cost">$${L1.M.cost}</span></div><div class="uc-desc">Place on visible tiles you own or neutral land. Lv3 <b>stops shooting</b> and becomes a mini-Government (influence ${US.M.levels[2].influence}) — economy and supply, not DPS.</div></div></div>
     `,
 
     /* 3 — ECONOMY */
@@ -111,7 +111,7 @@ export const TUTORIAL_PAGES = [
             <div class="tut-concept-icon">📡</div>
             <div>
                 <b>Supply Lines</b><br>
-                Structures outside the influence radius of a friendly Gov or Barracks fire <b>${supplySlowPct}% slower</b>. Push your supply forward with Barracks or upgraded Militia (Lv3).
+                <b>Territory ≠ supply:</b> you can own a tile on the map but still be out of supply if no friendly Government, Barracks, or Militia Lv3 (mini-Gov) covers it. Structures outside that aura fire <b>${supplySlowPct}% slower</b>. Push supply forward with forward bases.
             </div>
         </div>
 

@@ -35,6 +35,8 @@ export const GAME_CONFIG = {
     STARTING_GOLD: 2000,
     STARTING_MISSILES: 4,
     TICK_RATE_MS: 1000,
+    /** Max economy ticks processed in one animation frame (catch-up after long frames / tab background). */
+    MAX_TICKS_CATCHUP_PER_FRAME: 120,
     DEFAULT_VISION: 3,
     HP_REGEN_RATE: 0.008,        // 0.8% of maxHp per second
     REGEN_COOLDOWN_MS: 5000,     // 5s after last damage before regen starts
@@ -50,6 +52,14 @@ export const GAME_CONFIG = {
     AUTO_TARGET_INTERCEPT_PENDING_MULT: 0.5,
     AUTO_TARGET_OVERKILL_BUFFER_HP: 8,
     AUTO_TARGET_FALLBACK_WHEN_ALL_SATURATED: true,
+    /** Per projectile `type` (see spawnProjectile): max allied shots of that type in flight to the same enemy hex before auto-target prefers another structure. 0 = no cap for that type. */
+    AUTO_TARGET_MAX_INBOUND_BY_PROJECTILE_TYPE: {
+        rocket: 8,
+        airstrike: 3,
+        drone: 9,
+        ground: 3,
+        militia: 4,
+    },
     // Within this many hexes of the closest enemy, prefer higher AUTO_TARGET_STRUCT_WEIGHT before HP tie-break.
     AUTO_TARGET_DISTANCE_TIE_HEXES: 1,
     AUTO_TARGET_STRUCT_WEIGHT: {

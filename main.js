@@ -169,7 +169,17 @@ function wireOptionRow(rowId, callback) {
     });
 }
 
-wireOptionRow('player-count-row', v => { selectedPlayerCount = parseInt(v); });
+function updatePlayerCountDiplomacyHint() {
+    const el = document.getElementById('diplomacy-player-hint');
+    if (!el) return;
+    const show = selectedPlayerCount < 3;
+    el.classList.toggle('hidden', !show);
+}
+wireOptionRow('player-count-row', v => {
+    selectedPlayerCount = parseInt(v, 10);
+    updatePlayerCountDiplomacyHint();
+});
+updatePlayerCountDiplomacyHint();
 wireOptionRow('map-size-row', v => { selectedMapSize = v; });
 wireOptionRow('map-style-row', v => { selectedMapStyle = v; });
 wireOptionRow('difficulty-row', v => { selectedDifficulty = v; });
@@ -279,9 +289,13 @@ function openSettings() {
 }
 
 function closeSettings() {
+    if (!settingsOpen) {
+        settingsOverlay.classList.add('hidden');
+        Input.stopRebind();
+        return;
+    }
     settingsOverlay.classList.add('hidden');
     Input.stopRebind();
-    if (!settingsOpen) return;
     settingsOpen = false;
 
     // Return directly to the game (no forced trip through Resume).
@@ -349,6 +363,8 @@ function syncSettingsToggles() {
     if (ss) ss.checked = Input.getSetting('screenShake');
     if (tr) tr.checked = Input.getSetting('threatRings');
     if (fs) fs.checked = !!document.fullscreenElement;
+    const aph = document.getElementById('opt-auto-pause-hidden');
+    if (aph) aph.checked = Input.getSetting('autoPauseOnHidden') !== false;
     if (dipl) dipl.checked = Input.getSetting('diplomacyEnabled') !== false;
     if (sx) sx.checked = Input.getSetting('sfxEnabled') !== false;
     if (mx) mx.checked = Input.getSetting('musicEnabled') !== false;
@@ -362,13 +378,14 @@ function syncSettingsToggles() {
         });
     }
 }
-['opt-quick-build', 'opt-hover-upgrade', 'opt-drag-paint', 'opt-screen-shake', 'opt-threat-rings', 'opt-diplomacy', 'opt-sfx', 'opt-music'].forEach(id => {
+['opt-quick-build', 'opt-hover-upgrade', 'opt-drag-paint', 'opt-auto-pause-hidden', 'opt-screen-shake', 'opt-threat-rings', 'opt-diplomacy', 'opt-sfx', 'opt-music'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
     const key = {
         'opt-quick-build':'quickBuild',
         'opt-hover-upgrade':'hoverUpgrade',
         'opt-drag-paint':'dragPaintBuild',
+        'opt-auto-pause-hidden':'autoPauseOnHidden',
         'opt-screen-shake':'screenShake',
         'opt-threat-rings':'threatRings',
         'opt-diplomacy':'diplomacyEnabled',
@@ -656,7 +673,9 @@ window.addEventListener('blur', clearDragState);
 document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
         clearDragState();
-        if (game && !game.paused && !game.winner && !game.defeated.has(1)) setPaused(true);
+        if (game && !game.paused && !game.winner && !game.defeated.has(1) && Input.getSetting('autoPauseOnHidden') !== false) {
+            setPaused(true);
+        }
     }
 });
 
@@ -1005,6 +1024,7 @@ function showBuildTooltip(btn) {
 
     if (type === 'M') {
         html += `<div class="tt-upgrade">Max: ${GAME_CONFIG.MILITIA_BASE_CAP} + ${GAME_CONFIG.MILITIA_PER_EXTRA_GOV} per Gov beyond your first</div>`;
+        html += `<div class="tt-upgrade dim">Lv3: stops attacking — becomes a mini-Government (territory, gold, supply hub only).</div>`;
     }
 
     buildTooltip.innerHTML = html;
@@ -1699,7 +1719,12 @@ function renderEndStats() {
     const mins = Math.floor(elapsed / 60);
     const secs = Math.floor(elapsed % 60);
 
+    const coalition = Array.isArray(game.coWinners) && game.coWinners.length > 1
+        ? `<div class="end-stat-card end-stat-wide"><div class="stat-label">Coalition</div><div class="stat-value">${game.coWinners.map(id => game.players[id - 1]?.name || `P${id}`).join(' · ')}</div></div>`
+        : '';
+
     endStats.innerHTML = `
+        ${coalition}
         <div class="end-stat-card"><div class="stat-label">Time</div><div class="stat-value">${mins}:${String(secs).padStart(2,'0')}</div></div>
         <div class="end-stat-card"><div class="stat-label">Built</div><div class="stat-value">${s.structuresBuilt}</div></div>
         <div class="end-stat-card"><div class="stat-label">Destroyed</div><div class="stat-value">${s.structuresDestroyed}</div></div>
@@ -1873,7 +1898,9 @@ function loop(time) {
 
         refreshMinimapStatsOverlay();
 
-        if (p1.missiles === 0 && (p1.units.RL > 0 || p1.units.AB > 0)) {
+        const ownStructCounts = shared?.structuresByPlayer?.get(p1.id);
+        const hasMissileLauncher = (ownStructCounts?.RL || 0) > 0 || (ownStructCounts?.AB || 0) > 0;
+        if (p1.missiles === 0 && hasMissileLauncher) {
             if (missileStarvedSince === 0) missileStarvedSince = time;
             missileEl.parentElement.classList.toggle('live', time - missileStarvedSince > 5000);
         } else {
