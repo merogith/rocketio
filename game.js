@@ -716,15 +716,23 @@ export class Game {
     /** Weighted in-flight damage to enemy structures from projectiles fired by ownerId and allies. */
     _pendingDamageToEnemyStructures(ownerId) {
         const mult = GAME_CONFIG.AUTO_TARGET_INTERCEPT_PENDING_MULT;
+        const maxDist = GAME_CONFIG.AUTO_TARGET_PENDING_ETA_MAX_DIST_PX ?? 0;
         const map = new Map();
         for (const p of this.projectiles) {
             if (p.owner !== ownerId && !this.areAllied(p.owner, ownerId)) continue;
             const tile = this.grid.getTile(p.targetQR.q, p.targetQR.r);
             if (!tile?.structure) continue;
             if (tile.owner === ownerId || this.areAllied(tile.owner, ownerId)) continue;
-            const w = p.interceptable ? p.damage * mult : p.damage;
+            let base = p.interceptable ? p.damage * mult : p.damage;
+            if (maxDist > 0) {
+                const dx = p.targetX - p.x;
+                const dy = p.targetY - p.y;
+                const dist = Math.hypot(dx, dy);
+                const etaW = Math.max(0, 1 - Math.min(1, dist / maxDist));
+                base *= etaW;
+            }
             const k = `${tile.q},${tile.r}`;
-            map.set(k, (map.get(k) || 0) + w);
+            map.set(k, (map.get(k) || 0) + base);
         }
         return map;
     }
@@ -784,19 +792,28 @@ export class Game {
         const st = targetTile.structure?.stats;
         const dps = this._structureDps(st);
         const t = targetTile.structure?.type;
+        const recentMs = GAME_CONFIG.MISSILE_RECENT_FIRE_MS ?? 0;
+        const recentBonus = GAME_CONFIG.MISSILE_RECENT_FIRE_PRIORITY_BONUS ?? 0;
+        const firedAt = targetTile.structure?.lastFiredAt;
+        const recent =
+            recentMs > 0 &&
+            recentBonus > 0 &&
+            typeof firedAt === 'number' &&
+            firedAt > 0 &&
+            this.gameTime - firedAt <= recentMs;
+        let score;
         if (incomingShooterKeys.has(key)) {
-            return 3_000_000 + dps;
+            score = 3_000_000 + dps;
+        } else if (t === 'AAS' || t === 'MF') {
+            score = 100_000;
+        } else if (t === 'G') {
+            score = 500_000;
+        } else if (t === 'RL' || t === 'AB' || t === 'D' || t === 'B' || (t === 'M' && st?.damage)) {
+            score = 2_000_000 + dps * 1000;
+        } else {
+            score = 400_000 + dps;
         }
-        if (t === 'AAS' || t === 'MF') {
-            return 100_000;
-        }
-        if (t === 'G') {
-            return 500_000;
-        }
-        if (t === 'RL' || t === 'AB' || t === 'D' || t === 'B' || (t === 'M' && st?.damage)) {
-            return 2_000_000 + dps * 1000;
-        }
-        return 400_000 + dps;
+        return score + (recent ? recentBonus : 0);
     }
 
     resolveTarget(tile, stats, opts = {}) {
@@ -957,6 +974,7 @@ export class Game {
         if (!target) return false;
 
         p.missiles -= stats.missilesPerShot;
+        tile.structure.lastFiredAt = this.gameTime;
         const count = stats.projectiles || 1;
         for (let i = 0; i < count; i++) {
             this.spawnProjectile(tile, target, {
@@ -979,6 +997,7 @@ export class Game {
         if (!target) return false;
 
         p.missiles -= stats.missilesPerShot;
+        tile.structure.lastFiredAt = this.gameTime;
         const count = stats.projectiles || 1;
         for (let i = 0; i < count; i++) {
             this.spawnProjectile(tile, target, {
@@ -999,6 +1018,7 @@ export class Game {
         const target = this.resolveTarget(tile, stats);
         if (!target) return false;
 
+        tile.structure.lastFiredAt = this.gameTime;
         const count = stats.projectiles || 1;
         for (let i = 0; i < count; i++) {
             this.spawnProjectile(tile, target, {
@@ -1025,6 +1045,7 @@ export class Game {
         const target = this.resolveTarget(tile, stats);
         if (!target) return false;
 
+        tile.structure.lastFiredAt = this.gameTime;
         const count = stats.projectiles || 1;
         for (let i = 0; i < count; i++) {
             this.spawnProjectile(tile, target, {
@@ -1284,7 +1305,7 @@ export class Game {
             p.stats.goldSpent += stats.cost;
         }
         // AAS starts with 0 charge — it needs BUILD_COOLDOWNS.AAS ms before its first recharge.
-        tile.structure = { type, level: levelIdx, stats, charge: 0, target: null };
+        tile.structure = { type, level: levelIdx, stats, charge: 0, target: null, lastFiredAt: 0 };
         tile.owner = ownerId;
         tile.hp = stats.hp || 100;
         tile.maxHp = tile.hp;

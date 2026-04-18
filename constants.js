@@ -49,19 +49,21 @@ export const GAME_CONFIG = {
     // Auto-target: reduce overkill on one tile by treating in-flight shots as committed damage.
     // Interceptable projectiles count at a fraction (AA may shoot them down).
     AUTO_TARGET_USE_PENDING_DAMAGE: true,
-    AUTO_TARGET_INTERCEPT_PENDING_MULT: 0.5,
-    AUTO_TARGET_OVERKILL_BUFFER_HP: 8,
+    AUTO_TARGET_INTERCEPT_PENDING_MULT: 0.75,
+    AUTO_TARGET_OVERKILL_BUFFER_HP: 14,
     AUTO_TARGET_FALLBACK_WHEN_ALL_SATURATED: true,
+    /** Linear falloff for pending damage: at 0 remaining travel px weight is 1; at/above this distance weight is 0. 0 = treat all in-flight damage as full (legacy). */
+    AUTO_TARGET_PENDING_ETA_MAX_DIST_PX: 2400,
     /** Per projectile `type` (see spawnProjectile): max allied shots of that type in flight to the same enemy hex before auto-target prefers another structure. 0 = no cap for that type. */
     AUTO_TARGET_MAX_INBOUND_BY_PROJECTILE_TYPE: {
-        rocket: 8,
-        airstrike: 3,
-        drone: 9,
-        ground: 3,
-        militia: 4,
+        rocket: 6,
+        airstrike: 2,
+        drone: 7,
+        ground: 2,
+        militia: 3,
     },
     // Within this many hexes of the closest enemy, prefer higher AUTO_TARGET_STRUCT_WEIGHT before HP tie-break.
-    AUTO_TARGET_DISTANCE_TIE_HEXES: 1,
+    AUTO_TARGET_DISTANCE_TIE_HEXES: 2,
     AUTO_TARGET_STRUCT_WEIGHT: {
         G: 100,
         MF: 85,
@@ -75,7 +77,10 @@ export const GAME_CONFIG = {
     // Missile-starved: prioritize targets (incoming shooters > enemy DPS > Gov > AAS/MF) and RL/AB fire order.
     MISSILE_SMART_PRIORITY: true,
     // When true, only apply smart targeting / launcher ordering if missiles < total demand from ready RL+AB this tick.
-    MISSILE_SMART_STARVED_ONLY: true,
+    MISSILE_SMART_STARVED_ONLY: false,
+    /** In missileTargetPriority, add this to priority if the enemy tile fired within the last N ms (active threat). */
+    MISSILE_RECENT_FIRE_MS: 3000,
+    MISSILE_RECENT_FIRE_PRIORITY_BONUS: 75_000,
     // Initial build cooldowns: time (ms) before a newly built structure can act for the first time.
     // lastAction is set to (gameTime + cooldown - interval) so the first action fires at T + cooldown.
     BUILD_COOLDOWNS: {
