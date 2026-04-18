@@ -1,3 +1,30 @@
+import { UNIT_STATS as US, GAME_CONFIG as GC } from './constants.js';
+
+/** Keep tutorial copy aligned with simulation constants. */
+const L1 = {
+    MF: US.MF.levels[0],
+    RL: US.RL.levels[0],
+    AAS: US.AAS.levels[0],
+    G: US.G.levels[0],
+    B: US.B.levels[0],
+    M: US.M.levels[0],
+    D: US.D.levels[0],
+    AB: US.AB.levels[0],
+};
+
+const secStr = (ms) => {
+    const s = ms / 1000;
+    return (Math.abs(s - Math.round(s)) < 1e-6 ? String(Math.round(s)) : s.toFixed(1)) + 's';
+};
+
+const govWarmupSec = GC.GOV_WARMUP_MS / 1000;
+const barracksL3Interval = US.B.levels[2].interval;
+const demolishPct = Math.round(GC.DEMOLISH_REFUND_MULT * 100);
+const upgradeSavePct = Math.round((1 - GC.UPGRADE_COST_MULT) * 100);
+const supplySlowPct = Math.round((GC.SUPPLY_OUT_MULT - 1) * 100);
+const barracksCmdOut = Math.round((GC.BARRACKS_L3_COMMAND_OUT_MULT - 1) * 100);
+const barracksCmdIn = Math.round((1 - GC.BARRACKS_L3_COMMAND_IN_MULT) * 100);
+
 export const TUTORIAL_PAGES = [
     /* 1 — QUICK START */
     `
@@ -7,19 +34,19 @@ export const TUTORIAL_PAGES = [
         <div class="tut-steps">
             <div class="tut-step">
                 <span class="tut-step-num">1</span>
-                <div><b>Build a Missile Factory</b> <span class="tut-dim">($230) — press <span class="key-badge">4</span></span><br>You start with one. Build a second immediately — rockets need ammo.</div>
+                <div><b>Build a Missile Factory</b> <span class="tut-dim">($${L1.MF.cost}) — press <span class="key-badge">4</span></span><br>You start with one. Build a second immediately — rockets need ammo.</div>
             </div>
             <div class="tut-step">
                 <span class="tut-step-num">2</span>
-                <div><b>Build Rocket Launchers</b> <span class="tut-dim">($225) — press <span class="key-badge">2</span></span><br>Your main damage dealers. Place 2–3 near your border.</div>
+                <div><b>Build Rocket Launchers</b> <span class="tut-dim">($${L1.RL.cost}) — press <span class="key-badge">2</span></span><br>Your main damage dealers. Place 2–3 near your border.</div>
             </div>
             <div class="tut-step">
                 <span class="tut-step-num">3</span>
-                <div><b>Build an Anti-Air System</b> <span class="tut-dim">($205) — press <span class="key-badge">3</span></span><br>Intercepts enemy missiles. Protect your Government!</div>
+                <div><b>Build an Anti-Air System</b> <span class="tut-dim">($${L1.AAS.cost}) — press <span class="key-badge">3</span></span><br>Intercepts enemy missiles. Protect your Government!</div>
             </div>
             <div class="tut-step">
                 <span class="tut-step-num">4</span>
-                <div><b>Expand with a new Government</b> <span class="tut-dim">($450) — press <span class="key-badge">1</span></span><br>More territory = more gold income. Spread them out.</div>
+                <div><b>Expand with a new Government</b> <span class="tut-dim">($${L1.G.cost}) — press <span class="key-badge">1</span></span><br>More territory = more gold income. Spread them out.</div>
             </div>
         </div>
 
@@ -38,18 +65,18 @@ export const TUTORIAL_PAGES = [
         <h3>YOUR UNITS</h3>
 
         <div class="tut-role-label tut-role-attack">⚔️ ATTACK</div>
-        <div class="unit-card"><div class="uc-icon">🚀</div><div class="uc-info"><div class="uc-name">Rocket Launcher <span class="tut-cost">$225</span></div><div class="uc-desc">Long-range missile. Your bread and butter. Needs ammo from Factories.</div></div></div>
-        <div class="unit-card"><div class="uc-icon">🪖</div><div class="uc-info"><div class="uc-name">Barracks <span class="tut-cost">$425</span></div><div class="uc-desc">Short-range ground fire. Can't be intercepted by Anti-Air. Also a supply hub. Lv3 fires every 3s.</div></div></div>
-        <div class="unit-card"><div class="uc-icon">🚁</div><div class="uc-info"><div class="uc-name">Drone Operator <span class="tut-cost">$155</span></div><div class="uc-desc">Cheap, fast chip damage. Lv3 fires 3 shots — overwhelms Anti-Air defenses.</div></div></div>
-        <div class="unit-card"><div class="uc-icon">✈️</div><div class="uc-info"><div class="uc-name">Air Base <span class="tut-cost">$350</span></div><div class="uc-desc">Heavy strike. High alpha damage but can be intercepted. Lv1 costs only 1 missile.</div></div></div>
+        <div class="unit-card"><div class="uc-icon">🚀</div><div class="uc-info"><div class="uc-name">Rocket Launcher <span class="tut-cost">$${L1.RL.cost}</span></div><div class="uc-desc">Long-range missile (${L1.RL.damage} dmg / ${secStr(L1.RL.interval)}). Needs ammo from Factories.</div></div></div>
+        <div class="unit-card"><div class="uc-icon">🪖</div><div class="uc-info"><div class="uc-name">Barracks <span class="tut-cost">$${L1.B.cost}</span></div><div class="uc-desc">Short-range ground fire (${L1.B.damage} dmg). Can't be intercepted by Anti-Air. Supply hub. Lv3 fires every ${secStr(barracksL3Interval)}; command aura +${barracksCmdOut}% ally damage & −${barracksCmdIn}% incoming in influence (non-stacking).</div></div></div>
+        <div class="unit-card"><div class="uc-icon">🚁</div><div class="uc-info"><div class="uc-name">Drone Operator <span class="tut-cost">$${L1.D.cost}</span></div><div class="uc-desc">Cheap chip damage. Lv3 fires ${US.D.levels[2].projectiles} shots per volley — overwhelms Anti-Air charges.</div></div></div>
+        <div class="unit-card"><div class="uc-icon">✈️</div><div class="uc-info"><div class="uc-name">Air Base <span class="tut-cost">$${L1.AB.cost}</span></div><div class="uc-desc">Heavy strike (${L1.AB.damage} dmg Lv1). Interceptable. Lv1 uses ${L1.AB.missilesPerShot} missile per sortie.</div></div></div>
 
         <div class="tut-role-label tut-role-defend">🛡️ DEFENSE</div>
-        <div class="unit-card"><div class="uc-icon">🛡️</div><div class="uc-info"><div class="uc-name">Anti-Air System <span class="tut-cost">$205</span></div><div class="uc-desc">Auto-intercepts rockets, air strikes, and drones. Ground fire bypasses it. Always keep one near your Government.</div></div></div>
+        <div class="unit-card"><div class="uc-icon">🛡️</div><div class="uc-info"><div class="uc-name">Anti-Air System <span class="tut-cost">$${L1.AAS.cost}</span></div><div class="uc-desc">Auto-intercepts rockets, air strikes, and drones. Ground fire bypasses it. Always keep one near your Government.</div></div></div>
 
         <div class="tut-role-label tut-role-econ">💰 ECONOMY & EXPANSION</div>
-        <div class="unit-card"><div class="uc-icon">🏛️</div><div class="uc-info"><div class="uc-name">Government <span class="tut-cost">$450</span></div><div class="uc-desc">Claims territory via influence. More territory = more gold. Lose all Govs = you lose.</div></div></div>
-        <div class="unit-card"><div class="uc-icon">🏭</div><div class="uc-info"><div class="uc-name">Missile Factory <span class="tut-cost">$230</span></div><div class="uc-desc">Produces ammo for Rockets and Air Bases. No ammo = no missiles fired.</div></div></div>
-        <div class="unit-card"><div class="uc-icon">🔫</div><div class="uc-info"><div class="uc-name">Militia <span class="tut-cost">$135</span></div><div class="uc-desc">Place on visible tiles you own or neutral land. Lv3 transforms into a mini-Government.</div></div></div>
+        <div class="unit-card"><div class="uc-icon">🏛️</div><div class="uc-info"><div class="uc-name">Government <span class="tut-cost">$${L1.G.cost}</span></div><div class="uc-desc">Claims territory via influence. More territory = more gold. Lose all Govs = you lose.</div></div></div>
+        <div class="unit-card"><div class="uc-icon">🏭</div><div class="uc-info"><div class="uc-name">Missile Factory <span class="tut-cost">$${L1.MF.cost}</span></div><div class="uc-desc">Produces ammo for Rockets and Air Bases (${L1.MF.missilesProduced} missiles / ${secStr(L1.MF.produceInterval)} cycle Lv1).</div></div></div>
+        <div class="unit-card"><div class="uc-icon">🔫</div><div class="uc-info"><div class="uc-name">Militia <span class="tut-cost">$${L1.M.cost}</span></div><div class="uc-desc">Place on visible tiles you own or neutral land. Lv3 transforms into a mini-Government (influence ${US.M.levels[2].influence}).</div></div></div>
     `,
 
     /* 3 — ECONOMY */
@@ -68,7 +95,7 @@ export const TUTORIAL_PAGES = [
             <div class="tut-concept-icon">🏛️</div>
             <div>
                 <b>Government Rules</b><br>
-                New Govs need <b>20 seconds to warm up</b> before earning gold. Overlapping Gov areas have diminishing returns — <b>spread them out</b> for maximum income.
+                New Govs need <b>${govWarmupSec} seconds to warm up</b> before earning gold. Overlapping Gov areas have diminishing returns — <b>spread them out</b> for maximum income.
             </div>
         </div>
 
@@ -84,7 +111,7 @@ export const TUTORIAL_PAGES = [
             <div class="tut-concept-icon">📡</div>
             <div>
                 <b>Supply Lines</b><br>
-                Structures outside the influence radius of a friendly Gov or Barracks fire <b>60% slower</b>. Push your supply forward with Barracks or upgraded Militia (Lv3).
+                Structures outside the influence radius of a friendly Gov or Barracks fire <b>${supplySlowPct}% slower</b>. Push your supply forward with Barracks or upgraded Militia (Lv3).
             </div>
         </div>
 
@@ -114,16 +141,16 @@ export const TUTORIAL_PAGES = [
 
         <div class="tut-tactic">
             <div class="tut-tactic-title">⬆️ Upgrade > Spam</div>
-            <div class="tut-tactic-body">A Lv3 Rocket Launcher outperforms three Lv1s. Upgrades cost less than building that tier fresh (list price discount). Use <span class="key-badge">Space</span> to quick-upgrade.</div>
+            <div class="tut-tactic-body">Higher tiers beat spammed Lv1s. Upgrades save <b>${upgradeSavePct}%</b> vs buying that tier at list price. Use <span class="key-badge">Space</span> to quick-upgrade.</div>
         </div>
 
         <div class="tut-tactic">
             <div class="tut-tactic-title">♻️ Recycle</div>
-            <div class="tut-tactic-body">Press <span class="key-badge">X</span> to demolish a structure for 20% of what you spent on it back. Move your defenses as the front line shifts.</div>
+            <div class="tut-tactic-body">Press <span class="key-badge">X</span> to demolish a structure for <b>${demolishPct}%</b> of what you spent on it back. Move your defenses as the front line shifts.</div>
         </div>
 
         <div class="tip-box">
-            <b>HP Regen:</b> Structures slowly heal when not damaged for 5 seconds and not on contested tiles.
+            <b>HP Regen:</b> Structures slowly heal when not damaged for ${GC.REGEN_COOLDOWN_MS / 1000} seconds and not on contested tiles.
         </div>
     `,
 

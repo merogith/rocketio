@@ -928,6 +928,31 @@ buildBtns.forEach(btn => {
     });
 });
 
+/** One-line summary of a tier's stats for build tooltips (matches UNIT_STATS). */
+function summarizeLevelForTooltip(type, lv) {
+    const parts = [];
+    if (lv.hp != null) parts.push(`${lv.hp} HP`);
+    if (lv.range != null) parts.push(`rng ${lv.range}`);
+    if (lv.radius != null && type === 'B') parts.push(`cmd ${lv.radius}`);
+    if (lv.radius != null && (type === 'G' || lv.transformsToGov)) parts.push(`inf rng ${lv.radius}`);
+    if (lv.damage != null) parts.push(`dmg ${lv.damage}`);
+    if (lv.interval != null) parts.push(`${(lv.interval / 1000).toFixed(1)}s`);
+    if (lv.rechargeInterval != null) {
+        let s = `rech ${(lv.rechargeInterval / 1000).toFixed(1)}s`;
+        if (lv.missilesRecharged) s += ` ×${lv.missilesRecharged}`;
+        parts.push(s);
+    }
+    if (lv.produceInterval != null && lv.missilesProduced != null) {
+        parts.push(`${(lv.produceInterval / 1000).toFixed(1)}s +${lv.missilesProduced} msl`);
+    }
+    if (lv.influence != null && (type === 'G' || type === 'B')) parts.push(`inf ${lv.influence}`);
+    if (lv.chargeCap) parts.push(`cap ${lv.chargeCap}`);
+    if (lv.missilesPerShot != null && lv.missilesPerShot > 1) parts.push(`×${lv.missilesPerShot} msl`);
+    if (lv.projectiles != null && lv.projectiles > 1) parts.push(`×${lv.projectiles} proj`);
+    if (lv.transformsToGov) parts.push(`mini-Gov inf ${lv.influence}`);
+    return parts.join(' · ');
+}
+
 function showBuildTooltip(btn) {
     const type = btn.dataset.type;
     const def = UNIT_STATS[type];
@@ -948,6 +973,7 @@ function showBuildTooltip(btn) {
         l1.missilesPerShot && ['Missiles/shot', l1.missilesPerShot],
         l1.interceptable != null && ['Interceptable', l1.interceptable ? 'Yes' : 'No'],
         l1.missilesProduced && ['Produces', `${l1.missilesProduced}/cycle`],
+        l1.produceInterval && ['Cycle', `${(l1.produceInterval / 1000).toFixed(1)}s`],
         l1.rechargeInterval && ['Recharge', `${(l1.rechargeInterval / 1000).toFixed(0)}s (×${l1.missilesRecharged || 1})`],
         l1.chargeCap && ['Capacity', l1.chargeCap],
     ].filter(Boolean);
@@ -966,13 +992,11 @@ function showBuildTooltip(btn) {
         for (let i = 1; i < def.levels.length; i++) {
             const lv = def.levels[i];
             const discCost = Math.floor(lv.cost * GAME_CONFIG.UPGRADE_COST_MULT);
-            html += `Lv${i + 1}: $${discCost}`;
-            if (lv.goldPerTile) html += ` (+${lv.goldPerTile}g/tile)`;
-            if (lv.chargeCap) html += ` (cap ${lv.chargeCap}, ×${lv.missilesRecharged})`;
-            if (i < def.levels.length - 1) html += ' · ';
+            const sum = summarizeLevelForTooltip(type, lv);
+            html += `<div class="tt-tier">Lv${i + 1}: <b>$${discCost}</b> <span class="tt-list">(list $${lv.cost})</span> — ${sum}</div>`;
         }
         html += '</div>';
-        html += `<div class="tt-upgrade dim">Upgrades: −${Math.round((1 - GAME_CONFIG.UPGRADE_COST_MULT) * 100)}% vs list price, same inf. range</div>`;
+        html += `<div class="tt-upgrade dim">Upgrade price is −${Math.round((1 - GAME_CONFIG.UPGRADE_COST_MULT) * 100)}% vs that tier's list cost; stats become that tier's values.</div>`;
     }
 
     if (type === 'B') {

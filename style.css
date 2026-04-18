@@ -701,7 +701,7 @@ h3 {
 
 /* BUILD TOOLTIP */
 #build-tooltip {
-    position: fixed; z-index: 100; padding: 14px 16px; width: 260px;
+    position: fixed; z-index: 100; padding: 14px 16px; width: 300px; max-width: min(92vw, 340px);
     font-family: var(--font-ui); font-size: 0.82rem; color: var(--text-primary); line-height: 1.6;
 }
 #build-tooltip h4 { font-family: var(--font-title); font-size: 0.78rem; color: var(--accent-blue); letter-spacing: 1px; margin-bottom: 6px; }
@@ -709,6 +709,9 @@ h3 {
 #build-tooltip .tt-stat .tt-label { color: rgba(255,255,255,0.5); }
 #build-tooltip .tt-stat .tt-val { color: var(--accent-blue); font-family: var(--font-mono); }
 #build-tooltip .tt-upgrade { margin-top: 8px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.08); font-size: 0.72rem; color: rgba(255,255,255,0.4); }
+#build-tooltip .tt-tier { margin-top: 5px; line-height: 1.4; color: rgba(255,255,255,0.72); font-size: 0.72rem; }
+#build-tooltip .tt-tier:first-child { margin-top: 0; }
+#build-tooltip .tt-list { color: rgba(255,255,255,0.38); font-weight: normal; }
 
 /* COMBAT LOG */
 #combat-log {
