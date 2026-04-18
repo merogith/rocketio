@@ -113,11 +113,11 @@ export class Game {
         return false;
     }
 
-    // Militia cap scales softly with Gov count: +2 per Gov beyond the first.
+    // Militia cap: MILITIA_BASE_CAP with one Gov; +MILITIA_PER_EXTRA_GOV per additional Gov.
     militiaCap(player) {
         this._ensureIndex();
         const govs = this._govCount[player.id - 1] || 0;
-        return 10 + Math.max(0, govs - 1) * 2;
+        return GAME_CONFIG.MILITIA_BASE_CAP + Math.max(0, govs - 1) * GAME_CONFIG.MILITIA_PER_EXTRA_GOV;
     }
 
     start(playerCount = 4, humanName = "COMMANDER", victoryConfig = null) {

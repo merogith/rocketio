@@ -1003,7 +1003,9 @@ function showBuildTooltip(btn) {
         html += `<div class="tt-upgrade dim">Lv3: +${Math.round((GAME_CONFIG.BARRACKS_L3_COMMAND_OUT_MULT - 1) * 100)}% ally damage & −${Math.round((1 - GAME_CONFIG.BARRACKS_L3_COMMAND_IN_MULT) * 100)}% damage taken in influence (non-stacking)</div>`;
     }
 
-    if (def.limit) html += `<div class="tt-upgrade">Limit: ${def.limit}</div>`;
+    if (type === 'M') {
+        html += `<div class="tt-upgrade">Max: ${GAME_CONFIG.MILITIA_BASE_CAP} + ${GAME_CONFIG.MILITIA_PER_EXTRA_GOV} per Gov beyond your first</div>`;
+    }
 
     buildTooltip.innerHTML = html;
     buildTooltip.classList.remove('hidden');

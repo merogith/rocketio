@@ -81,6 +81,9 @@ export const GAME_CONFIG = {
     // and take −10% damage from projectiles. Overlapping L3 Barracks do not stack (single application).
     BARRACKS_L3_COMMAND_OUT_MULT: 1.1,
     BARRACKS_L3_COMMAND_IN_MULT: 0.9,
+    /** Max militia with one Government; +MILITIA_PER_EXTRA_GOV for each additional Gov. */
+    MILITIA_BASE_CAP: 5,
+    MILITIA_PER_EXTRA_GOV: 2,
 };
 
 export const VICTORY_MODES = {
@@ -150,8 +153,7 @@ export const UNIT_STATS = {
             { id: "M1", hp: 40,  range: 1, damage: 38, cost: 135, interval: 7600,  projectiles: 1, interceptable: false, vision: 4 },
             { id: "M2", hp: 86,  range: 2, damage: 52, cost: 185, interval: 4800,  projectiles: 1, interceptable: false, vision: 5 },
             { id: "M3", hp: 154, radius: 2, cost: 275, transformsToGov: true, influence: 780, vision: 6, goldPerTile: 0.5 }
-        ],
-        limit: 10
+        ]
     },
     AB: {
         name: "Air Base",
