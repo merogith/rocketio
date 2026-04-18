@@ -65,6 +65,7 @@ export class Game {
         this._aasTiles = [];
         this._govTiles = [];
         this._structureTiles = [];
+        this._l3BarracksTiles = [];
         this._govCount = [];
 
         // --- Diplomacy ---
@@ -80,11 +81,13 @@ export class Game {
         this._aasTiles.length = 0;
         this._govTiles.length = 0;
         this._structureTiles.length = 0;
+        this._l3BarracksTiles.length = 0;
         this._govCount = new Array(this.players.length).fill(0);
         for (const tile of this.grid.tiles.values()) {
             if (!tile.structure) continue;
             this._structureTiles.push(tile);
             if (tile.structure.type === 'AAS') this._aasTiles.push(tile);
+            if (tile.structure.type === 'B' && tile.structure.level === 2) this._l3BarracksTiles.push(tile);
             if (tile.structure.type === 'G' && tile.owner) {
                 this._govTiles.push(tile);
                 this._govCount[tile.owner - 1] = (this._govCount[tile.owner - 1] || 0) + 1;
@@ -96,6 +99,19 @@ export class Game {
     _markStructuresDirty() { this._structuresDirty = true; }
 
     _ensureIndex() { if (this._structuresDirty) this._rebuildStructureIndex(); }
+
+    /** True if `tile` (structure hex) lies within a friendly Lv3 Barracks influence radius (non-stacking). */
+    _inFriendlyL3BarracksCommandAura(tile, ownerId) {
+        if (!tile || !ownerId) return false;
+        this._ensureIndex();
+        for (const bTile of this._l3BarracksTiles) {
+            if (bTile.owner !== ownerId) continue;
+            const s = bTile.structure;
+            const r = s._lockedRadius ?? s.stats.radius ?? 0;
+            if (Hex.distance(tile, bTile) <= r) return true;
+        }
+        return false;
+    }
 
     // Militia cap scales softly with Gov count: +2 per Gov beyond the first.
     militiaCap(player) {
@@ -981,21 +997,26 @@ export class Game {
     spawnProjectile(fromTile, toTile, opts) {
         const startPos = this.grid.hexToPixel(fromTile.q, fromTile.r);
         const endPos   = this.grid.hexToPixel(toTile.q,   toTile.r);
+        const atkOwner = opts.owner ?? fromTile.owner;
+        let dmg = opts.damage ?? 0;
+        if (fromTile?.structure && this._inFriendlyL3BarracksCommandAura(fromTile, atkOwner)) {
+            dmg *= GAME_CONFIG.BARRACKS_L3_COMMAND_OUT_MULT;
+        }
         this.projectiles.push({
             type: opts.type,
-            owner: opts.owner ?? fromTile.owner,
+            owner: atkOwner,
             fromQR: { q: fromTile.q, r: fromTile.r },
             x: startPos.x,
             y: startPos.y,
             targetX: endPos.x,
             targetY: endPos.y,
             targetQR: { q: toTile.q, r: toTile.r },
-            damage: opts.damage,
+            damage: dmg,
             speed: opts.speed,
             interceptable: opts.interceptable,
             trail: opts.trail,
             trailPts: [],
-            color: COLORS[`PLAYER${opts.owner ?? fromTile.owner}`]
+            color: COLORS[`PLAYER${atkOwner}`]
         });
     }
 
@@ -1102,13 +1123,17 @@ export class Game {
         }
 
         if (tile && tile.structure) {
-            tile.hp -= proj.damage;
+            let dmg = proj.damage;
+            if (this._inFriendlyL3BarracksCommandAura(tile, tile.owner)) {
+                dmg *= GAME_CONFIG.BARRACKS_L3_COMMAND_IN_MULT;
+            }
+            tile.hp -= dmg;
             tile.lastDamageTime = this.gameTime;
 
             const attacker = this.players[proj.owner - 1];
             const defender = this.players[tile.owner - 1];
-            if (attacker) attacker.stats.damageDealt += proj.damage;
-            if (defender) defender.stats.damageTaken += proj.damage;
+            if (attacker) attacker.stats.damageDealt += dmg;
+            if (defender) defender.stats.damageTaken += dmg;
 
             if (tile.owner === this.humanId && proj.owner !== this.humanId) {
                 this.pushEvent({ kind: 'hit', tile: { q: tile.q, r: tile.r }, t: this.gameTime });
@@ -1116,7 +1141,7 @@ export class Game {
             }
 
             const structName = UNIT_STATS[tile.structure.type]?.name || tile.structure.type;
-            this.logEvent(proj.owner, tile.owner, 'hit', `${proj.type} hit ${structName} (-${proj.damage} HP)`);
+            this.logEvent(proj.owner, tile.owner, 'hit', `${proj.type} hit ${structName} (-${Math.round(dmg * 10) / 10} HP)`);
 
             if (tile.hp <= 0) this.destroyStructure(tile, proj.owner);
         }

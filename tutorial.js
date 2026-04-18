@@ -114,7 +114,7 @@ export const TUTORIAL_PAGES = [
 
         <div class="tut-tactic">
             <div class="tut-tactic-title">⬆️ Upgrade > Spam</div>
-            <div class="tut-tactic-body">A Lv3 Rocket Launcher outperforms three Lv1s. Upgrades cost 20% less than building fresh. Use <span class="key-badge">Space</span> to quick-upgrade.</div>
+            <div class="tut-tactic-body">A Lv3 Rocket Launcher outperforms three Lv1s. Upgrades cost less than building that tier fresh (list price discount). Use <span class="key-badge">Space</span> to quick-upgrade.</div>
         </div>
 
         <div class="tut-tactic">

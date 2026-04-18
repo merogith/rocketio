@@ -39,7 +39,7 @@ export const GAME_CONFIG = {
     HP_REGEN_RATE: 0.008,        // 0.8% of maxHp per second
     REGEN_COOLDOWN_MS: 5000,     // 5s after last damage before regen starts
     CONTESTED_EPSILON: 0.01,     // relative threshold for contested detection
-    UPGRADE_COST_MULT: 0.80,     // upgrades cost 20% less than fresh build
+    UPGRADE_COST_MULT: 0.77,     // upgrades cost ~23% less than next tier list price
     DEMOLISH_REFUND_MULT: 0.20,  // fraction of total gold spent on structure returned on demolish
     GOV_WARMUP_MS: 10000,        // new Govs produce 0 gold for 10s (anti-rush)
     MAP_RADII: { small: 20, medium: 30, large: 45 },
@@ -77,6 +77,10 @@ export const GAME_CONFIG = {
         D:    5000,   // 5 s before first drone volley
         M:    5000,   // 5 s before first militia attack
     },
+    // Lv3 Barracks: friendly structures on hexes within its influence radius (stats.radius) deal +10% damage
+    // and take −10% damage from projectiles. Overlapping L3 Barracks do not stack (single application).
+    BARRACKS_L3_COMMAND_OUT_MULT: 1.1,
+    BARRACKS_L3_COMMAND_IN_MULT: 0.9,
 };
 
 export const VICTORY_MODES = {
@@ -95,70 +99,75 @@ export const MAP_STYLES = {
     FRACTAL:     { id: 'fractal',     name: 'Fractal',     desc: 'Noise-based random coasts' },
 };
 
+// UNIT_STATS hp on L2+: each upgrade adds round(upgradeGold * 1.1 * (L1.hp / L1.cost)),
+// upgradeGold = floor(nextTier.cost * GAME_CONFIG.UPGRADE_COST_MULT). L1 hp unchanged (baseline).
 export const UNIT_STATS = {
     RL: {
         name: "Rocket Launcher",
         levels: [
-            { id: "RL1", hp: 100, range: 7,  damage: 50,  cost: 225, interval: 10500, missilesPerShot: 1, projectiles: 1, interceptable: true, vision: 6  },
-            { id: "RL2", hp: 180, range: 10, damage: 70,  cost: 325, interval: 7300,  missilesPerShot: 1, projectiles: 1, interceptable: true, vision: 8  },
-            { id: "RL3", hp: 300, range: 14, damage: 100, cost: 425, interval: 5200,  missilesPerShot: 2, projectiles: 1, interceptable: true, vision: 11 }
+            { id: "RL1", hp: 108, range: 7,  damage: 52,  cost: 225, interval: 10200, missilesPerShot: 1, projectiles: 1, interceptable: true, vision: 6  },
+            { id: "RL2", hp: 240, range: 10, damage: 74,  cost: 325, interval: 7100,  missilesPerShot: 1, projectiles: 1, interceptable: true, vision: 8  },
+            { id: "RL3", hp: 413, range: 14, damage: 102, cost: 425, interval: 5050,  missilesPerShot: 2, projectiles: 1, interceptable: true, vision: 11 }
         ]
     },
     AAS: {
         name: "Anti-Air System",
+        // rechargeInterval per level ≈ 1.05× same-tier Rocket Launcher interval (slightly slower cycle)
         levels: [
-            { id: "AAS1", hp: 100, range: 4, cost: 205, rechargeInterval: 9500, missilesRecharged: 1, chargeCap: 4,  vision: 5 },
-            { id: "AAS2", hp: 180, range: 6, cost: 305, rechargeInterval: 11400, missilesRecharged: 2, chargeCap: 6, vision: 7 },
-            { id: "AAS3", hp: 300, range: 9, cost: 405, rechargeInterval: 8550, missilesRecharged: 3, chargeCap: 9, vision: 9 }
+            { id: "AAS1", hp: 105, range: 4, cost: 205, rechargeInterval: 10710, missilesRecharged: 1, chargeCap: 4,  vision: 5 },
+            { id: "AAS2", hp: 237, range: 6, cost: 305, rechargeInterval: 7455, missilesRecharged: 2, chargeCap: 6, vision: 7 },
+            { id: "AAS3", hp: 412, range: 9, cost: 405, rechargeInterval: 5303, missilesRecharged: 3, chargeCap: 9, vision: 9 }
         ]
     },
     MF: {
         name: "Missile Factory",
         levels: [
-            { id: "MF1", hp: 100, cost: 230, produceInterval: 11111, missilesProduced: 2, vision: 4 },
-            { id: "MF2", hp: 170, cost: 330, produceInterval: 11111, missilesProduced: 4, vision: 5 },
-            { id: "MF3", hp: 300, cost: 430, produceInterval: 11111, missilesProduced: 7, vision: 6 }
+            { id: "MF1", hp: 105, cost: 230, produceInterval: 11111, missilesProduced: 2, vision: 4 },
+            { id: "MF2", hp: 233, cost: 330, produceInterval: 10600, missilesProduced: 4, vision: 5 },
+            { id: "MF3", hp: 399, cost: 430, produceInterval: 10000, missilesProduced: 7, vision: 6 }
         ]
     },
     G: {
         name: "Government",
         levels: [
-            { id: "G1", hp: 350,  radius: 4,  cost: 450,  influence: 1000, vision: 8,  goldPerTile: 0.5  },
-            { id: "G2", hp: 625,  radius: 7,  cost: 1000, influence: 2200, vision: 10, goldPerTile: 0.5  },
-            { id: "G3", hp: 1000, radius: 11, cost: 1950, influence: 4000, vision: 12, goldPerTile: 0.5  }
+            { id: "G1", hp: 375,  radius: 4,  cost: 450,  influence: 1050, vision: 8,  goldPerTile: 0.5  },
+            { id: "G2", hp: 1081, radius: 7,  cost: 1000, influence: 2300, vision: 10, goldPerTile: 0.5  },
+            { id: "G3", hp: 2457, radius: 11, cost: 1950, influence: 4150, vision: 12, goldPerTile: 0.5  }
         ]
     },
     D: {
         name: "Drone Operator",
         levels: [
-            { id: "D1", hp: 60,  range: 5, damage: 10, cost: 155, interval: 6400, projectiles: 1, interceptable: true, vision: 5 },
-            { id: "D2", hp: 100, range: 6, damage: 12, cost: 205, interval: 5350, projectiles: 2, interceptable: true, vision: 6 },
-            { id: "D3", hp: 175, range: 7, damage: 12, cost: 255, interval: 4850, projectiles: 3, interceptable: true, vision: 7 }
+            { id: "D1", hp: 65,  range: 5, damage: 11, cost: 155, interval: 6200, projectiles: 1, interceptable: true, vision: 5 },
+            { id: "D2", hp: 137, range: 6, damage: 13, cost: 205, interval: 5250, projectiles: 2, interceptable: true, vision: 6 },
+            { id: "D3", hp: 227, range: 7, damage: 13, cost: 255, interval: 4750, projectiles: 3, interceptable: true, vision: 7 }
         ]
     },
     M: {
         name: "Militia",
+        // Budget glass cannon: cheap, solid damage, low HP. L2+ hp follows same upgrade rule from L1 baseline.
         levels: [
-            { id: "M1", hp: 50,  range: 1, damage: 35, cost: 135, interval: 8000,  projectiles: 1, interceptable: false, vision: 4 },
-            { id: "M2", hp: 100, range: 2, damage: 50, cost: 185, interval: 5000,  projectiles: 1, interceptable: false, vision: 5 },
-            { id: "M3", hp: 200, radius: 2, cost: 275, transformsToGov: true, influence: 750, vision: 6, goldPerTile: 0.5 }
+            { id: "M1", hp: 40,  range: 1, damage: 38, cost: 135, interval: 7600,  projectiles: 1, interceptable: false, vision: 4 },
+            { id: "M2", hp: 86,  range: 2, damage: 52, cost: 185, interval: 4800,  projectiles: 1, interceptable: false, vision: 5 },
+            { id: "M3", hp: 154, radius: 2, cost: 275, transformsToGov: true, influence: 780, vision: 6, goldPerTile: 0.5 }
         ],
         limit: 10
     },
     AB: {
         name: "Air Base",
+        // Best sustained DPS/$ vs RL/B; expensive. Interceptable strikes — AA is the hard counter. HP kept moderate so focus fire / AA punish overextension.
         levels: [
-            { id: "AB1", hp: 175, range: 7,  damage: 130, cost: 350,  interval: 15800, missilesPerShot: 1, projectiles: 1, interceptable: true, projectileSpeed: 4.5, vision: 7  },
-            { id: "AB2", hp: 300, range: 10, damage: 200, cost: 750,  interval: 12600, missilesPerShot: 2, projectiles: 1, interceptable: true, projectileSpeed: 5.5, vision: 9  },
-            { id: "AB3", hp: 475, range: 13, damage: 300, cost: 1400, interval: 9500,  missilesPerShot: 3, projectiles: 1, interceptable: true, projectileSpeed: 6.5, vision: 11 }
+            { id: "AB1", hp: 160, range: 7,  damage: 136, cost: 350,  interval: 15200, missilesPerShot: 1, projectiles: 1, interceptable: true, projectileSpeed: 4.5, vision: 7  },
+            { id: "AB2", hp: 455, range: 10, damage: 230, cost: 750,  interval: 10000, missilesPerShot: 2, projectiles: 1, interceptable: true, projectileSpeed: 5.5, vision: 10  },
+            { id: "AB3", hp: 1000, range: 13, damage: 420, cost: 1400, interval: 8100,  missilesPerShot: 3, projectiles: 1, interceptable: true, projectileSpeed: 6.5, vision: 13 }
         ]
     },
     B: {
         name: "Barracks",
         levels: [
-            { id: "B1", hp: 200, range: 3, radius: 3, damage: 50,  cost: 425,  interval: 7000, projectiles: 1, interceptable: false, influence: 1400, vision: 8  },
-            { id: "B2", hp: 375, range: 4, radius: 4, damage: 75,  cost: 900,  interval: 5000, projectiles: 1, interceptable: false, influence: 1800, vision: 10 },
-            { id: "B3", hp: 600, range: 5, radius: 5, damage: 100, cost: 1700, interval: 3000, projectiles: 1, interceptable: false, influence: 2400, vision: 12 }
+            { id: "B1", hp: 215, range: 3, radius: 3, damage: 52,  cost: 425,  interval: 6700, projectiles: 1, interceptable: false, influence: 1450, vision: 8  },
+            { id: "B2", hp: 601, range: 4, radius: 4, damage: 78,  cost: 900,  interval: 4800, projectiles: 1, interceptable: false, influence: 1850, vision: 10 },
+            { id: "B3", hp: 1329, range: 5, radius: 5, damage: 105, cost: 1700, interval: 2850, projectiles: 1, interceptable: false, influence: 2480, vision: 12 }
         ]
     }
 };

@@ -972,7 +972,11 @@ function showBuildTooltip(btn) {
             if (i < def.levels.length - 1) html += ' · ';
         }
         html += '</div>';
-        html += '<div class="tt-upgrade dim">Upgrades: -20% cost, same inf. range</div>';
+        html += `<div class="tt-upgrade dim">Upgrades: −${Math.round((1 - GAME_CONFIG.UPGRADE_COST_MULT) * 100)}% vs list price, same inf. range</div>`;
+    }
+
+    if (type === 'B') {
+        html += `<div class="tt-upgrade dim">Lv3: +${Math.round((GAME_CONFIG.BARRACKS_L3_COMMAND_OUT_MULT - 1) * 100)}% ally damage & −${Math.round((1 - GAME_CONFIG.BARRACKS_L3_COMMAND_IN_MULT) * 100)}% damage taken in influence (non-stacking)</div>`;
     }
 
     if (def.limit) html += `<div class="tt-upgrade">Limit: ${def.limit}</div>`;
