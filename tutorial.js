@@ -24,6 +24,12 @@ const upgradeSavePct = Math.round((1 - GC.UPGRADE_COST_MULT) * 100);
 const supplySlowPct = Math.round((GC.SUPPLY_OUT_MULT - 1) * 100);
 const barracksCmdOut = Math.round((GC.BARRACKS_L3_COMMAND_OUT_MULT - 1) * 100);
 const barracksCmdIn = Math.round((1 - GC.BARRACKS_L3_COMMAND_IN_MULT) * 100);
+const govL3GoldAuraPct = Math.round((GC.GOV_L3_GOLD_AURA_MULT - 1) * 100);
+const rlSplashPct = Math.round(GC.RL_L3_SPLASH_MULT * 100);
+const abStealthPct = Math.round(GC.AB_L3_STEALTH_CHANCE * 100);
+const droneJamPct = Math.round((GC.DRONE_L3_RECHARGE_DEBUFF_MULT - 1) * 100);
+const mfGlobalPct = Math.round((1 - GC.MF_GLOBAL_PRODUCTION_MULT) * 100);
+const mfNeighborPct = Math.round((GC.MF_L3_NEIGHBOR_PRODUCTION_MULT - 1) * 100);
 
 export const TUTORIAL_PAGES = [
     /* 1 — QUICK START */
@@ -65,18 +71,18 @@ export const TUTORIAL_PAGES = [
         <h3>YOUR UNITS</h3>
 
         <div class="tut-role-label tut-role-attack">⚔️ ATTACK</div>
-        <div class="unit-card"><div class="uc-icon">🚀</div><div class="uc-info"><div class="uc-name">Rocket Launcher <span class="tut-cost">$${L1.RL.cost}</span></div><div class="uc-desc">Long-range missile (${L1.RL.damage} dmg / ${secStr(L1.RL.interval)}). Needs ammo from Factories.</div></div></div>
+        <div class="unit-card"><div class="uc-icon">🚀</div><div class="uc-info"><div class="uc-name">Rocket Launcher <span class="tut-cost">$${L1.RL.cost}</span></div><div class="uc-desc">Long-range missile (${L1.RL.damage} dmg / ${secStr(L1.RL.interval)}). Needs ammo from Factories. Lv3: 2 missiles per shot; ${rlSplashPct}% splash to adjacent enemy structures.</div></div></div>
         <div class="unit-card"><div class="uc-icon">🪖</div><div class="uc-info"><div class="uc-name">Barracks <span class="tut-cost">$${L1.B.cost}</span></div><div class="uc-desc">Short-range ground fire (${L1.B.damage} dmg). Can't be intercepted by Anti-Air. Supply hub. Lv3 fires every ${secStr(barracksL3Interval)}; command aura +${barracksCmdOut}% ally damage & −${barracksCmdIn}% incoming in influence (non-stacking).</div></div></div>
-        <div class="unit-card"><div class="uc-icon">🚁</div><div class="uc-info"><div class="uc-name">Drone Operator <span class="tut-cost">$${L1.D.cost}</span></div><div class="uc-desc">Cheap chip damage. Lv3 fires ${US.D.levels[2].projectiles} shots per volley — overwhelms Anti-Air charges.</div></div></div>
-        <div class="unit-card"><div class="uc-icon">✈️</div><div class="uc-info"><div class="uc-name">Air Base <span class="tut-cost">$${L1.AB.cost}</span></div><div class="uc-desc">Heavy strike (${L1.AB.damage} dmg Lv1). Interceptable. Lv1 uses ${L1.AB.missilesPerShot} missile per sortie.</div></div></div>
+        <div class="unit-card"><div class="uc-icon">🚁</div><div class="uc-info"><div class="uc-name">Drone Operator <span class="tut-cost">$${L1.D.cost}</span></div><div class="uc-desc">Cheap chip damage. Lv3 fires ${US.D.levels[2].projectiles} shots per volley — jamming slows enemy military &amp; AA recharge in range by ${droneJamPct}%.</div></div></div>
+        <div class="unit-card"><div class="uc-icon">✈️</div><div class="uc-info"><div class="uc-name">Air Base <span class="tut-cost">$${L1.AB.cost}</span></div><div class="uc-desc">Heavy strike (${L1.AB.damage} dmg Lv1). Interceptable. Lv1 uses ${L1.AB.missilesPerShot} missile per sortie. Lv3: ${abStealthPct}% stealth strike (2 missiles, cannot be intercepted).</div></div></div>
 
         <div class="tut-role-label tut-role-defend">🛡️ DEFENSE</div>
         <div class="unit-card"><div class="uc-icon">🛡️</div><div class="uc-info"><div class="uc-name">Anti-Air System <span class="tut-cost">$${L1.AAS.cost}</span></div><div class="uc-desc">Auto-intercepts rockets, air strikes, and drones. Ground fire bypasses it. Always keep one near your Government.</div></div></div>
 
         <div class="tut-role-label tut-role-econ">💰 ECONOMY & EXPANSION</div>
-        <div class="unit-card"><div class="uc-icon">🏛️</div><div class="uc-info"><div class="uc-name">Government <span class="tut-cost">$${L1.G.cost}</span></div><div class="uc-desc">Claims territory via influence. More territory = more gold. Lose all Govs = you lose.</div></div></div>
-        <div class="unit-card"><div class="uc-icon">🏭</div><div class="uc-info"><div class="uc-name">Missile Factory <span class="tut-cost">$${L1.MF.cost}</span></div><div class="uc-desc">Produces ammo for Rockets and Air Bases (${L1.MF.missilesProduced} missiles / ${secStr(L1.MF.produceInterval)} cycle Lv1).</div></div></div>
-        <div class="unit-card"><div class="uc-icon">🔫</div><div class="uc-info"><div class="uc-name">Militia <span class="tut-cost">$${L1.M.cost}</span></div><div class="uc-desc">Place on visible tiles you own or neutral land. Lv3 <b>stops shooting</b> and becomes a mini-Government (influence ${US.M.levels[2].influence}) — economy and supply, not DPS.</div></div></div>
+        <div class="unit-card"><div class="uc-icon">🏛️</div><div class="uc-info"><div class="uc-name">Government <span class="tut-cost">$${L1.G.cost}</span></div><div class="uc-desc">Claims territory via influence. Gold/tile +${US.G.levels[0].goldPerTile} / +${US.G.levels[1].goldPerTile} / +${US.G.levels[2].goldPerTile}/s (Lv1–3). Lv3 aura: +${govL3GoldAuraPct}% gold on tiles it covers (non-stacking). Lose all Govs = you lose.</div></div></div>
+        <div class="unit-card"><div class="uc-icon">🏭</div><div class="uc-info"><div class="uc-name">Missile Factory <span class="tut-cost">$${L1.MF.cost}</span></div><div class="uc-desc">Produces ammo (${mfGlobalPct}% less than baseline per cycle). Lv3 boosts adjacent friendly factories by +${mfNeighborPct}% (not itself, range 1).</div></div></div>
+        <div class="unit-card"><div class="uc-icon">🔫</div><div class="uc-info"><div class="uc-name">Militia <span class="tut-cost">$${L1.M.cost}</span></div><div class="uc-desc">Place on visible tiles you own or neutral land. Lv3 <b>${US.M.levels[2].displayName || 'Partisan Regiment'}</b> — same firepower as Lv2, tougher.</div></div></div>
     `,
 
     /* 3 — ECONOMY */
@@ -111,7 +117,7 @@ export const TUTORIAL_PAGES = [
             <div class="tut-concept-icon">📡</div>
             <div>
                 <b>Supply Lines</b><br>
-                <b>Territory ≠ supply:</b> you can own a tile on the map but still be out of supply if no friendly Government, Barracks, or Militia Lv3 (mini-Gov) covers it. Structures outside that aura fire <b>${supplySlowPct}% slower</b>. Push supply forward with forward bases.
+                <b>Territory ≠ supply:</b> you can own a tile on the map but still be out of supply if no friendly <b>Government</b> or <b>Barracks</b> influence covers it. Structures outside that aura fire <b>${supplySlowPct}% slower</b>. Push supply forward with forward bases.
             </div>
         </div>
 

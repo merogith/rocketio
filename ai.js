@@ -23,7 +23,7 @@
 //         e. Economy               — MF when missile-starved, Gov when snowballing
 //         f. Strategic build       — pick best STRUCTURE TYPE then best LOCATION
 //         g. Upgrade               — high-value, behind-frontier structures
-//         h. Militia-Gov strategy  — M1→M2→M3 forward territory grab
+//         h. Militia upgrade strategy — M2→M3 Partisan when fortified
 //         i. Coordinated strike    — point all attackers at the kill target
 //         j. Demolish              — reclaim gold from trapped/redundant structures
 // ============================================================================
@@ -535,13 +535,13 @@ function runAITick(game, p, time) {
     else if (tryFocusFire(game, p, snap, shared)) {
         tryEconomy(game, p, snap, phase, shared, doctrine) ||
         tryStrategicBuild(game, p, snap, shared, phase, doctrine) ||
-        tryMilitiaGovStrategy(game, p, snap, phase) ||
+        tryMilitiaUpgradeStrategy(game, p, snap, phase) ||
         tryUpgrade(game, p, snap, doctrine, shared);
         goto_done(p);
     } else {
         tryEconomy(game, p, snap, phase, shared, doctrine) ||
         tryStrategicBuild(game, p, snap, shared, phase, doctrine) ||
-        tryMilitiaGovStrategy(game, p, snap, phase) ||
+        tryMilitiaUpgradeStrategy(game, p, snap, phase) ||
         tryUpgrade(game, p, snap, doctrine, shared) ||
         tryDemolish(game, p, snap, shared) ||
         tryExpandWithMilitia(game, p, snap, phase);
@@ -1042,9 +1042,9 @@ function tryStrategicBuild(game, p, snap, shared, phase, doctrine) {
 }
 
 // ============================================================================
-//  PRIORITY 5b — MILITIA-GOV STRATEGY
+//  PRIORITY 5b — MILITIA UPGRADE STRATEGY (M2→M3 Partisan)
 // ============================================================================
-function tryMilitiaGovStrategy(game, p, snap, phase) {
+function tryMilitiaUpgradeStrategy(game, p, snap, phase) {
     if (phase < PHASES.FORTIFY) return false;
 
     const militias = snap.ownByType.M || [];
@@ -1073,7 +1073,6 @@ function tryMilitiaGovStrategy(game, p, snap, phase) {
         }
 
         let score = 0;
-        // M2→M3 (transforms to mini-gov) is highest priority
         if (level === 1) {
             score = 10 + Math.min(6, minGovDist) * 1.5;
             if (!isFront) score += 3;
@@ -1124,9 +1123,6 @@ function tryUpgrade(game, p, snap, doctrine, shared) {
         const isFront = frontierKeys.has(tileKey(tile));
         if (!isFront) value *= 1.4;
         value += (3 - tile.structure.level);
-
-        // M3 transformation gets handled by tryMilitiaGovStrategy now
-        if (tile.structure.type === 'M' && next.transformsToGov) continue;
 
         if (tile.structure.type === 'MF' && snap.missileProd > snap.missileCons * 1.4) value *= 0.4;
 

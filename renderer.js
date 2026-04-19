@@ -297,7 +297,7 @@ export class Renderer {
                 case 'RL':  icon = "🚀"; break;
                 case 'AAS': icon = "🛡️"; break;
                 case 'MF':  icon = "🏭"; break;
-                case 'M':   icon = structure.stats?.transformsToGov ? "🏯" : "🔫"; break;
+                case 'M':   icon = structure.level === 2 ? "🎖️" : "🔫"; break;
                 case 'D':   icon = "🚁"; break;
                 case 'AB':  icon = "✈️"; break;
             }

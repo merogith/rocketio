@@ -953,7 +953,7 @@ function summarizeLevelForTooltip(type, lv) {
     if (lv.hp != null) parts.push(`${lv.hp} HP`);
     if (lv.range != null) parts.push(`rng ${lv.range}`);
     if (lv.radius != null && type === 'B') parts.push(`cmd ${lv.radius}`);
-    if (lv.radius != null && (type === 'G' || lv.transformsToGov)) parts.push(`inf rng ${lv.radius}`);
+    if (lv.radius != null && type === 'G') parts.push(`inf rng ${lv.radius}`);
     if (lv.damage != null) parts.push(`dmg ${lv.damage}`);
     if (lv.interval != null) parts.push(`${(lv.interval / 1000).toFixed(1)}s`);
     if (lv.rechargeInterval != null) {
@@ -965,10 +965,13 @@ function summarizeLevelForTooltip(type, lv) {
         parts.push(`${(lv.produceInterval / 1000).toFixed(1)}s +${lv.missilesProduced} msl`);
     }
     if (lv.influence != null && (type === 'G' || type === 'B')) parts.push(`inf ${lv.influence}`);
+    if (lv.goldPerTile != null) parts.push(`+${lv.goldPerTile}/tile`);
     if (lv.chargeCap) parts.push(`cap ${lv.chargeCap}`);
     if (lv.missilesPerShot != null && lv.missilesPerShot > 1) parts.push(`×${lv.missilesPerShot} msl`);
     if (lv.projectiles != null && lv.projectiles > 1) parts.push(`×${lv.projectiles} proj`);
-    if (lv.transformsToGov) parts.push(`mini-Gov inf ${lv.influence}`);
+    if (lv.splash) parts.push(`splash ${Math.round(GAME_CONFIG.RL_L3_SPLASH_MULT * 100)}%`);
+    if (lv.jamming) parts.push(`jam −${Math.round((GAME_CONFIG.DRONE_L3_RECHARGE_DEBUFF_MULT - 1) * 100)}% enemy recharge`);
+    if (lv.displayName) parts.unshift(lv.displayName);
     return parts.join(' · ');
 }
 
@@ -1022,9 +1025,30 @@ function showBuildTooltip(btn) {
         html += `<div class="tt-upgrade dim">Lv3: +${Math.round((GAME_CONFIG.BARRACKS_L3_COMMAND_OUT_MULT - 1) * 100)}% ally damage & −${Math.round((1 - GAME_CONFIG.BARRACKS_L3_COMMAND_IN_MULT) * 100)}% damage taken in influence (non-stacking)</div>`;
     }
 
+    if (type === 'G') {
+        html += `<div class="tt-upgrade dim">Lv3: +${Math.round((GAME_CONFIG.GOV_L3_GOLD_AURA_MULT - 1) * 100)}% gold on tiles within its influence (non-stacking)</div>`;
+    }
+
+    if (type === 'RL') {
+        html += `<div class="tt-upgrade dim">Lv3: 2 missiles per shot; ${Math.round(GAME_CONFIG.RL_L3_SPLASH_MULT * 100)}% splash damage to adjacent enemy structures</div>`;
+    }
+
+    if (type === 'AB') {
+        html += `<div class="tt-upgrade dim">Lv3: ${Math.round(GAME_CONFIG.AB_L3_STEALTH_CHANCE * 100)}% stealth strike (${GAME_CONFIG.AB_L3_STEALTH_MISSILES} missiles, cannot be intercepted)</div>`;
+    }
+
+    if (type === 'D') {
+        html += `<div class="tt-upgrade dim">Lv3: jamming — enemy military &amp; AA in range fire ${Math.round((GAME_CONFIG.DRONE_L3_RECHARGE_DEBUFF_MULT - 1) * 100)}% slower (MF excluded)</div>`;
+    }
+
+    if (type === 'MF') {
+        html += `<div class="tt-upgrade dim">All levels: missile output ×${GAME_CONFIG.MF_GLOBAL_PRODUCTION_MULT} (−${Math.round((1 - GAME_CONFIG.MF_GLOBAL_PRODUCTION_MULT) * 100)}%). Lv3: +${Math.round((GAME_CONFIG.MF_L3_NEIGHBOR_PRODUCTION_MULT - 1) * 100)}% to adjacent friendly factories (not self)</div>`;
+    }
+
     if (type === 'M') {
         html += `<div class="tt-upgrade">Max: ${GAME_CONFIG.MILITIA_BASE_CAP} + ${GAME_CONFIG.MILITIA_PER_EXTRA_GOV} per Gov beyond your first</div>`;
-        html += `<div class="tt-upgrade dim">Lv3: stops attacking — becomes a mini-Government (territory, gold, supply hub only).</div>`;
+        const m3 = def.levels[2];
+        html += `<div class="tt-upgrade dim">Lv3: <b>${m3.displayName || 'Partisan Regiment'}</b> — same range and damage as Lv2, more HP.</div>`;
     }
 
     buildTooltip.innerHTML = html;
@@ -1172,8 +1196,9 @@ function selectTile(tile) {
         }
     }
 
+    const titleName = (stats.displayName || UNIT_STATS[tile.structure.type].name).toUpperCase();
     infoContent.innerHTML = `
-        <h4>${UNIT_STATS[tile.structure.type].name.toUpperCase()} · LVL ${tile.structure.level + 1}</h4>
+        <h4>${titleName} · LVL ${tile.structure.level + 1}</h4>
         <p>Owner: ${game.players[tile.owner - 1]?.name || ('P' + tile.owner)}</p>
         <p>HP: ${Math.round(tile.hp)} / ${tile.maxHp}</p>
         ${stats.range  ? `<p>Atk Range: ${stats.range}</p>` : ''}

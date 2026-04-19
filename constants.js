@@ -16,8 +16,7 @@
 //
 //  SUPPLY LINES
 //    A structure is "in supply" if it sits within the influence radius of any
-//    friendly Government, Barracks, or Militia-Gov (M3). Otherwise it operates
-//    at SUPPLY_OUT_MULT speed.
+//    friendly Government or Barracks. Otherwise it operates at SUPPLY_OUT_MULT speed.
 //
 //  FOG OF WAR
 //    Each structure grants vision out to its explicit `vision` stat.
@@ -96,6 +95,19 @@ export const GAME_CONFIG = {
     // and take −10% damage from projectiles. Overlapping L3 Barracks do not stack (single application).
     BARRACKS_L3_COMMAND_OUT_MULT: 1.1,
     BARRACKS_L3_COMMAND_IN_MULT: 0.9,
+    /** Lv3 Government: tiles within its radius that earn gov gold get this mult (non-stacking across G3). */
+    GOV_L3_GOLD_AURA_MULT: 1.2,
+    /** RL3 primary hit splashes this fraction of rocket damage to adjacent enemy structures. */
+    RL_L3_SPLASH_MULT: 0.5,
+    /** AB L3: chance per shot for a stealth strike (non-interceptable, uses AB_L3_STEALTH_MISSILES). */
+    AB_L3_STEALTH_CHANCE: 0.3,
+    AB_L3_STEALTH_MISSILES: 2,
+    /** Enemy L3 Drone: military + AAS in range get this mult on interval/recharge (slower fire). MF excluded. */
+    DRONE_L3_RECHARGE_DEBUFF_MULT: 1.25,
+    /** All Missile Factories: missiles produced × this (global −40%). */
+    MF_GLOBAL_PRODUCTION_MULT: 0.6,
+    /** Non–MF3 factory adjacent (hex 1) to a friendly MF3: production × this; MF3 does not buff itself. Non-stack. */
+    MF_L3_NEIGHBOR_PRODUCTION_MULT: 1.3,
     /** Max militia with one Government; +MILITIA_PER_EXTRA_GOV for each additional Gov. */
     MILITIA_BASE_CAP: 5,
     MILITIA_PER_EXTRA_GOV: 2,
@@ -125,7 +137,7 @@ export const UNIT_STATS = {
         levels: [
             { id: "RL1", hp: 108, range: 7,  damage: 52,  cost: 225, interval: 10200, missilesPerShot: 1, projectiles: 1, interceptable: true, vision: 6  },
             { id: "RL2", hp: 240, range: 10, damage: 74,  cost: 325, interval: 7100,  missilesPerShot: 1, projectiles: 1, interceptable: true, vision: 8  },
-            { id: "RL3", hp: 413, range: 14, damage: 102, cost: 425, interval: 5050,  missilesPerShot: 2, projectiles: 1, interceptable: true, vision: 11 }
+            { id: "RL3", hp: 413, range: 14, damage: 102, cost: 425, interval: 5050,  missilesPerShot: 2, projectiles: 1, interceptable: true, vision: 11, splash: true }
         ]
     },
     AAS: {
@@ -147,18 +159,19 @@ export const UNIT_STATS = {
     },
     G: {
         name: "Government",
+        // List costs tuned vs ideal full-disk income (N(r)=1+3r(r+1), one Gov); gold/tile tiers 0.4 / 0.42 / 0.44.
         levels: [
-            { id: "G1", hp: 375,  radius: 4,  cost: 450,  influence: 1050, vision: 8,  goldPerTile: 0.5  },
-            { id: "G2", hp: 1081, radius: 7,  cost: 1000, influence: 2300, vision: 10, goldPerTile: 0.5  },
-            { id: "G3", hp: 2457, radius: 11, cost: 1950, influence: 4150, vision: 12, goldPerTile: 0.5  }
+            { id: "G1", hp: 375,  radius: 3,  cost: 410,  influence: 1750, vision: 8,  goldPerTile: 0.4  },
+            { id: "G2", hp: 1081, radius: 6,  cost: 1410, influence: 3050, vision: 10, goldPerTile: 0.42 },
+            { id: "G3", hp: 2457, radius: 9,  cost: 3250, influence: 6050, vision: 12, goldPerTile: 0.44 }
         ]
     },
     D: {
         name: "Drone Operator",
         levels: [
-            { id: "D1", hp: 65,  range: 5, damage: 11, cost: 155, interval: 6200, projectiles: 1, interceptable: true, vision: 5 },
-            { id: "D2", hp: 137, range: 6, damage: 13, cost: 205, interval: 5250, projectiles: 2, interceptable: true, vision: 6 },
-            { id: "D3", hp: 227, range: 7, damage: 13, cost: 255, interval: 4750, projectiles: 3, interceptable: true, vision: 7 }
+            { id: "D1", hp: 58,  range: 5, damage: 11, cost: 155, interval: 6200, projectiles: 1, interceptable: true, vision: 5 },
+            { id: "D2", hp: 125, range: 6, damage: 13, cost: 205, interval: 5250, projectiles: 2, interceptable: true, vision: 6 },
+            { id: "D3", hp: 200, range: 7, damage: 13, cost: 255, interval: 4750, projectiles: 3, interceptable: true, vision: 7, jamming: true }
         ]
     },
     M: {
@@ -167,24 +180,25 @@ export const UNIT_STATS = {
         levels: [
             { id: "M1", hp: 40,  range: 1, damage: 38, cost: 135, interval: 7600,  projectiles: 1, interceptable: false, vision: 4 },
             { id: "M2", hp: 86,  range: 2, damage: 52, cost: 185, interval: 4800,  projectiles: 1, interceptable: false, vision: 5 },
-            { id: "M3", hp: 154, radius: 2, cost: 275, transformsToGov: true, influence: 780, vision: 6, goldPerTile: 0.5 }
+            { id: "M3_PARTISAN", displayName: "Partisan Regiment", hp: 155, range: 2, damage: 52, cost: 275, interval: 4800, projectiles: 1, interceptable: false, vision: 6 }
         ]
     },
     AB: {
         name: "Air Base",
-        // Best sustained DPS/$ vs RL/B; expensive. Interceptable strikes — AA is the hard counter. HP kept moderate so focus fire / AA punish overextension.
+        // Higher DPS/$ than RL at same tier, slower cadence; HP/$ near RL. Stealth strike on L3 (see GAME_CONFIG).
         levels: [
-            { id: "AB1", hp: 160, range: 7,  damage: 136, cost: 350,  interval: 15200, missilesPerShot: 1, projectiles: 1, interceptable: true, projectileSpeed: 4.5, vision: 7  },
-            { id: "AB2", hp: 455, range: 10, damage: 230, cost: 750,  interval: 10000, missilesPerShot: 2, projectiles: 1, interceptable: true, projectileSpeed: 5.5, vision: 10  },
-            { id: "AB3", hp: 1000, range: 13, damage: 420, cost: 1400, interval: 8100,  missilesPerShot: 3, projectiles: 1, interceptable: true, projectileSpeed: 6.5, vision: 13 }
+            { id: "AB1", hp: 175, range: 7,  damage: 145, cost: 350,  interval: 15800, missilesPerShot: 1, projectiles: 1, interceptable: true, projectileSpeed: 4.5, vision: 7  },
+            { id: "AB2", hp: 500, range: 10, damage: 255, cost: 750,  interval: 10200, missilesPerShot: 2, projectiles: 1, interceptable: true, projectileSpeed: 5.5, vision: 10  },
+            { id: "AB3", hp: 1250, range: 13, damage: 600, cost: 1400, interval: 8800,  missilesPerShot: 3, projectiles: 1, interceptable: true, projectileSpeed: 6.5, vision: 13 }
         ]
     },
     B: {
         name: "Barracks",
+        // Tanky: highest HP/$ among combat structures; DPS tuned low–medium.
         levels: [
-            { id: "B1", hp: 215, range: 3, radius: 3, damage: 52,  cost: 425,  interval: 6700, projectiles: 1, interceptable: false, influence: 1450, vision: 8  },
-            { id: "B2", hp: 601, range: 4, radius: 4, damage: 78,  cost: 900,  interval: 4800, projectiles: 1, interceptable: false, influence: 1850, vision: 10 },
-            { id: "B3", hp: 1329, range: 5, radius: 5, damage: 105, cost: 1700, interval: 2850, projectiles: 1, interceptable: false, influence: 2480, vision: 12 }
+            { id: "B1", hp: 250, range: 3, radius: 3, damage: 45,  cost: 425,  interval: 7200, projectiles: 1, interceptable: false, influence: 1450, vision: 8  },
+            { id: "B2", hp: 680, range: 4, radius: 4, damage: 68,  cost: 900,  interval: 5200, projectiles: 1, interceptable: false, influence: 1850, vision: 10 },
+            { id: "B3", hp: 1780, range: 5, radius: 5, damage: 88, cost: 1700, interval: 3400, projectiles: 1, interceptable: false, influence: 2480, vision: 12 }
         ]
     }
 };

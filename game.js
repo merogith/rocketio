@@ -21,7 +21,6 @@ function isInfluencer(structure) {
     if (!structure) return false;
     if (structure.type === 'G') return true;
     if (structure.type === 'B') return true;
-    if (structure.type === 'M' && structure.stats?.transformsToGov) return true;
     return false;
 }
 
@@ -66,6 +65,8 @@ export class Game {
         this._govTiles = [];
         this._structureTiles = [];
         this._l3BarracksTiles = [];
+        this._l3GovTiles = [];
+        this._d3JamTiles = [];
         this._govCount = [];
 
         // --- Diplomacy ---
@@ -82,12 +83,16 @@ export class Game {
         this._govTiles.length = 0;
         this._structureTiles.length = 0;
         this._l3BarracksTiles.length = 0;
+        this._l3GovTiles.length = 0;
+        this._d3JamTiles.length = 0;
         this._govCount = new Array(this.players.length).fill(0);
         for (const tile of this.grid.tiles.values()) {
             if (!tile.structure) continue;
             this._structureTiles.push(tile);
             if (tile.structure.type === 'AAS') this._aasTiles.push(tile);
             if (tile.structure.type === 'B' && tile.structure.level === 2) this._l3BarracksTiles.push(tile);
+            if (tile.structure.type === 'G' && tile.structure.level === 2 && tile.owner) this._l3GovTiles.push(tile);
+            if (tile.structure.type === 'D' && tile.structure.level === 2 && tile.structure.stats?.jamming) this._d3JamTiles.push(tile);
             if (tile.structure.type === 'G' && tile.owner) {
                 this._govTiles.push(tile);
                 this._govCount[tile.owner - 1] = (this._govCount[tile.owner - 1] || 0) + 1;
@@ -109,6 +114,48 @@ export class Game {
             const s = bTile.structure;
             const r = s._lockedRadius ?? s.stats.radius ?? 0;
             if (Hex.distance(tile, bTile) <= r) return true;
+        }
+        return false;
+    }
+
+    /** Owned land tile earning gov gold: within a friendly Lv3 Government radius (non-stacking mult in tick). */
+    _inFriendlyG3GoldAura(tile, ownerId) {
+        if (!tile || !ownerId) return false;
+        this._ensureIndex();
+        for (const gTile of this._l3GovTiles) {
+            if (gTile.owner !== ownerId) continue;
+            const s = gTile.structure;
+            const r = s._lockedRadius ?? s.stats.radius ?? 0;
+            if (Hex.distance(tile, gTile) <= r) return true;
+        }
+        return false;
+    }
+
+    /** Enemy Lv3 Drone in range slows this structure's fire/recharge (RL, AB, B, M, D, AAS). */
+    _enemyDroneL3Slows(tile) {
+        if (!tile?.structure) return false;
+        const t = tile.structure.type;
+        if (t !== 'RL' && t !== 'AB' && t !== 'B' && t !== 'M' && t !== 'D' && t !== 'AAS') return false;
+        const owner = tile.owner;
+        if (!owner) return false;
+        this._ensureIndex();
+        for (const dTile of this._d3JamTiles) {
+            if (!dTile.owner || dTile.owner === owner) continue;
+            if (this.areAllied(dTile.owner, owner)) continue;
+            const r = dTile.structure.stats.range ?? 0;
+            if (Hex.distance(tile, dTile) <= r) return true;
+        }
+        return false;
+    }
+
+    /** Non–MF3 factory tile adjacent to a different friendly MF3 gets production mult (used in MF tick). */
+    _mfNeighborOfFriendlyMF3(tile) {
+        const h = new Hex(tile.q, tile.r);
+        for (const n of h.getNeighbors()) {
+            const nt = this.grid.getTile(n.q, n.r);
+            if (!nt?.structure || nt.structure.type !== 'MF' || nt.owner !== tile.owner) continue;
+            if (nt.q === tile.q && nt.r === tile.r) continue;
+            if (nt.structure.level === 2) return true;
         }
         return false;
     }
@@ -287,8 +334,7 @@ export class Game {
             const s = tile.structure;
             if (!s) continue;
             const isGov = s.type === 'G';
-            const isMilitiaGov = s.type === 'M' && s.stats?.transformsToGov;
-            if (!isGov && !isMilitiaGov) continue;
+            if (!isGov) continue;
             if (isGov && tile.govWarmupUntil && this.gameTime < tile.govWarmupUntil) continue;
             const stats = s.stats;
             const effectiveRadius = s._lockedRadius ?? stats.radius;
@@ -325,6 +371,9 @@ export class Game {
                         bonus += govEffects[i] / (2 ** i);
                     }
                     bonus *= mult;
+                    if (bonus > 0 && this._inFriendlyG3GoldAura(tile, tile.owner)) {
+                        bonus *= GAME_CONFIG.GOV_L3_GOLD_AURA_MULT;
+                    }
                     this.players[ownerIdx].gold += bonus;
                     this.players[ownerIdx].stats.goldEarned += bonus;
                     goldRates[ownerIdx] += bonus;
@@ -598,6 +647,7 @@ export class Game {
     effFor(tile) {
         let mul = intervalEff(tile);
         if (!this.isInSupply(tile, tile.owner)) mul *= GAME_CONFIG.SUPPLY_OUT_MULT;
+        if (this._enemyDroneL3Slows(tile)) mul *= GAME_CONFIG.DRONE_L3_RECHARGE_DEBUFF_MULT;
         return mul;
     }
 
@@ -621,7 +671,11 @@ export class Game {
 
             if (s.type === 'MF') {
                 if (time - tile.lastAction > stats.produceInterval * eff) {
-                    p.missiles += stats.missilesProduced;
+                    let prodMult = GAME_CONFIG.MF_GLOBAL_PRODUCTION_MULT;
+                    if (tile.structure.level !== 2 && this._mfNeighborOfFriendlyMF3(tile)) {
+                        prodMult *= GAME_CONFIG.MF_L3_NEIGHBOR_PRODUCTION_MULT;
+                    }
+                    p.missiles += Math.floor(stats.missilesProduced * prodMult);
                     tile.lastAction = time;
                 }
                 continue;
@@ -664,7 +718,10 @@ export class Game {
             const p = this.players[tile.owner - 1];
             const eff = this.effFor(tile);
             if (time - tile.lastAction <= stats.interval * eff) continue;
-            if (p.missiles < stats.missilesPerShot) continue;
+            const minMissiles = (s.type === 'AB' && tile.structure.level === 2)
+                ? Math.min(GAME_CONFIG.AB_L3_STEALTH_MISSILES, stats.missilesPerShot)
+                : stats.missilesPerShot;
+            if (p.missiles < minMissiles) continue;
             const pid = tile.owner;
             if (!missileReadyByPlayer.has(pid)) missileReadyByPlayer.set(pid, []);
             missileReadyByPlayer.get(pid).push({ tile, eff });
@@ -698,7 +755,10 @@ export class Game {
                 const stats = tile.structure.stats;
                 const s = tile.structure;
                 if (time - tile.lastAction <= stats.interval * eff) continue;
-                if (p.missiles < stats.missilesPerShot) continue;
+                const minM = (s.type === 'AB' && tile.structure.level === 2)
+                    ? Math.min(GAME_CONFIG.AB_L3_STEALTH_MISSILES, stats.missilesPerShot)
+                    : stats.missilesPerShot;
+                if (p.missiles < minM) continue;
                 if (s.type === 'RL') {
                     if (this.fireRocket(tile)) tile.lastAction = time;
                 } else if (this.fireAirBase(tile)) {
@@ -976,13 +1036,15 @@ export class Game {
         p.missiles -= stats.missilesPerShot;
         tile.structure.lastFiredAt = this.gameTime;
         const count = stats.projectiles || 1;
+        const splash = stats.splash && tile.structure.level === 2;
         for (let i = 0; i < count; i++) {
             this.spawnProjectile(tile, target, {
                 type: 'rocket',
                 damage: stats.damage,
                 speed: 3.0,
                 interceptable: stats.interceptable !== false,
-                trail: true
+                trail: true,
+                splash
             });
         }
         this.spawnMuzzleFlash(tile, target, { color: '#ff9130', size: 2, count: 5 });
@@ -996,7 +1058,12 @@ export class Game {
         const target = this.resolveTarget(tile, stats, { missileSmart: true });
         if (!target) return false;
 
-        p.missiles -= stats.missilesPerShot;
+        const isAb3 = tile.structure.type === 'AB' && tile.structure.level === 2;
+        const stealth = isAb3 && Math.random() < GAME_CONFIG.AB_L3_STEALTH_CHANCE;
+        const missilesCost = stealth ? GAME_CONFIG.AB_L3_STEALTH_MISSILES : stats.missilesPerShot;
+        if (p.missiles < missilesCost) return false;
+
+        p.missiles -= missilesCost;
         tile.structure.lastFiredAt = this.gameTime;
         const count = stats.projectiles || 1;
         for (let i = 0; i < count; i++) {
@@ -1004,7 +1071,7 @@ export class Game {
                 type: 'airstrike',
                 damage: stats.damage,
                 speed: stats.projectileSpeed || 4.5,
-                interceptable: stats.interceptable !== false,
+                interceptable: stealth ? false : (stats.interceptable !== false),
                 trail: true
             });
         }
@@ -1084,6 +1151,7 @@ export class Game {
             damage: dmg,
             speed: opts.speed,
             interceptable: opts.interceptable,
+            splash: !!opts.splash,
             trail: opts.trail,
             trailPts: [],
             color: COLORS[`PLAYER${atkOwner}`]
@@ -1121,6 +1189,7 @@ export class Game {
     }
 
     checkInterception(proj) {
+        if (proj.interceptable === false) return false;
         this._ensureIndex();
         if (this._aasTiles.length === 0) return false;
 
@@ -1214,6 +1283,33 @@ export class Game {
             this.logEvent(proj.owner, tile.owner, 'hit', `${proj.type} hit ${structName} (-${Math.round(dmg * 10) / 10} HP)`);
 
             if (tile.hp <= 0) this.destroyStructure(tile, proj.owner);
+        }
+
+        if (proj.splash && proj.type === 'rocket') {
+            const origin = new Hex(proj.targetQR.q, proj.targetQR.r);
+            let splashBase = proj.damage * GAME_CONFIG.RL_L3_SPLASH_MULT;
+            for (const n of origin.getNeighbors()) {
+                const nt = this.grid.getTile(n.q, n.r);
+                if (!nt?.structure || !nt.owner) continue;
+                if (this.areAllied(nt.owner, proj.owner)) continue;
+                let sdmg = splashBase;
+                if (this._inFriendlyL3BarracksCommandAura(nt, nt.owner)) {
+                    sdmg *= GAME_CONFIG.BARRACKS_L3_COMMAND_IN_MULT;
+                }
+                nt.hp -= sdmg;
+                nt.lastDamageTime = this.gameTime;
+                const atk = this.players[proj.owner - 1];
+                const def = this.players[nt.owner - 1];
+                if (atk) atk.stats.damageDealt += sdmg;
+                if (def) def.stats.damageTaken += sdmg;
+                if (nt.owner === this.humanId && proj.owner !== this.humanId) {
+                    this.pushEvent({ kind: 'hit', tile: { q: nt.q, r: nt.r }, t: this.gameTime });
+                    this.lastOwnDamageTile = { q: nt.q, r: nt.r };
+                }
+                const sn = UNIT_STATS[nt.structure.type]?.name || nt.structure.type;
+                this.logEvent(proj.owner, nt.owner, 'hit', `rocket splash ${sn} (-${Math.round(sdmg * 10) / 10} HP)`);
+                if (nt.hp <= 0) this.destroyStructure(nt, proj.owner);
+            }
         }
     }
 
@@ -1347,7 +1443,7 @@ export class Game {
         if (tile.structure) {
             const p = this.players[tile.owner - 1];
             const t = tile.structure.type;
-            if (p && t === 'M' && !tile.structure._wasMilitiaGov) {
+            if (p && t === 'M') {
                 p.units.M = Math.max(0, p.units.M - 1);
             }
 
@@ -1438,12 +1534,6 @@ export class Game {
                 tile.buildCooldownUntil = 0;
                 tile.lastAction = this.gameTime - newInterval;
             }
-        }
-
-        if (tile.structure.type === 'M' && nextLevel.transformsToGov) {
-            tile.structure.target = null;
-            if (p) p.units.M = Math.max(0, p.units.M - 1);
-            tile.structure._wasMilitiaGov = true;
         }
 
         this.logEvent(tile.owner, null, 'upgrade', `Upgraded ${def.name} to Lv${tile.structure.level + 1}`);
