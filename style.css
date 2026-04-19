@@ -542,6 +542,38 @@ h3 {
 }
 #info-panel p { font-size: 0.85rem; font-family: var(--font-mono); color: rgba(255,255,255,0.8); margin-bottom: 2px; }
 
+.info-owner { color: rgba(255,255,255,0.55) !important; font-size: 0.78rem !important; margin-bottom: 8px !important; }
+.info-card-stats {
+    margin: 6px 0 4px;
+    padding: 8px 0;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 10px;
+    font-size: 0.78rem;
+    font-family: var(--font-mono);
+}
+.info-row .info-label { color: rgba(255,255,255,0.45); flex-shrink: 0; }
+.info-row .info-val { color: var(--accent-blue); text-align: right; }
+.info-perk {
+    margin-top: 6px;
+    padding: 6px 8px;
+    border-radius: 4px;
+    background: rgba(0, 229, 255, 0.06);
+    border: 1px solid rgba(0, 229, 255, 0.15);
+    font-size: 0.68rem !important;
+    font-family: var(--font-ui) !important;
+    color: rgba(255,255,255,0.65) !important;
+    line-height: 1.45;
+}
+
 .target-line {
     margin-top: 6px; padding-top: 6px;
     border-top: 1px dashed var(--glass-border);

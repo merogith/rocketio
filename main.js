@@ -947,6 +947,41 @@ buildBtns.forEach(btn => {
     });
 });
 
+function infoStatRow(label, val) {
+    return `<div class="info-row"><span class="info-label">${label}</span><span class="info-val">${val}</span></div>`;
+}
+
+function computeStructureDps(stats) {
+    if (!stats.damage || !stats.interval) return null;
+    const volley = stats.damage * (stats.projectiles || 1);
+    return volley / (stats.interval / 1000);
+}
+
+/** Lv3 (levelIdx 2) special — shown in selection info panel. */
+function structureL3PerkHtml(type, levelIdx) {
+    if (levelIdx !== 2) return '';
+    switch (type) {
+        case 'G':
+            return `<p class="info-perk"><b>Lv3 — Economic aura</b> · Friendly owned tiles in radius that already earn gov gold get ×${GAME_CONFIG.GOV_L3_GOLD_AURA_MULT} (non-stacking).</p>`;
+        case 'RL':
+            return `<p class="info-perk"><b>Lv3 — Siege</b> · 2 missiles per volley. ${Math.round(GAME_CONFIG.RL_L3_SPLASH_MULT * 100)}% splash damage to adjacent enemy structures.</p>`;
+        case 'AB':
+            return `<p class="info-perk"><b>Lv3 — Stealth sortie</b> · ${Math.round(GAME_CONFIG.AB_L3_STEALTH_CHANCE * 100)}% non-interceptable strike using ${GAME_CONFIG.AB_L3_STEALTH_MISSILES} missiles.</p>`;
+        case 'D':
+            return `<p class="info-perk"><b>Lv3 — Jamming</b> · Enemy RL, AB, Barracks, Militia &amp; AAS in range: +${Math.round((GAME_CONFIG.DRONE_L3_RECHARGE_DEBUFF_MULT - 1) * 100)}% fire interval (MF excluded).</p>`;
+        case 'MF':
+            return `<p class="info-perk"><b>Lv3 — Logistics</b> · Adjacent friendly factories +${Math.round((GAME_CONFIG.MF_L3_NEIGHBOR_PRODUCTION_MULT - 1) * 100)}% output (not self). All factories: ×${GAME_CONFIG.MF_GLOBAL_PRODUCTION_MULT} global.</p>`;
+        case 'B':
+            return `<p class="info-perk"><b>Lv3 — Command</b> · In influence: allies +${Math.round((GAME_CONFIG.BARRACKS_L3_COMMAND_OUT_MULT - 1) * 100)}% damage dealt, −${Math.round((1 - GAME_CONFIG.BARRACKS_L3_COMMAND_IN_MULT) * 100)}% damage taken (non-stacking).</p>`;
+        case 'M':
+            return `<p class="info-perk"><b>Lv3 — Partisan Regiment</b> · Same range and damage as Lv2; higher HP. Counts toward militia cap.</p>`;
+        case 'AAS':
+            return `<p class="info-perk"><b>Lv3 — Battery</b> · Larger magazine and faster recharge cycle vs lower tiers.</p>`;
+        default:
+            return '';
+    }
+}
+
 /** One-line summary of a tier's stats for build tooltips (matches UNIT_STATS). */
 function summarizeLevelForTooltip(type, lv) {
     const parts = [];
@@ -1005,7 +1040,12 @@ function showBuildTooltip(btn) {
         html += `<div class="tt-stat"><span class="tt-label">${label}</span><span class="tt-val">${val}</span></div>`;
     });
 
-    if (l1.goldPerTile) {
+    if (type === 'G' && def.levels.length >= 3) {
+        const a = def.levels[0].goldPerTile;
+        const b = def.levels[1].goldPerTile;
+        const c = def.levels[2].goldPerTile;
+        html += `<div class="tt-stat"><span class="tt-label">Gold/tile</span><span class="tt-val">+${a} / +${b} / +${c}/s</span></div>`;
+    } else if (l1.goldPerTile) {
         html += `<div class="tt-stat"><span class="tt-label">Gold/tile</span><span class="tt-val">+${l1.goldPerTile}/s</span></div>`;
     }
 
@@ -1138,7 +1178,12 @@ function selectTile(tile) {
     if (tile.owner !== 1 && !game.isVisibleTo(tile, 1)) {
         const mem = game.players[0].memory.get(`${tile.q},${tile.r}`);
         infoPanel.classList.remove('hidden');
-        const name = mem?.type ? UNIT_STATS[mem.type].name : 'Unknown';
+        let name = 'Unknown';
+        if (mem?.type) {
+            const def = UNIT_STATS[mem.type];
+            const lv = mem.level != null ? def?.levels?.[mem.level] : null;
+            name = lv?.displayName || def?.name || mem.type;
+        }
         infoContent.innerHTML = `<h4>${name.toUpperCase()} — LAST SEEN</h4><p>Outside fog. Information may be outdated.</p>`;
         upgradeBtn.classList.add('hidden');
         upgradeAllBtn.classList.add('hidden');
@@ -1165,45 +1210,72 @@ function selectTile(tile) {
         }
     }
 
-    let goldPerTile = '';
+    const stype = tile.structure.type;
+    const levelIdx = tile.structure.level;
+    const effectiveRadius = tile.structure._lockedRadius ?? stats.radius;
+
+    let govWarmupBlock = '';
+    const statRows = [];
+    statRows.push(infoStatRow('HP', `${Math.round(tile.hp)} / ${tile.maxHp}`));
     if (stats.goldPerTile) {
         const warmingUp = tile.govWarmupUntil && game.gameTime < tile.govWarmupUntil;
         if (warmingUp) {
             const secsLeft = Math.ceil((tile.govWarmupUntil - game.gameTime) / 1000);
-            goldPerTile = `<p class="supply-line bad">WARMING UP — ${secsLeft}s</p>`;
+            govWarmupBlock = `<p class="supply-line bad">GOV WARMUP — ${secsLeft}s (no gold yet)</p>`;
         } else {
-            goldPerTile = `<p>Gold/tile: +${stats.goldPerTile}/s</p>`;
+            statRows.push(infoStatRow('Gold/tile', `+${stats.goldPerTile}/s`));
         }
     }
-    const effectiveRadius = tile.structure._lockedRadius ?? stats.radius;
-    const influence = stats.influence ? `<p>Influence: ${stats.influence}</p>` : '';
-    const radius    = effectiveRadius ? `<p>Inf. Range: ${effectiveRadius}${(stats.radius || effectiveRadius) && isOwn ? ` <span class="dim">(build new to expand)</span>` : ''}</p>` : '';
-    const visionStat = stats.vision   ? `<p>Vision: ${stats.vision}</p>` : '';
-    const intervalSec = stats.interval ? `<p>Fire Rate: ${(stats.interval/1000).toFixed(0)}s</p>`
-                      : stats.rechargeInterval ? `<p>Recharge: ${(stats.rechargeInterval/1000).toFixed(0)}s (×${stats.missilesRecharged || 1})</p>`
-                      : stats.produceInterval  ? `<p>Cycle: ${(stats.produceInterval/1000).toFixed(0)}s</p>` : '';
-    const missiles = tile.structure.type === 'AAS' ? `<p>Charges: ${tile.structure.charge || 0}/${stats.chargeCap || 10}</p>` : '';
+    if (stats.range != null) statRows.push(infoStatRow('Atk range', String(stats.range)));
+    if (stats.damage != null) statRows.push(infoStatRow('Damage / hit', String(stats.damage)));
+    const dps = computeStructureDps(stats);
+    if (dps != null) statRows.push(infoStatRow('DPS (max HP)', dps.toFixed(1)));
+    if ((stype === 'RL' || stype === 'AB') && stats.missilesPerShot != null) {
+        statRows.push(infoStatRow('Missiles / shot', String(stats.missilesPerShot)));
+    }
+    if (stats.projectiles > 1) statRows.push(infoStatRow('Projectiles / volley', String(stats.projectiles)));
+    if (effectiveRadius != null && (stype === 'G' || stype === 'B')) {
+        const rv = isOwn ? `${effectiveRadius} <span class="dim">(upgrade expands)</span>` : String(effectiveRadius);
+        statRows.push(infoStatRow(stype === 'G' ? 'Inf. range' : 'Cmd radius', rv));
+    }
+    if (stats.influence) statRows.push(infoStatRow('Influence', String(stats.influence)));
+    if (stats.vision) statRows.push(infoStatRow('Vision', String(stats.vision)));
+    if (stats.interval) statRows.push(infoStatRow('Fire interval', `${(stats.interval / 1000).toFixed(1)}s`));
+    else if (stats.rechargeInterval) {
+        statRows.push(infoStatRow('Recharge', `${(stats.rechargeInterval / 1000).toFixed(1)}s ×${stats.missilesRecharged || 1}`));
+    } else if (stats.produceInterval && stype === 'MF') {
+        const raw = stats.missilesProduced || 0;
+        const eff = Math.floor(raw * GAME_CONFIG.MF_GLOBAL_PRODUCTION_MULT);
+        statRows.push(infoStatRow('Cycle', `${(stats.produceInterval / 1000).toFixed(1)}s`));
+        statRows.push(infoStatRow('Missiles / cycle', `${eff} <span class="dim">(${raw}×${GAME_CONFIG.MF_GLOBAL_PRODUCTION_MULT})</span>`));
+    } else if (stats.produceInterval) {
+        statRows.push(infoStatRow('Cycle', `${(stats.produceInterval / 1000).toFixed(1)}s`));
+    }
+    if (stype === 'AAS') {
+        statRows.push(infoStatRow('Charges', `${tile.structure.charge || 0} / ${stats.chargeCap || 10}`));
+    }
+
     const supplyLine = (stats.interval || stats.produceInterval || stats.rechargeInterval)
         ? `<p class="supply-line ${inSupply ? 'ok' : 'bad'}">${inSupply ? 'IN SUPPLY' : 'OUT OF SUPPLY'}</p>`
         : '';
     const contestLine = tile.contested ? `<p class="supply-line bad">PARALYZED — CONTESTED</p>` : '';
     const hint = (attacker && isOwn) ? `<p class="hint">Drag to assign target.</p>` : '';
     let doctrineLine = '';
-    if (!isOwn && tile.structure.type === 'G' && game.isVisibleTo(tile, 1)) {
+    if (!isOwn && stype === 'G' && game.isVisibleTo(tile, 1)) {
         const owner = game.players[tile.owner - 1];
         if (owner?.doctrine?.name) {
             doctrineLine = `<p class="hint" style="color:${owner.doctrine.color}">Doctrine: ${owner.doctrine.name}</p>`;
         }
     }
 
-    const titleName = (stats.displayName || UNIT_STATS[tile.structure.type].name).toUpperCase();
+    const perk = structureL3PerkHtml(stype, levelIdx);
+    const titleName = (stats.displayName || UNIT_STATS[stype].name).toUpperCase();
     infoContent.innerHTML = `
-        <h4>${titleName} · LVL ${tile.structure.level + 1}</h4>
-        <p>Owner: ${game.players[tile.owner - 1]?.name || ('P' + tile.owner)}</p>
-        <p>HP: ${Math.round(tile.hp)} / ${tile.maxHp}</p>
-        ${stats.range  ? `<p>Atk Range: ${stats.range}</p>` : ''}
-        ${stats.damage ? `<p>Damage: ${stats.damage}</p>` : ''}
-        ${radius}${influence}${goldPerTile}${visionStat}${intervalSec}${missiles}
+        <h4>${titleName} · LVL ${levelIdx + 1}</h4>
+        <p class="info-owner">Owner: ${game.players[tile.owner - 1]?.name || ('P' + tile.owner)}</p>
+        ${govWarmupBlock}
+        <div class="info-card-stats">${statRows.join('')}</div>
+        ${perk}
         ${supplyLine}${contestLine}${targetLine}${doctrineLine}${hint}
     `;
 
@@ -1297,10 +1369,11 @@ function showMultiSelectPanel() {
         totalDemolishRefund += Math.floor(totalCost * GAME_CONFIG.DEMOLISH_REFUND_MULT);
     }
 
-    const typeList = Object.entries(types).map(([t, n]) => `${n}x ${UNIT_STATS[t]?.name || t}`).join(', ');
+    const typeList = Object.entries(types).map(([t, n]) => `${n}× ${UNIT_STATS[t]?.name || t}`).join(', ');
     infoContent.innerHTML = `
         <h4>MULTI-SELECT · ${count} STRUCTURES</h4>
-        <p>${typeList}</p>
+        <p class="info-owner">${typeList}</p>
+        <p class="hint">Select a single structure for full stats, DPS, and Lv3 ability text.</p>
     `;
 
     if (allUpgradable && totalUpgradeCost > 0) {
