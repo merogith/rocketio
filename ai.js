@@ -1,5 +1,5 @@
 // ============================================================================
-//  ROCKETIO — AI v0.6
+//  ROCKETIO — AI v0.7
 // ----------------------------------------------------------------------------
 //  Strategic loop per AI tick:
 //
@@ -75,14 +75,94 @@ function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
 
 const MAX_TARGET_GOV = 12;
 
+/**
+ * Per-difficulty tuning: expansion vs militia spam, gov timing, aggression.
+ * `humanTargetMult` / `humanPressureMult` make PvE bots prioritize the human a bit more (fair: they still share fog rules).
+ */
+function aiParams(game) {
+    const d = game.aiDifficulty || 'normal';
+    if (d === 'very_hard') {
+        return {
+            secondGovMinTiles: 3,
+            openingMilitiaBeforeGov2: 1,
+            openingMilitiaMax: 6,
+            exitOpeningMinStructures: 5,
+            economyGoldMult: 0.7,
+            strategicMilitiaPhaseMult: 0.34,
+            fortifyWithOneGovTileBonus: 4,
+            extraActionsDominate: 2,
+            extraActionsPressure: 2,
+            phaseAggressScale: 0.86,
+            humanTargetMult: 1.32,
+            humanPressureMult: 1.22,
+            upgradeBiasScale: 1.24,
+            frontierTopN: 2,
+        };
+    }
+    if (d === 'hard') {
+        return {
+            secondGovMinTiles: 4,
+            openingMilitiaBeforeGov2: 2,
+            openingMilitiaMax: 5,
+            exitOpeningMinStructures: 6,
+            economyGoldMult: 0.78,
+            strategicMilitiaPhaseMult: 0.42,
+            fortifyWithOneGovTileBonus: 3,
+            extraActionsDominate: 1,
+            extraActionsPressure: 1,
+            phaseAggressScale: 0.94,
+            humanTargetMult: 1.14,
+            humanPressureMult: 1.1,
+            upgradeBiasScale: 1.08,
+            frontierTopN: 3,
+        };
+    }
+    if (d === 'easy') {
+        return {
+            secondGovMinTiles: 5,
+            openingMilitiaBeforeGov2: 3,
+            openingMilitiaMax: 6,
+            exitOpeningMinStructures: 8,
+            economyGoldMult: 1.12,
+            strategicMilitiaPhaseMult: 0.88,
+            fortifyWithOneGovTileBonus: 0,
+            extraActionsDominate: 0,
+            extraActionsPressure: 0,
+            phaseAggressScale: 1.06,
+            humanTargetMult: 1,
+            humanPressureMult: 0.98,
+            upgradeBiasScale: 0.9,
+            frontierTopN: 3,
+        };
+    }
+    return {
+        secondGovMinTiles: 5,
+        openingMilitiaBeforeGov2: 2,
+        openingMilitiaMax: 5,
+        exitOpeningMinStructures: 7,
+        economyGoldMult: 1,
+        strategicMilitiaPhaseMult: 0.62,
+        fortifyWithOneGovTileBonus: 1,
+        extraActionsDominate: 0,
+        extraActionsPressure: 0,
+        phaseAggressScale: 1,
+        humanTargetMult: 1.07,
+        humanPressureMult: 1.04,
+        upgradeBiasScale: 1,
+        frontierTopN: 3,
+    };
+}
+
 /** Desired Government count scales with owned tiles, map size, and difficulty (capped). */
 function computeTargetGovCount(game, p, snap, shared) {
     const landScale = Math.max(1, (shared.totalLandTiles || 400) / 400);
     const tc = p.tileCount;
     const difficulty = game.aiDifficulty || 'normal';
-    let n = 2 + Math.floor((tc * landScale) / 42);
-    if (difficulty === 'hard') n += 1;
-    else if (difficulty === 'easy') n -= 1;
+    let n = 2 + Math.floor((tc * landScale) / 40);
+    if (difficulty === 'very_hard') n += 3;
+    else if (difficulty === 'hard') n += 2;
+    else if (difficulty === 'easy') n += 0;
+    else n += 1;
     return clamp(n, 2, MAX_TARGET_GOV);
 }
 
@@ -94,9 +174,9 @@ function effectiveTargetGovCount(game, p, snap, shared, doctrine) {
 }
 
 function phasedGovNeed(targetG, phase) {
-    if (phase === PHASES.EXPAND) return Math.min(targetG, Math.max(1, Math.ceil(targetG * 0.4)));
-    if (phase === PHASES.FORTIFY) return Math.min(targetG, Math.max(2, Math.ceil(targetG * 0.55)));
-    if (phase === PHASES.PRESSURE) return Math.min(targetG, Math.max(3, Math.ceil(targetG * 0.75)));
+    if (phase === PHASES.EXPAND) return Math.min(targetG, Math.max(2, Math.ceil(targetG * 0.52)));
+    if (phase === PHASES.FORTIFY) return Math.min(targetG, Math.max(2, Math.ceil(targetG * 0.68)));
+    if (phase === PHASES.PRESSURE) return Math.min(targetG, Math.max(3, Math.ceil(targetG * 0.82)));
     return targetG;
 }
 
@@ -333,15 +413,20 @@ function detectPhase(game, p, snap, shared) {
     const isLeader    = shared.leaderId === p.id;
 
     const landScale = Math.max(1, (shared.totalLandTiles || 400) / 400);
-    const scaledFortify  = Math.round(12 * landScale);
-    const scaledPressure = Math.round(18 * landScale);
-    const scaledDominate = Math.round(40 * landScale);
+    const params = aiParams(game);
+    const pas = params.phaseAggressScale ?? 1;
+    const scaledFortify  = Math.round(11 * landScale * pas);
+    const scaledPressure = Math.round(16 * landScale * pas);
+    const scaledDominate = Math.round(36 * landScale * pas);
+    const fortifyTileFloor = scaledFortify + (params.fortifyWithOneGovTileBonus || 0);
 
-    if ((p.gold > 1400 && hasCombat && tc > scaledPressure) || (tc > scaledDominate && hasCombat))
+    if ((p.gold > 1200 && hasCombat && tc > scaledPressure) || (tc > scaledDominate && hasCombat))
         return PHASES.DOMINATE;
     if (tc > scaledPressure && hasCombat)
         return PHASES.PRESSURE;
-    if (tc >= scaledFortify && snap.govCount >= 2)
+    if (tc >= fortifyTileFloor && snap.govCount >= 2)
+        return PHASES.FORTIFY;
+    if (tc >= fortifyTileFloor + 2 && snap.govCount >= 1 && hasCombat)
         return PHASES.FORTIFY;
     if (isLeader && tc >= Math.round(10 * landScale))
         return PHASES.FORTIFY;
@@ -378,11 +463,14 @@ export function updateAI(game, time) {
         const phase = detectPhase(game, p, snap, shared);
         p._aiPhase = phase;
 
-        const baseDelay = phase >= PHASES.PRESSURE ? 300 : 500;
+        const params = aiParams(game);
+        const baseDelay = phase >= PHASES.PRESSURE ? 260 : 420;
         const tickMult = game._difficulty?.tickMult ?? 1;
-        p.nextAiAction = time + (baseDelay + Math.random() * 300) * tickMult;
+        p.nextAiAction = time + (baseDelay + Math.random() * 260) * tickMult;
 
-        const actions = phase >= PHASES.DOMINATE ? 4 : (phase >= PHASES.PRESSURE ? 3 : 2);
+        let actions = phase >= PHASES.DOMINATE ? 4 : (phase >= PHASES.PRESSURE ? 3 : 2);
+        if (phase >= PHASES.DOMINATE) actions += params.extraActionsDominate || 0;
+        else if (phase >= PHASES.PRESSURE) actions += params.extraActionsPressure || 0;
         for (let a = 0; a < actions; a++) runAITick(game, p, time);
     }
 
@@ -406,7 +494,7 @@ function runDiplomacyTick(game, p) {
     const leaderId = shared.leaderId;
     const leaderScore = shared.leaderScore;
     const difficulty = game.aiDifficulty || 'normal';
-    const isHard = difficulty === 'hard';
+    const isHard = difficulty === 'hard' || difficulty === 'very_hard';
 
     // 1) Handle pending incoming requests
     for (const rel of Object.values(game.relations)) {
@@ -483,7 +571,7 @@ function runDiplomacyTick(game, p) {
         if (ratio < 0.5 || ratio > 1.6) continue;
         let score = 1 - Math.abs(1 - ratio);
         if (wantGangUp) score += 0.5;
-        if (q.id === game.humanId) score += 0.15;
+        if (q.id === game.humanId) score += difficulty === 'very_hard' ? 0.26 : 0.15;
         // Geographic proximity bonus: closer enemies make better allies
         const qTiles = shared.allByPlayer.get(q.id) || [];
         const myTiles = shared.allByPlayer.get(p.id) || [];
@@ -559,6 +647,7 @@ function goto_done(p) {
 function tryOpeningBuildOrder(game, p, snap, shared, phase) {
     if (phase > PHASES.EXPAND) return false;
 
+    const pr = aiParams(game);
     const totalStructures = snap.structures.length;
     const govs = snap.ownByType.G?.length || 0;
     const mfs = snap.ownByType.MF?.length || 0;
@@ -570,38 +659,37 @@ function tryOpeningBuildOrder(game, p, snap, shared, phase) {
         if (spot) return game.buildStructure(spot, 'MF', p.id);
     }
 
-    // Step 2: Expand with militia to claim territory fast (3-4 militia)
-    if (mfs >= 1 && militias < 3 && p.units.M < game.militiaCap(p)) {
-        if (canAffordType(p, 'M')) {
-            const spot = findMilitiaSpot(game, p.id, snap);
-            if (spot) return game.buildStructure(spot, 'M', p.id);
-        }
-        return false;
-    }
-
-    // Step 3: Second Gov when we have enough territory (>= 6 tiles)
-    if (govs < 2 && p.tileCount >= 6 && canAffordType(p, 'G')) {
+    // Step 2: Second Government early — dual income / influence beats militia flood
+    if (mfs >= 1 && govs < 2 && p.tileCount >= pr.secondGovMinTiles && canAffordType(p, 'G')) {
         const spot = findGovSpot(game, p.id, snap);
         if (spot) return game.buildStructure(spot, 'G', p.id);
     }
 
-    // Step 4: Keep expanding militia to 5-6 while waiting for gold
-    if (govs >= 1 && mfs >= 1 && militias < 5 && p.units.M < game.militiaCap(p)) {
+    // Step 3: A few militia for early tiles (cap scales with difficulty — was hard-locked to 3 then 5)
+    const earlyMilitiaCap = pr.openingMilitiaBeforeGov2;
+    if (mfs >= 1 && govs < 2 && militias < earlyMilitiaCap && p.units.M < game.militiaCap(p)) {
         if (canAffordType(p, 'M')) {
             const spot = findMilitiaSpot(game, p.id, snap);
             if (spot) return game.buildStructure(spot, 'M', p.id);
         }
     }
 
-    // Step 5: First combat unit — doctrine-aware choice
-    if (govs >= 2 && mfs >= 1 && totalStructures >= 6) {
+    // Step 4: After two govs, more militia for push (bounded)
+    if (govs >= 2 && mfs >= 1 && militias < pr.openingMilitiaMax && p.units.M < game.militiaCap(p)) {
+        if (canAffordType(p, 'M')) {
+            const spot = findMilitiaSpot(game, p.id, snap);
+            if (spot) return game.buildStructure(spot, 'M', p.id);
+        }
+    }
+
+    // Step 5: First combat unit — sooner on hard, doctrine-weighted
+    if (govs >= 2 && mfs >= 1 && totalStructures >= pr.exitOpeningMinStructures - 1) {
         const doctrine = p.doctrine;
         if (doctrine) {
-            // Pick first combat unit based on doctrine preference
             const options = [];
-            if (canAffordType(p, 'B') && p.missiles >= 0)  options.push({ type: 'B', w: doctrine.B });
-            if (canAffordType(p, 'RL') && p.missiles >= 2) options.push({ type: 'RL', w: doctrine.RL });
-            if (canAffordType(p, 'D'))                      options.push({ type: 'D', w: doctrine.D });
+            if (canAffordType(p, 'B') && p.missiles >= 0) options.push({ type: 'B', w: doctrine.B * 1.15 });
+            if (canAffordType(p, 'RL') && p.missiles >= 1) options.push({ type: 'RL', w: doctrine.RL * 1.1 });
+            if (canAffordType(p, 'D')) options.push({ type: 'D', w: doctrine.D * 1.1 });
             if (options.length > 0) {
                 const weights = {};
                 for (const o of options) weights[o.type] = o.w;
@@ -612,8 +700,7 @@ function tryOpeningBuildOrder(game, p, snap, shared, phase) {
         }
     }
 
-    // After step 5, exit opening — let normal priorities take over
-    if (govs >= 2 && mfs >= 1 && totalStructures >= 7) return false;
+    if (govs >= 2 && mfs >= 1 && totalStructures >= pr.exitOpeningMinStructures) return false;
 
     return false;
 }
@@ -782,6 +869,8 @@ function tryCounterPlay(game, p, snap) {
 //  PRIORITY 3 — FOCUS FIRE
 // ============================================================================
 function tryFocusFire(game, p, snap, shared) {
+    const pr = aiParams(game);
+    const humanTargetMult = pr.humanTargetMult ?? 1;
     const attackers = snap.structures.filter(t =>
         ATTACKER_TYPES.has(t.structure.type) && t.structure.stats.damage && t.structure.stats.range
     );
@@ -807,6 +896,8 @@ function tryFocusFire(game, p, snap, shared) {
     for (const en of snap.visibleEnemies) {
         const t = en.structure.type;
         let value = KILL_VALUE[t] || 5;
+
+        if (en.owner === game.humanId && humanTargetMult !== 1) value *= humanTargetMult;
 
         if (en.owner === snap.primaryEnemyId) value *= 1.4;
         if (en.owner === shared.leaderId)     value *= 1.25;
@@ -883,6 +974,8 @@ function tryFocusFire(game, p, snap, shared) {
 
     let primaryAssigned = 0;
     let acted = false;
+    const capMult = game.aiDifficulty === 'very_hard' ? 0.82 : (game.aiDifficulty === 'hard' ? 0.88 : 1);
+    const primaryCap = Math.max(2, Math.ceil(orderedAttackers.length * 0.7 * capMult));
 
     for (const atk of orderedAttackers) {
         const range = atk.structure.stats.range;
@@ -899,7 +992,6 @@ function tryFocusFire(game, p, snap, shared) {
         }
 
         let want = null;
-        const primaryCap = Math.max(2, Math.ceil(orderedAttackers.length * 0.7));
         if (distP <= range && primaryAssigned < primaryCap) {
             want = primary; primaryAssigned++;
         } else if (secondary && distS <= range) {
@@ -922,6 +1014,7 @@ function tryFocusFire(game, p, snap, shared) {
 //  PRIORITY 4 — ECONOMY
 // ============================================================================
 function tryEconomy(game, p, snap, phase, shared, doctrine) {
+    const pr = aiParams(game);
     const prod = snap.missileProd, cons = snap.missileCons;
     const missileShort = (cons > 0 && prod < cons * 0.85) || (p.missiles < 2 && cons > 0);
 
@@ -940,7 +1033,9 @@ function tryEconomy(game, p, snap, phase, shared, doctrine) {
     }
 
     const wantG = effectiveTargetGovCount(game, p, snap, shared, doctrine);
-    const goldThreshold = snap.govCount < wantG * 0.45 ? 380 : 650;
+    let goldThreshold = snap.govCount < wantG * 0.45 ? 340 : 600;
+    goldThreshold *= pr.economyGoldMult;
+    if (p.tileCount >= 14 && snap.govCount < wantG) goldThreshold *= 0.92;
     if (p.gold > goldThreshold && snap.govCount < wantG) {
         if (canAffordType(p, 'G')) {
             const spot = findGovSpot(game, p.id, snap);
@@ -961,6 +1056,8 @@ function tryEconomy(game, p, snap, phase, shared, doctrine) {
 //  PRIORITY 5 — STRATEGIC BUILD
 // ============================================================================
 function tryStrategicBuild(game, p, snap, shared, phase, doctrine) {
+    const pr = aiParams(game);
+    const humanPressure = pr.humanPressureMult ?? 1;
     const targetG = effectiveTargetGovCount(game, p, snap, shared, doctrine);
     const govNeed = phasedGovNeed(targetG, phase);
     if (snap.govCount < govNeed && canAffordType(p, 'G')) {
@@ -990,20 +1087,27 @@ function tryStrategicBuild(game, p, snap, shared, phase, doctrine) {
         }
     }
 
-    // Combat builds
-    if (phase >= PHASES.FORTIFY && snap.visibleEnemies.length > 0) {
+    // Combat builds — start pressure as soon as we see enemies (FORTIFY+), and raid empty frontiers in PRESSURE+
+    const wantCombat = snap.visibleEnemies.length > 0
+        ? (phase >= PHASES.FORTIFY)
+        : (phase >= PHASES.PRESSURE && snap.frontier.length > 0);
+    if (wantCombat) {
         const have = (t) => snap.ownByType[t]?.length || 0;
 
         const valuableEnemies = snap.visibleEnemies
             .filter(e => (KILL_VALUE[e.structure.type] || 0) >= 35)
             .sort((a, b) => (KILL_VALUE[b.structure.type] || 0) - (KILL_VALUE[a.structure.type] || 0));
 
+        let enemyBoost = snap.visibleEnemies.length > 0 ? 1 : 0.55;
+        if (humanPressure !== 1 && snap.visibleEnemies.some(e => e.owner === game.humanId)) {
+            enemyBoost *= humanPressure;
+        }
         const w = {
-            RL:  doctrine.RL  * (have('RL')  < 2 ? 1.6 : 1),
-            AB:  doctrine.AB  * (have('AB')  < 1 ? 1.4 : 1) * (phase >= PHASES.DOMINATE ? 1.8 : 1),
-            D:   doctrine.D   * (have('D')   < 2 ? 1.4 : 1),
-            B:   doctrine.B   * (have('B')   < 1 ? 1.6 : 1),
-            AAS: doctrine.AAS * ((snap.aasCount < 2 || snap.visibleEnemies.some(e => e.structure.type === 'AB')) ? 1.5 : 0.6),
+            RL:  doctrine.RL  * (have('RL')  < 2 ? 1.75 : 1) * enemyBoost,
+            AB:  doctrine.AB  * (have('AB')  < 1 ? 1.55 : 1) * (phase >= PHASES.DOMINATE ? 1.85 : 1) * enemyBoost,
+            D:   doctrine.D   * (have('D')   < 2 ? 1.55 : 1) * enemyBoost,
+            B:   doctrine.B   * (have('B')   < 2 ? 1.85 : 1) * (snap.visibleEnemies.length ? 1 : 1.4),
+            AAS: doctrine.AAS * ((snap.aasCount < 2 || snap.visibleEnemies.some(e => e.structure.type === 'AB')) ? 1.55 : 0.6),
         };
 
         // Suppress missile consumers if we can't fuel them — but suggest MF instead
@@ -1028,12 +1132,14 @@ function tryStrategicBuild(game, p, snap, shared, phase, doctrine) {
             if (mfSpot) return game.buildStructure(mfSpot, 'MF', p.id);
         }
 
-        const spot = pickPlacementForType(game, p, snap, type, valuableEnemies);
+        const spot = pickPlacementForType(game, p, snap, type, valuableEnemies.length ? valuableEnemies : snap.visibleEnemies);
         if (spot) return game.buildStructure(spot, type, p.id);
     }
 
-    // Militia push
-    if (p.units.M < game.militiaCap(p) && canAffordType(p, 'M')) {
+    // Militia push — scaled down when not purely expanding so bots invest in Gov / real DPS
+    const militiaWeight = (phase === PHASES.EXPAND ? 1 : pr.strategicMilitiaPhaseMult)
+        * (snap.visibleEnemies.length ? 0.75 : 1);
+    if (Math.random() < militiaWeight && p.units.M < game.militiaCap(p) && canAffordType(p, 'M')) {
         const mSpot = findMilitiaSpot(game, p.id, snap);
         if (mSpot) return game.buildStructure(mSpot, 'M', p.id);
     }
@@ -1106,7 +1212,9 @@ function tryMilitiaUpgradeStrategy(game, p, snap, phase) {
 const UPGRADE_VALUE = { G: 6, MF: 5, AB: 5, RL: 4, AAS: 4, B: 3, D: 3, M: 2 };
 
 function tryUpgrade(game, p, snap, doctrine, shared) {
-    if (Math.random() > doctrine.upgradeBias && (p.gold < 600)) return false;
+    const pr = aiParams(game);
+    const effBias = Math.min(0.93, doctrine.upgradeBias * (pr.upgradeBiasScale ?? 1));
+    if (Math.random() > effBias && (p.gold < 600)) return false;
 
     const frontierKeys = new Set(snap.frontier.map(tileKey));
     const supplySet = game.supplyByPlayer.get(p.id);
@@ -1234,7 +1342,8 @@ function pickDirectionalFrontierSpot(game, p, snap, targetEnemies) {
     }
 
     candidates.sort((a, b) => b.score - a.score);
-    const topN = Math.min(3, candidates.length);
+    const pr = aiParams(game);
+    const topN = Math.min(pr.frontierTopN ?? 3, candidates.length);
     return candidates[Math.floor(Math.random() * topN)].tile;
 }
 

@@ -211,9 +211,11 @@ export const AI_DOCTRINES = {
 };
 
 export const DIFFICULTY = {
-    easy:   { name: 'EASY',   goldMult: 0.75, tickMult: 1.5, startGoldDelta: -100 },
-    normal: { name: 'NORMAL', goldMult: 1.0,  tickMult: 1.0, startGoldDelta: 0 },
-    hard:   { name: 'HARD',   goldMult: 1.25, tickMult: 0.7, startGoldDelta: 150 },
+    easy:      { name: 'EASY',      goldMult: 0.75, tickMult: 1.5,  startGoldDelta: -100 },
+    normal:    { name: 'NORMAL',    goldMult: 1.0,  tickMult: 1.0,  startGoldDelta: 0 },
+    hard:      { name: 'HARD',      goldMult: 1.25, tickMult: 0.7,  startGoldDelta: 150 },
+    /** Faster AI ticks, stronger income, earlier pressure — for experienced players. */
+    very_hard: { name: 'VERY HARD', goldMult: 1.45, tickMult: 0.55, startGoldDelta: 320 },
 };
 
 export const DIPLOMACY = {
