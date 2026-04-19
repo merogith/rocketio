@@ -1,6 +1,6 @@
-import { UNIT_STATS, COLORS, GAME_CONFIG, DIFFICULTY, DIPLOMACY } from './constants.js';
-import { Hex } from './hexGrid.js';
-import { SFX } from './sfx.js';
+import { UNIT_STATS, COLORS, GAME_CONFIG, DIFFICULTY, DIPLOMACY } from './constants.js?v=balance2026';
+import { Hex } from './hexGrid.js?v=balance2026';
+import { SFX } from './sfx.js?v=balance2026';
 
 function relKey(a, b) {
     const x = Math.min(a, b), y = Math.max(a, b);

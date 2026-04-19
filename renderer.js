@@ -1,4 +1,4 @@
-import { COLORS, UNIT_STATS, PROJECTILE_VISUAL_PRESETS } from './constants.js';
+import { COLORS, UNIT_STATS, PROJECTILE_VISUAL_PRESETS } from './constants.js?v=balance2026';
 
 const TARGETABLE_TYPES = new Set(['RL', 'B', 'D', 'M', 'AB']);
 

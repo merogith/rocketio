@@ -1,11 +1,11 @@
-import { Hex, HexGrid, Camera } from './hexGrid.js';
-import { Game } from './game.js';
-import { Renderer } from './renderer.js';
-import { UNIT_STATS, GAME_CONFIG, VICTORY_MODES, COLORS, DIPLOMACY } from './constants.js';
-import { TUTORIAL_PAGES } from './tutorial.js';
-import { Input } from './input.js';
-import { updateAI } from './ai.js';
-import { SFX } from './sfx.js';
+import { Hex, HexGrid, Camera } from './hexGrid.js?v=balance2026';
+import { Game } from './game.js?v=balance2026';
+import { Renderer } from './renderer.js?v=balance2026';
+import { UNIT_STATS, GAME_CONFIG, VICTORY_MODES, COLORS, DIPLOMACY } from './constants.js?v=balance2026';
+import { TUTORIAL_PAGES } from './tutorial.js?v=balance2026';
+import { Input } from './input.js?v=balance2026';
+import { updateAI } from './ai.js?v=balance2026';
+import { SFX } from './sfx.js?v=balance2026';
 
 // ============================================================================
 //  DOM

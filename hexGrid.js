@@ -1,4 +1,4 @@
-import { UNIT_STATS } from './constants.js';
+import { UNIT_STATS } from './constants.js?v=balance2026';
 
 export class Hex {
     constructor(q, r) {

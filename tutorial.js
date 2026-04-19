@@ -1,4 +1,4 @@
-import { UNIT_STATS as US, GAME_CONFIG as GC } from './constants.js';
+import { UNIT_STATS as US, GAME_CONFIG as GC } from './constants.js?v=balance2026';
 
 /** Keep tutorial copy aligned with simulation constants. */
 const L1 = {
