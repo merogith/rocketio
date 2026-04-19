@@ -274,9 +274,9 @@ export const DEFAULT_SETTINGS = {
 
 /** Renderer-only limits; simulation keeps all projectiles. */
 export const PROJECTILE_VISUAL_PRESETS = {
-    low: { global: 55, perTargetType: 2 },
-    medium: { global: 110, perTargetType: 3 },
-    high: { global: 200, perTargetType: 5 },
+    low: { global: 45, perTargetType: 2 },
+    medium: { global: 100, perTargetType: 3 },
+    high: { global: 180, perTargetType: 5 },
     unlimited: null,
 };
 

@@ -94,7 +94,7 @@ function initWorld(mapSize, mapStyle, playerCount, playerName, victoryConfig, di
     game.diplomacyEnabled = Input.getSetting('diplomacyEnabled') !== false;
     renderer = new Renderer(canvas, grid, camera);
     renderer.settings.screenShake = Input.getSetting('screenShake');
-    renderer.settings.threatRings = Input.getSetting('threatRings');
+    renderer.settings.threatRings = Input.getSetting('threatRings') !== false;
     renderer.settings.hoverRange = Input.getSetting('hoverRange') !== false;
     renderer.settings.projectileVisual = getProjectileVisualSetting();
 
@@ -351,6 +351,7 @@ function syncSettingsToggles() {
     const dp = document.getElementById('opt-drag-paint');
     const ss = document.getElementById('opt-screen-shake');
     const tr = document.getElementById('opt-threat-rings');
+    const hr = document.getElementById('opt-hover-range');
     const fs = document.getElementById('opt-fullscreen');
     const dipl = document.getElementById('opt-diplomacy');
     const sx = document.getElementById('opt-sfx');
@@ -361,7 +362,8 @@ function syncSettingsToggles() {
     if (hu) hu.checked = Input.getSetting('hoverUpgrade');
     if (dp) dp.checked = Input.getSetting('dragPaintBuild');
     if (ss) ss.checked = Input.getSetting('screenShake');
-    if (tr) tr.checked = Input.getSetting('threatRings');
+    if (tr) tr.checked = Input.getSetting('threatRings') !== false;
+    if (hr) hr.checked = Input.getSetting('hoverRange') !== false;
     if (fs) fs.checked = !!document.fullscreenElement;
     const aph = document.getElementById('opt-auto-pause-hidden');
     if (aph) aph.checked = Input.getSetting('autoPauseOnHidden') !== false;
@@ -378,7 +380,7 @@ function syncSettingsToggles() {
         });
     }
 }
-['opt-quick-build', 'opt-hover-upgrade', 'opt-drag-paint', 'opt-auto-pause-hidden', 'opt-screen-shake', 'opt-threat-rings', 'opt-diplomacy', 'opt-sfx', 'opt-music'].forEach(id => {
+['opt-quick-build', 'opt-hover-upgrade', 'opt-drag-paint', 'opt-auto-pause-hidden', 'opt-screen-shake', 'opt-threat-rings', 'opt-hover-range', 'opt-diplomacy', 'opt-sfx', 'opt-music'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
     const key = {
@@ -388,6 +390,7 @@ function syncSettingsToggles() {
         'opt-auto-pause-hidden':'autoPauseOnHidden',
         'opt-screen-shake':'screenShake',
         'opt-threat-rings':'threatRings',
+        'opt-hover-range':'hoverRange',
         'opt-diplomacy':'diplomacyEnabled',
         'opt-sfx':'sfxEnabled',
         'opt-music':'musicEnabled',
@@ -396,7 +399,8 @@ function syncSettingsToggles() {
         Input.setSetting(key, el.checked);
         if (renderer) {
             renderer.settings.screenShake = Input.getSetting('screenShake');
-            renderer.settings.threatRings = Input.getSetting('threatRings');
+            renderer.settings.threatRings = Input.getSetting('threatRings') !== false;
+            renderer.settings.hoverRange = Input.getSetting('hoverRange') !== false;
             renderer.settings.projectileVisual = getProjectileVisualSetting();
         }
         if (key === 'diplomacyEnabled' && game) {
@@ -427,9 +431,10 @@ _wireVolumeSlider('opt-music-volume', 'musicVolume', v => SFX.setMusicVolume(v))
         btn.addEventListener('click', () => {
             const v = btn.dataset.value;
             Input.setSetting('projectileVisual', v);
-            if (renderer) renderer.settings.projectileVisual = v;
+            const sel = getProjectileVisualSetting();
+            if (renderer) renderer.settings.projectileVisual = sel;
             row.querySelectorAll('.option-btn').forEach(b => {
-                b.classList.toggle('selected', b.dataset.value === v);
+                b.classList.toggle('selected', b.dataset.value === sel);
             });
         });
     });

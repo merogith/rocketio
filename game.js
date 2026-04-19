@@ -33,6 +33,10 @@ export class Game {
         this.grid = grid;
         this.players = [];
         this.projectiles = [];
+        /** Refcount: enemy projectiles inbound to each human-owned hex (for UI threat rings without scanning all missiles). */
+        this._incomingThreatHumanRef = new Map();
+        /** Keys in `_incomingThreatHumanRef` with count ≥ 1 — renderer iterates this instead of all projectiles. */
+        this.incomingThreatHumanHexKeys = new Set();
         this.particles = [];
         this.events = [];
         this.combatLog = [];
@@ -172,6 +176,8 @@ export class Game {
         this.humanName = humanName;
         this.players = [];
         this.projectiles = [];
+        this._incomingThreatHumanRef.clear();
+        this.incomingThreatHumanHexKeys.clear();
         this.particles = [];
         this.events = [];
         this.combatLog = [];
@@ -1156,9 +1162,35 @@ export class Game {
             trailPts: [],
             color: COLORS[`PLAYER${atkOwner}`]
         });
+        this._addIncomingHumanThreat(this.projectiles[this.projectiles.length - 1]);
+    }
+
+    _addIncomingHumanThreat(p) {
+        if (p.owner === this.humanId) return;
+        const tile = this.grid.getTile(p.targetQR.q, p.targetQR.r);
+        if (!tile || tile.owner !== this.humanId) return;
+        const k = `${p.targetQR.q},${p.targetQR.r}`;
+        const n = (this._incomingThreatHumanRef.get(k) || 0) + 1;
+        this._incomingThreatHumanRef.set(k, n);
+        if (n === 1) this.incomingThreatHumanHexKeys.add(k);
+        p._threatTrackedHuman = true;
+    }
+
+    _removeIncomingHumanThreat(p) {
+        if (!p._threatTrackedHuman) return;
+        const k = `${p.targetQR.q},${p.targetQR.r}`;
+        const n = (this._incomingThreatHumanRef.get(k) || 0) - 1;
+        if (n <= 0) {
+            this._incomingThreatHumanRef.delete(k);
+            this.incomingThreatHumanHexKeys.delete(k);
+        } else {
+            this._incomingThreatHumanRef.set(k, n);
+        }
     }
 
     updateProjectiles() {
+        const heavy = this.projectiles.length > 90;
+        const trailCap = heavy ? 8 : 18;
         for (let i = this.projectiles.length - 1; i >= 0; i--) {
             const p = this.projectiles[i];
             const dx = p.targetX - p.x;
@@ -1166,12 +1198,13 @@ export class Game {
             const dist = Math.sqrt(dx * dx + dy * dy);
 
             if (dist < 5) {
+                this._removeIncomingHumanThreat(p);
                 this.impact(p);
                 this.projectiles.splice(i, 1);
             } else {
                 if (p.trail) {
                     p.trailPts.push({ x: p.x, y: p.y });
-                    if (p.trailPts.length > 18) p.trailPts.shift();
+                    if (p.trailPts.length > trailCap) p.trailPts.shift();
                 }
                 p._prevX = p.x;
                 p._prevY = p.y;
@@ -1179,7 +1212,8 @@ export class Game {
                 p.y += (dy / dist) * p.speed;
 
                 if (p.interceptable && this.checkInterception(p)) {
-                    this.spawnBurst(p.x, p.y, "#00e5ff", 8);
+                    this._removeIncomingHumanThreat(p);
+                    this.spawnBurst(p.x, p.y, "#00e5ff", heavy ? 4 : 8);
                     SFX.play('intercept');
                     this.logEvent(p.owner, null, 'intercepted', `${p.type} intercepted`);
                     this.projectiles.splice(i, 1);
@@ -1317,6 +1351,7 @@ export class Game {
     //  PARTICLES
     // ========================================================================
     spawnBurst(x, y, color, n = 10) {
+        if (this.projectiles.length > 85) n = Math.min(n, 7);
         for (let i = 0; i < n; i++) {
             if (this.particles.length >= GAME_CONFIG.MAX_PARTICLES) {
                 this.particles.shift();

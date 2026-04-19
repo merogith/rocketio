@@ -829,8 +829,8 @@ export class Renderer {
                 ctx.arc(sp.x + jitter, sp.y, 5 * sc, 0, Math.PI * 2);
                 ctx.fill();
             } else if (p.type === 'militia') {
-                // Scrappy, dim tracer
-                const jitter = (Math.random() - 0.5) * 2 * sc;
+                // Scrappy, dim tracer (deterministic — avoids RNG cost + flicker with many shots)
+                const jitter = (Math.sin(this.time * 0.02 + p.x * 0.11 + p.y * 0.09) - 0.5) * 2 * sc;
                 ctx.fillStyle = p.color || "rgba(255,255,200,0.6)";
                 ctx.globalAlpha = 0.6;
                 ctx.beginPath();
@@ -957,15 +957,9 @@ export class Renderer {
             ctx.restore();
         }
 
-        // Incoming projectile threat preview (one ring per threatened tile, not per missile)
-        const incomingHumanTargets = new Set();
-        for (const proj of gameState.projectiles) {
-            if (proj.owner === humanId) continue;
-            const tile = grid.getTile(proj.targetQR.q, proj.targetQR.r);
-            if (!tile || tile.owner !== humanId) continue;
-            incomingHumanTargets.add(`${proj.targetQR.q},${proj.targetQR.r}`);
-        }
-        for (const key of incomingHumanTargets) {
+        // Incoming projectile threat preview (one ring per threatened tile; O(hexes) via game refcount)
+        const incomingHumanTargets = gameState.incomingThreatHumanHexKeys;
+        if (incomingHumanTargets) for (const key of incomingHumanTargets) {
             const [q, r] = key.split(',').map(Number);
             const tile = grid.getTile(q, r);
             if (!tile) continue;

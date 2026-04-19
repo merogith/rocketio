@@ -28,6 +28,10 @@ function loadSettings() {
             Object.assign(settings, stored);
         }
     } catch (_) { /* use defaults */ }
+    const pv = settings.projectileVisual;
+    if (pv !== 'low' && pv !== 'medium' && pv !== 'high' && pv !== 'unlimited') {
+        settings.projectileVisual = DEFAULT_SETTINGS.projectileVisual;
+    }
 }
 
 function saveSettings() {
