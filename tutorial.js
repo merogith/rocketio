@@ -25,6 +25,7 @@ const supplySlowPct = Math.round((GC.SUPPLY_OUT_MULT - 1) * 100);
 const barracksCmdOut = Math.round((GC.BARRACKS_L3_COMMAND_OUT_MULT - 1) * 100);
 const barracksCmdIn = Math.round((1 - GC.BARRACKS_L3_COMMAND_IN_MULT) * 100);
 const govL3GoldAuraPct = Math.round((GC.GOV_L3_GOLD_AURA_MULT - 1) * 100);
+const rlSplashChancePct = Math.round(GC.RL_L3_SPLASH_CHANCE * 100);
 const rlSplashPct = Math.round(GC.RL_L3_SPLASH_MULT * 100);
 const abStealthPct = Math.round(GC.AB_L3_STEALTH_CHANCE * 100);
 const droneJamPct = Math.round((GC.DRONE_L3_RECHARGE_DEBUFF_MULT - 1) * 100);
@@ -71,7 +72,7 @@ export const TUTORIAL_PAGES = [
         <h3>YOUR UNITS</h3>
 
         <div class="tut-role-label tut-role-attack">⚔️ ATTACK</div>
-        <div class="unit-card"><div class="uc-icon">🚀</div><div class="uc-info"><div class="uc-name">Rocket Launcher <span class="tut-cost">$${L1.RL.cost}</span></div><div class="uc-desc">Long-range missile (${L1.RL.damage} dmg / ${secStr(L1.RL.interval)}). Needs ammo from Factories. Lv3: 2 missiles per shot; ${rlSplashPct}% splash to adjacent enemy structures.</div></div></div>
+        <div class="unit-card"><div class="uc-icon">🚀</div><div class="uc-info"><div class="uc-name">Rocket Launcher <span class="tut-cost">$${L1.RL.cost}</span></div><div class="uc-desc">Long-range missile (${L1.RL.damage} dmg / ${secStr(L1.RL.interval)}). Needs ammo from Factories. Lv3: 2 missiles per shot; ${rlSplashChancePct}% chance to splash ${rlSplashPct}% damage to adjacent enemy structures.</div></div></div>
         <div class="unit-card"><div class="uc-icon">🪖</div><div class="uc-info"><div class="uc-name">Barracks <span class="tut-cost">$${L1.B.cost}</span></div><div class="uc-desc">Short-range ground fire (${L1.B.damage} dmg). Can't be intercepted by Anti-Air. Supply hub. Lv3 fires every ${secStr(barracksL3Interval)}; command aura +${barracksCmdOut}% ally damage & −${barracksCmdIn}% incoming in influence (non-stacking).</div></div></div>
         <div class="unit-card"><div class="uc-icon">🚁</div><div class="uc-info"><div class="uc-name">Drone Operator <span class="tut-cost">$${L1.D.cost}</span></div><div class="uc-desc">Cheap chip damage. Lv3 fires ${US.D.levels[2].projectiles} shots per volley — jamming slows enemy military &amp; AA recharge in range by ${droneJamPct}%.</div></div></div>
         <div class="unit-card"><div class="uc-icon">✈️</div><div class="uc-info"><div class="uc-name">Air Base <span class="tut-cost">$${L1.AB.cost}</span></div><div class="uc-desc">Heavy strike (${L1.AB.damage} dmg Lv1). Interceptable. Lv1 uses ${L1.AB.missilesPerShot} missile per sortie. Lv3: ${abStealthPct}% stealth strike (2 missiles, cannot be intercepted).</div></div></div>

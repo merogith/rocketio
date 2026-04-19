@@ -97,8 +97,12 @@ export const GAME_CONFIG = {
     BARRACKS_L3_COMMAND_IN_MULT: 0.9,
     /** Lv3 Government: tiles within its radius that earn gov gold get this mult (non-stacking across G3). */
     GOV_L3_GOLD_AURA_MULT: 1.2,
-    /** RL3 primary hit splashes this fraction of rocket damage to adjacent enemy structures. */
+    /** RL3: each hit has this chance to deal splash to adjacent enemy structures. */
+    RL_L3_SPLASH_CHANCE: 0.3,
+    /** When RL3 splash procs, adjacent enemies take this fraction of the rocket's damage. */
     RL_L3_SPLASH_MULT: 0.5,
+    /** AAS3: on each recharge tick, this chance to gain +1 intercept charge (beyond missilesRecharged). */
+    AAS_L3_BONUS_RECHARGE_CHANCE: 0.2,
     /** AB L3: chance per shot for a stealth strike (non-interceptable, uses AB_L3_STEALTH_MISSILES). */
     AB_L3_STEALTH_CHANCE: 0.3,
     AB_L3_STEALTH_MISSILES: 2,

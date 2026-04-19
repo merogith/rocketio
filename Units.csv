@@ -1,10 +1,10 @@
 Structure,Name,Level,HP,Atk Range,Inf. Range,Damage,Cost,Interval,Influence,Vision,Interceptable,AutoRule,BuildOn,Description
 Rocket Launcher,RL1,1,100,7,-,50,225,10.5s,-,6,Yes,"Closest→Lowest HP→Random",Own tiles,"Medium-range missile. Consumes 1 missile/shot."
 Rocket Launcher,RL2,2,180,10,-,70,325 (upg 260),7.3s,-,8,Yes,"Closest→Lowest HP→Random",Own tiles,"Extended range. Higher damage per shot."
-Rocket Launcher,RL3,3,300,14,-,100,425 (upg 340),5.2s,-,11,Yes,"Closest→Lowest HP→Random",Own tiles,"Long-range. Fires at max cadence. Consumes 2 missiles."
+Rocket Launcher,RL3,3,300,14,-,100,425 (upg 340),5.2s,-,11,Yes,"Closest→Lowest HP→Random",Own tiles,"Long-range. Fires at max cadence. Consumes 2 missiles. 30% chance per hit to deal 50% splash to adjacent enemies."
 Anti Air System,AAS1,1,100,4,-,-,205,9.5s (recharge x1),-,5,-,Auto-intercept in range,Own tiles,"Intercepts rockets, air base missiles, and drones. Cap 6. Toe-to-toe vs RL1."
 Anti Air System,AAS2,2,180,6,-,-,305 (upg 244),11.4s (recharge x2),-,7,-,Auto-intercept in range,Own tiles,"Extended range. Deeper magazine. Cap 10. Toe-to-toe vs RL2."
-Anti Air System,AAS3,3,300,9,-,-,405 (upg 324),8.55s (recharge x3),-,9,-,Auto-intercept in range,Own tiles,"Strategic-tier SAM. Cap 15. Fast recharge. Still saturated by drone swarms."
+Anti Air System,AAS3,3,300,9,-,-,405 (upg 324),8.55s (recharge x3),-,9,-,Auto-intercept in range,Own tiles,"Strategic-tier SAM. Cap 15. Fast recharge. 20% chance +1 intercept charge on recharge. Still saturated by drone swarms."
 Missile Factory,MF1,1,100,-,-,-,230,~11.1s (+2),-,4,-,-,Own tiles,"Produces 2 missiles per cycle (~10% slower cycle than legacy 10s)."
 Missile Factory,MF2,2,170,-,-,-,330 (upg 264),~11.1s (+4),-,5,-,-,Own tiles,"Produces 4 missiles per cycle."
 Missile Factory,MF3,3,300,-,-,-,430 (upg 344),~11.1s (+7),-,6,-,-,Own tiles,"Produces 7 missiles per cycle. High output justifies cost."

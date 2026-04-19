@@ -688,7 +688,11 @@ export class Game {
             }
             if (s.type === 'AAS') {
                 if (time - tile.lastAction > stats.rechargeInterval * eff) {
-                    s.charge = Math.min(stats.chargeCap || 10, (s.charge || 0) + stats.missilesRecharged);
+                    let add = stats.missilesRecharged;
+                    if (tile.structure.level === 2 && Math.random() < GAME_CONFIG.AAS_L3_BONUS_RECHARGE_CHANCE) {
+                        add += 1;
+                    }
+                    s.charge = Math.min(stats.chargeCap || 10, (s.charge || 0) + add);
                     tile.lastAction = time;
                 }
                 continue;
@@ -1042,7 +1046,8 @@ export class Game {
         p.missiles -= stats.missilesPerShot;
         tile.structure.lastFiredAt = this.gameTime;
         const count = stats.projectiles || 1;
-        const splash = stats.splash && tile.structure.level === 2;
+        const splash = stats.splash && tile.structure.level === 2
+            && Math.random() < GAME_CONFIG.RL_L3_SPLASH_CHANCE;
         for (let i = 0; i < count; i++) {
             this.spawnProjectile(tile, target, {
                 type: 'rocket',

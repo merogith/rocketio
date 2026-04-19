@@ -969,7 +969,7 @@ function structureL3PerkHtml(type, levelIdx) {
         case 'G':
             return `<p class="info-perk"><b>Lv3 — Economic aura</b> · Friendly owned tiles in radius that already earn gov gold get ×${GAME_CONFIG.GOV_L3_GOLD_AURA_MULT} (non-stacking).</p>`;
         case 'RL':
-            return `<p class="info-perk"><b>Lv3 — Siege</b> · 2 missiles per volley. ${Math.round(GAME_CONFIG.RL_L3_SPLASH_MULT * 100)}% splash damage to adjacent enemy structures.</p>`;
+            return `<p class="info-perk"><b>Lv3 — Siege</b> · 2 missiles per volley. ${Math.round(GAME_CONFIG.RL_L3_SPLASH_CHANCE * 100)}% chance to deal ${Math.round(GAME_CONFIG.RL_L3_SPLASH_MULT * 100)}% splash damage to adjacent enemy structures.</p>`;
         case 'AB':
             return `<p class="info-perk"><b>Lv3 — Stealth sortie</b> · ${Math.round(GAME_CONFIG.AB_L3_STEALTH_CHANCE * 100)}% non-interceptable strike using ${GAME_CONFIG.AB_L3_STEALTH_MISSILES} missiles.</p>`;
         case 'D':
@@ -981,7 +981,7 @@ function structureL3PerkHtml(type, levelIdx) {
         case 'M':
             return `<p class="info-perk"><b>Lv3 — Partisan Regiment</b> · Same range and damage as Lv2; higher HP. Counts toward militia cap.</p>`;
         case 'AAS':
-            return `<p class="info-perk"><b>Lv3 — Battery</b> · Larger magazine and faster recharge cycle vs lower tiers.</p>`;
+            return `<p class="info-perk"><b>Lv3 — Battery</b> · Larger magazine and faster recharge cycle vs lower tiers. ${Math.round(GAME_CONFIG.AAS_L3_BONUS_RECHARGE_CHANCE * 100)}% chance +1 intercept charge when recharging.</p>`;
         default:
             return '';
     }
@@ -1009,7 +1009,9 @@ function summarizeLevelForTooltip(type, lv) {
     if (lv.chargeCap) parts.push(`cap ${lv.chargeCap}`);
     if (lv.missilesPerShot != null && lv.missilesPerShot > 1) parts.push(`×${lv.missilesPerShot} msl`);
     if (lv.projectiles != null && lv.projectiles > 1) parts.push(`×${lv.projectiles} proj`);
-    if (lv.splash) parts.push(`splash ${Math.round(GAME_CONFIG.RL_L3_SPLASH_MULT * 100)}%`);
+    if (lv.splash) {
+        parts.push(`splash ${Math.round(GAME_CONFIG.RL_L3_SPLASH_CHANCE * 100)}% → ${Math.round(GAME_CONFIG.RL_L3_SPLASH_MULT * 100)}% adj`);
+    }
     if (lv.jamming) parts.push(`jam −${Math.round((GAME_CONFIG.DRONE_L3_RECHARGE_DEBUFF_MULT - 1) * 100)}% enemy recharge`);
     if (lv.displayName) parts.unshift(lv.displayName);
     return parts.join(' · ');
@@ -1075,7 +1077,11 @@ function showBuildTooltip(btn) {
     }
 
     if (type === 'RL') {
-        html += `<div class="tt-upgrade dim">Lv3: 2 missiles per shot; ${Math.round(GAME_CONFIG.RL_L3_SPLASH_MULT * 100)}% splash damage to adjacent enemy structures</div>`;
+        html += `<div class="tt-upgrade dim">Lv3: 2 missiles per shot; ${Math.round(GAME_CONFIG.RL_L3_SPLASH_CHANCE * 100)}% chance to splash ${Math.round(GAME_CONFIG.RL_L3_SPLASH_MULT * 100)}% damage to adjacent enemy structures</div>`;
+    }
+
+    if (type === 'AAS') {
+        html += `<div class="tt-upgrade dim">Lv3: ${Math.round(GAME_CONFIG.AAS_L3_BONUS_RECHARGE_CHANCE * 100)}% chance +1 intercept charge when recharging (on top of ×${def.levels[2].missilesRecharged})</div>`;
     }
 
     if (type === 'AB') {
