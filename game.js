@@ -21,6 +21,8 @@ function isInfluencer(structure) {
     if (!structure) return false;
     if (structure.type === 'G') return true;
     if (structure.type === 'B') return true;
+    // M3 Militia HQ acts as a mini-influencer (has radius & influence stats)
+    if (structure.type === 'M' && structure.stats?.radius) return true;
     return false;
 }
 
@@ -340,7 +342,8 @@ export class Game {
             const s = tile.structure;
             if (!s) continue;
             const isGov = s.type === 'G';
-            if (!isGov) continue;
+            const isMilitiaHQ = s.type === 'M' && s.stats?.radius && s.stats?.goldPerTile;
+            if (!isGov && !isMilitiaHQ) continue;
             if (isGov && tile.govWarmupUntil && this.gameTime < tile.govWarmupUntil) continue;
             const stats = s.stats;
             const effectiveRadius = s._lockedRadius ?? stats.radius;

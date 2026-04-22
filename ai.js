@@ -1,5 +1,5 @@
 // ============================================================================
-//  ROCKETIO — AI v0.7
+//  ROCKETIO — AI v0.8
 // ----------------------------------------------------------------------------
 //  Strategic loop per AI tick:
 //
@@ -74,6 +74,26 @@ function canAffordUpgrade(player, tile) {
 function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
 
 const MAX_TARGET_GOV = 12;
+
+/** Cap MF spam: scales with map footprint and missile load — enough stock, not endless factories. */
+function maxMissileFactoriesForPlayer(game, p, snap) {
+    const cons = snap.missileCons || 0;
+    const tc = Math.max(1, p.tileCount);
+    const fromDemand = 1 + Math.min(3, Math.ceil(cons * 0.6));
+    const fromLand = Math.min(6, 1 + Math.floor(tc / 20));
+    return clamp(Math.max(fromDemand, fromLand), 1, 8);
+}
+
+function playstyleMilitiaExpandMult(doctrine) {
+    const ps = doctrine?.playstyle || 'mixed';
+    if (ps === 'raid') return 1.22;
+    if (ps === 'defend') return 0.86;
+    return 1;
+}
+
+function m0Cost() {
+    return (statsAtLevel('M', 0)?.cost) || 135;
+}
 
 /**
  * Per-difficulty tuning: expansion vs militia spam, gov timing, aggression.
@@ -385,6 +405,16 @@ function buildSnapshot(game, p, shared) {
     const inSupplyCount = structures.filter(t => supplySet?.has(tileKey(t))).length;
     const supplyRatio = structures.length > 0 ? inSupplyCount / structures.length : 1;
 
+    // Unclaimed buildable hexes next to the frontier (macro pressure — grab land before anything else)
+    let neutralAdjacentToFrontier = 0;
+    for (const ft of frontier) {
+        const nbrs = new Hex(ft.q, ft.r).getNeighbors();
+        for (const nh of nbrs) {
+            const nt = game.grid.getTile(nh.q, nh.r);
+            if (nt && nt.buildable && nt.owner == null) neutralAdjacentToFrontier++;
+        }
+    }
+
     return {
         own, structures, emptyOwn, frontier,
         ownByType,
@@ -399,6 +429,7 @@ function buildSnapshot(game, p, shared) {
         enemyDirQ, enemyDirR,
         attackVectors: recentHits,
         supplyRatio,
+        neutralAdjacentToFrontier,
     };
 }
 
@@ -420,7 +451,7 @@ function detectPhase(game, p, snap, shared) {
     const scaledDominate = Math.round(36 * landScale * pas);
     const fortifyTileFloor = scaledFortify + (params.fortifyWithOneGovTileBonus || 0);
 
-    if ((p.gold > 1200 && hasCombat && tc > scaledPressure) || (tc > scaledDominate && hasCombat))
+    if ((p.gold > UNIT_STATS.G.levels[1].cost && hasCombat && tc > scaledPressure) || (tc > scaledDominate && hasCombat))
         return PHASES.DOMINATE;
     if (tc > scaledPressure && hasCombat)
         return PHASES.PRESSURE;
@@ -441,12 +472,19 @@ function detectPhase(game, p, snap, shared) {
 export function updateAI(game, time) {
     computeSharedAssessment(game);
 
+    if (!game._aiShuffledDoctrines) {
+        const a = DOCTRINE_KEYS.slice();
+        for (let i = a.length - 1; i > 0; i--) {
+            const j = (Math.random() * (i + 1)) | 0;
+            [a[i], a[j]] = [a[j], a[i]];
+        }
+        game._aiShuffledDoctrines = a;
+    }
     let dIdx = 0;
     for (const p of game.players) {
         if (p.id === game.humanId) continue;
         if (!p.doctrine) {
-            const offset = (game._doctrineSeed = game._doctrineSeed ?? Math.floor(Math.random() * 4));
-            p.doctrine = AI_DOCTRINES[DOCTRINE_KEYS[(dIdx + offset) % DOCTRINE_KEYS.length]];
+            p.doctrine = AI_DOCTRINES[game._aiShuffledDoctrines[dIdx % game._aiShuffledDoctrines.length]];
         }
         dIdx++;
     }
@@ -596,7 +634,15 @@ function runDiplomacyTick(game, p) {
 }
 
 // ============================================================================
-//  AI TICK
+//  AI TICK  (v0.8 — Expansion-First Philosophy)
+//
+//  ALL doctrines follow the same macro priority:
+//    1. GRAB FREE LAND (militia expansion — always, relentlessly)
+//    2. MAINTAIN MISSILE ECONOMY (MF before consumers — non-negotiable)
+//    3. EMERGENCY / COUNTER-PLAY (survive immediate threats)
+//    4. FOCUS FIRE (coordinate existing attackers)
+//    5. DOCTRINE-SPECIFIC BUILD (express personality through combat choices)
+//    6. UPGRADE / M3 HQ ABUSE / DEMOLISH
 // ============================================================================
 function runAITick(game, p, time) {
     const doctrine = p.doctrine;
@@ -617,24 +663,42 @@ function runAITick(game, p, time) {
     // Opening build order for first ~60s — deterministic ramp-up
     if (tryOpeningBuildOrder(game, p, snap, shared, phase)) { goto_done(p); return; }
 
-    // Priority cascade
-    if (tryEmergencyDefense(game, p, snap, tileLoss)) goto_done(p);
-    else if (tryCounterPlay(game, p, snap)) goto_done(p);
-    else if (tryFocusFire(game, p, snap, shared)) {
-        tryEconomy(game, p, snap, phase, shared, doctrine) ||
-        tryStrategicBuild(game, p, snap, shared, phase, doctrine) ||
-        tryMilitiaUpgradeStrategy(game, p, snap, phase) ||
-        tryUpgrade(game, p, snap, doctrine, shared);
-        goto_done(p);
-    } else {
-        tryEconomy(game, p, snap, phase, shared, doctrine) ||
-        tryStrategicBuild(game, p, snap, shared, phase, doctrine) ||
-        tryMilitiaUpgradeStrategy(game, p, snap, phase) ||
-        tryUpgrade(game, p, snap, doctrine, shared) ||
-        tryDemolish(game, p, snap, shared) ||
-        tryExpandWithMilitia(game, p, snap, phase);
-        goto_done(p);
+    // ── PRIORITY 1: GRAB FREE LAND ──
+    // Always try to expand with militia FIRST. Free tiles = free gold = everything.
+    // This runs every tick regardless of phase or doctrine.
+    if (tryExpandWithMilitia(game, p, snap, phase)) {
+        // Also try to do something else this tick (multi-action)
     }
+
+    // ── PRIORITY 2: MISSILE ECONOMY GATE ──
+    // Before ANY combat builds, ensure MF capacity is adequate.
+    // This prevents the AI from building RL/AB it can't feed.
+    if (tryMissileEconomyGate(game, p, snap)) {
+        goto_done(p); return;
+    }
+
+    // ── PRIORITY 3: EMERGENCY / COUNTER-PLAY ──
+    if (tryEmergencyDefense(game, p, snap, tileLoss)) { goto_done(p); return; }
+    if (tryCounterPlay(game, p, snap)) { goto_done(p); return; }
+
+    // ── PRIORITY 4: FOCUS FIRE ──
+    // Re-target existing attackers to high-value targets
+    tryFocusFire(game, p, snap, shared);
+
+    // ── PRIORITY 5: M3 MILITIA HQ FORWARD BASES ──
+    // Upgrade distant militia to M3 for flanking attacks + mini-income
+    if (tryMilitiaHQAbuse(game, p, snap, phase)) { goto_done(p); return; }
+
+    // ── PRIORITY 6: ECONOMY + DOCTRINE-SPECIFIC BUILDS ──
+    if (tryEconomy(game, p, snap, phase, shared, doctrine)) { goto_done(p); return; }
+    if (tryStrategicBuild(game, p, snap, shared, phase, doctrine)) { goto_done(p); return; }
+
+    // ── PRIORITY 7: UPGRADE / DEMOLISH ──
+    tryMilitiaUpgradeStrategy(game, p, snap, phase) ||
+    tryUpgrade(game, p, snap, doctrine, shared) ||
+    tryDemolish(game, p, snap, shared);
+
+    goto_done(p);
 }
 
 function goto_done(p) {
@@ -1065,11 +1129,14 @@ function tryStrategicBuild(game, p, snap, shared, phase, doctrine) {
         if (spot) return game.buildStructure(spot, 'G', p.id);
     }
 
-    // Proactive missile economy: ensure MF capacity BEFORE building missile consumers
-    const mfNeed = phase >= PHASES.PRESSURE ? 2 : 1;
+    // Proactive missile economy: enough MF to feed launchers, capped so we do not wall off the map with factories
+    const mfCap = maxMissileFactoriesForPlayer(game, p, snap);
     const futureConsumers = (snap.ownByType.RL?.length || 0) + (snap.ownByType.AB?.length || 0);
-    const needMoreMF = snap.mfCount < mfNeed ||
-        (futureConsumers > 0 && snap.missileProd < snap.missileCons * 1.1);
+    const wantMf = Math.min(mfCap, 1 + (phase >= PHASES.PRESSURE ? 1 : 0) + (futureConsumers >= 3 ? 1 : 0));
+    const needMoreMF = snap.mfCount < mfCap && (
+        snap.mfCount < wantMf
+        || (futureConsumers > 0 && snap.missileProd < snap.missileCons * 1.1)
+    );
     if (needMoreMF && canAffordType(p, 'MF')) {
         const spot = pickSupplyAwareRearSpot(game, p, snap);
         if (spot) return game.buildStructure(spot, 'MF', p.id);
@@ -1109,6 +1176,12 @@ function tryStrategicBuild(game, p, snap, shared, phase, doctrine) {
             B:   doctrine.B   * (have('B')   < 2 ? 1.85 : 1) * (snap.visibleEnemies.length ? 1 : 1.4),
             AAS: doctrine.AAS * ((snap.aasCount < 2 || snap.visibleEnemies.some(e => e.structure.type === 'AB')) ? 1.55 : 0.6),
         };
+        const ps = doctrine.playstyle || 'mixed';
+        if (ps === 'defend') {
+            w.AAS *= 1.15; w.B *= 1.1; w.RL *= 0.93; w.AB *= 0.92;
+        } else if (ps === 'raid') {
+            w.RL *= 1.06; w.AB *= 1.04; w.D *= 1.05; w.AAS *= 0.95;
+        }
 
         // Suppress missile consumers if we can't fuel them — but suggest MF instead
         if (snap.missileProd < snap.missileCons * 0.7 || p.missiles < 3) {
@@ -1136,9 +1209,12 @@ function tryStrategicBuild(game, p, snap, shared, phase, doctrine) {
         if (spot) return game.buildStructure(spot, type, p.id);
     }
 
-    // Militia push — scaled down when not purely expanding so bots invest in Gov / real DPS
-    const militiaWeight = (phase === PHASES.EXPAND ? 1 : pr.strategicMilitiaPhaseMult)
-        * (snap.visibleEnemies.length ? 0.75 : 1);
+    // Militia push — doctrines / playstyle tune how much we still flood after expand phase
+    const dM = (doctrine.M || 2) / 2.2;
+    const psBoost = (doctrine.playstyle === 'raid') ? 1.2 : (doctrine.playstyle === 'defend' ? 0.75 : 1);
+    const landBoost = 1 + Math.min(0.5, (snap.neutralAdjacentToFrontier || 0) * 0.06);
+    const militiaWeight = (phase === PHASES.EXPAND ? 1 : pr.strategicMilitiaPhaseMult * dM * psBoost * landBoost)
+        * (snap.visibleEnemies.length ? 0.8 : 1.05);
     if (Math.random() < militiaWeight && p.units.M < game.militiaCap(p) && canAffordType(p, 'M')) {
         const mSpot = findMilitiaSpot(game, p.id, snap);
         if (mSpot) return game.buildStructure(mSpot, 'M', p.id);
@@ -1148,18 +1224,61 @@ function tryStrategicBuild(game, p, snap, shared, phase, doctrine) {
 }
 
 // ============================================================================
-//  PRIORITY 5b — MILITIA UPGRADE STRATEGY (M2→M3 Partisan)
+//  PRIORITY 2b — MISSILE ECONOMY GATE
+//  Ensures AI ALWAYS has adequate MF before building missile consumers.
+//  This is a hard gate: if missiles are short, build MF instead of anything.
 // ============================================================================
-function tryMilitiaUpgradeStrategy(game, p, snap, phase) {
-    if (phase < PHASES.FORTIFY) return false;
+function tryMissileEconomyGate(game, p, snap) {
+    const prod = snap.missileProd;
+    const cons = snap.missileCons;
+    const missiles = p.missiles;
+    const mfCount = snap.mfCount;
+    const cap = maxMissileFactoriesForPlayer(game, p, snap);
+    const wantBuf = 2 + Math.min(5, (cons || 0) * 1.2);
+
+    // No missile users yet — stay light on factories until the stockpile is low
+    if (cons === 0) {
+        if (missiles >= 2) return false;
+    }
+
+    // Comfortable buffer: enough production, stockpile, and not over factory cap
+    if (cons > 0 && prod >= cons * 0.91 && missiles >= wantBuf) return false;
+    if (mfCount >= cap && prod >= (cons || 0.01) * 0.8 && missiles >= 2 + Math.min(3, (cons || 0))) return false;
+    if (mfCount > cap && prod > cons * 1.12 && missiles >= 3) return false;
+
+    // Missile-starved — build or upgrade MF, respect cap
+    if (snap.ownByType.MF) {
+        for (const mf of snap.ownByType.MF) {
+            if (canAffordUpgrade(p, mf) && !mf.contested) {
+                return game.upgradeStructure(mf);
+            }
+        }
+    }
+
+    if (mfCount < cap && canAffordType(p, 'MF')) {
+        const spot = pickSupplyAwareRearSpot(game, p, snap);
+        if (spot) return game.buildStructure(spot, 'MF', p.id);
+    }
+
+    return false;
+}
+
+// ============================================================================
+//  PRIORITY 5b — MILITIA HQ ABUSE (M3 forward operating bases)
+//  Upgrade militia far from home into M3 Militia HQ for:
+//  - Surprise flanking attacks from unexpected positions
+//  - Mini-income generation behind enemy lines
+//  - Supply projection for ground troops
+// ============================================================================
+function tryMilitiaHQAbuse(game, p, snap, phase) {
+    const doctrine = p.doctrine;
+    const raider = (doctrine?.playstyle === 'raid' || (doctrine?.M ?? 0) >= 3.2);
+    // Default: M3 from FORTIFY+. Raid / high-M doctrines: M3 in EXPAND for forward HQs
+    if (phase === PHASES.EXPAND && !raider) return false;
 
     const militias = snap.ownByType.M || [];
     if (militias.length === 0) return false;
 
-    // Prioritize upgrading militia that are well-positioned:
-    // - NOT on the frontier (they'll die)
-    // - Far from existing govs (maximizes new territory)
-    // - In supply
     const frontierKeys = new Set(snap.frontier.map(tileKey));
     const govs = snap.ownByType.G || [];
     const supplySet = game.supplyByPlayer.get(p.id);
@@ -1178,17 +1297,28 @@ function tryMilitiaUpgradeStrategy(game, p, snap, phase) {
             if (d < minGovDist) minGovDist = d;
         }
 
-        let score = 0;
-        if (level === 1) {
-            score = 10 + Math.min(6, minGovDist) * 1.5;
-            if (!isFront) score += 3;
-            if (inSupply) score += 2;
+        // Check if near enemies (offensive position)
+        let nearEnemy = false;
+        for (const en of snap.visibleEnemies) {
+            if (Hex.distance(m, en) <= 5) { nearEnemy = true; break; }
         }
-        // M1→M2 (double range, more damage) is good for forward militia
+
+        let score = 0;
+
+        // M2→M3 (Militia HQ): Best when FAR from govs and near enemies
+        // This creates forward operating bases for flanking
+        if (level === 1) {
+            score = 8 + Math.min(8, minGovDist) * 2.0;  // Distance from home = more valuable
+            if (nearEnemy) score += 8;     // Near enemy = perfect flanking position
+            if (!isFront) score += 2;      // Slightly prefer non-frontier (survives longer)
+            if (!inSupply) score += 3;     // Out of supply = needs its own supply projection (M3 provides it!)
+            if (raider && phase === PHASES.EXPAND) score += 4;
+        }
+        // M1→M2: upgrade for better range + damage on frontline
         else if (level === 0) {
             score = 4;
-            if (isFront) score += 2;
-            if (inSupply) score += 1;
+            if (isFront) score += 3;       // Frontline M1 benefits most from range upgrade
+            if (nearEnemy) score += 2;
         }
 
         candidates.push({ tile: m, score });
@@ -1197,12 +1327,36 @@ function tryMilitiaUpgradeStrategy(game, p, snap, phase) {
     if (candidates.length === 0) return false;
     candidates.sort((a, b) => b.score - a.score);
 
-    // Only upgrade if we have enough gold buffer
-    const goldThreshold = phase >= PHASES.PRESSURE ? 200 : 300;
+    // Gold: rush M3 on forward militia when raiding; defenders wait for surplus
+    let goldThreshold = phase >= PHASES.PRESSURE ? 180 : 280;
+    if (raider) goldThreshold -= 55;
+    if (doctrine?.playstyle === 'defend') goldThreshold += 70;
     if (p.gold > goldThreshold) {
         return game.upgradeStructure(candidates[0].tile);
     }
 
+    return false;
+}
+
+// ============================================================================
+//  LEGACY MILITIA UPGRADE — now a lighter version for M1→M2
+// ============================================================================
+function tryMilitiaUpgradeStrategy(game, p, snap, phase) {
+    // tryMilitiaHQAbuse handles M2→M3 now. This handles leftover M1→M2.
+    if (phase < PHASES.EXPAND) return false;
+    const militias = (snap.ownByType.M || []).filter(m =>
+        m.structure.level === 0 && !m.contested && canAffordUpgrade(p, m)
+    );
+    if (militias.length === 0) return false;
+
+    // Upgrade frontline M1 to M2 (range 2→3 is a big deal)
+    const frontierKeys = new Set(snap.frontier.map(tileKey));
+    const front = militias.filter(m => frontierKeys.has(tileKey(m)));
+    const target = front.length > 0 ? front[0] : militias[0];
+
+    if (p.gold > 200) {
+        return game.upgradeStructure(target);
+    }
     return false;
 }
 
@@ -1584,7 +1738,32 @@ function findMilitiaSpot(game, playerId, snap) {
 function tryExpandWithMilitia(game, p, snap, phase) {
     if (p.units.M >= game.militiaCap(p)) return false;
     if (!canAffordType(p, 'M')) return false;
-    const spot = findMilitiaSpot(game, p.id, snap);
-    if (!spot) return false;
-    return game.buildStructure(spot, 'M', p.id);
+
+    const doctrine = p.doctrine;
+    const mCost = m0Cost();
+    const neutralNearby = snap.neutralAdjacentToFrontier || 0;
+    const docM = (doctrine?.M ?? 2) / 2;
+    const expandW = playstyleMilitiaExpandMult(doctrine) * clamp(docM, 0.75, 1.45);
+
+    // Tighter reserve when there is a lot of free land (tiles > doctrine — always scale the map)
+    const landUrgency = neutralNearby >= 8 ? 0.55 : neutralNearby >= 4 ? 0.72 : neutralNearby >= 1 ? 0.9 : 1;
+    const baseRes = phase >= PHASES.DOMINATE ? 90 : (phase >= PHASES.PRESSURE ? 150 : 95);
+    const reserveGold = baseRes * landUrgency / expandW;
+
+    // AGGRESSIVE: grab neutrals with militia first — cheap permanent income
+    if (neutralNearby > 0) {
+        if (p.gold < reserveGold + mCost * 0.72) return false;
+
+        const spot = findMilitiaSpot(game, p.id, snap);
+        if (spot) return game.buildStructure(spot, 'M', p.id);
+    }
+
+    // No neutrals: still push a militia to pressure / steal with surplus (raid > defend)
+    const pushGold = 280 + (doctrine?.playstyle === 'defend' ? 140 : 0);
+    if (p.gold > pushGold * (1.15 / expandW) && snap.frontier.length > 0) {
+        const spot = findMilitiaSpot(game, p.id, snap);
+        if (spot) return game.buildStructure(spot, 'M', p.id);
+    }
+
+    return false;
 }

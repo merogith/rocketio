@@ -42,7 +42,7 @@ export const GAME_CONFIG = {
     CONTESTED_EPSILON: 0.01,     // relative threshold for contested detection
     UPGRADE_COST_MULT: 0.77,     // upgrades cost ~23% less than next tier list price
     DEMOLISH_REFUND_MULT: 0.20,  // fraction of total gold spent on structure returned on demolish
-    GOV_WARMUP_MS: 10000,        // new Govs produce 0 gold for 10s (anti-rush)
+    GOV_WARMUP_MS: 5000,         // new Govs produce 0 gold for 5s (anti-rush)
     MAP_RADII: { small: 20, medium: 30, large: 45 },
     MAX_PARTICLES: 400,
     // Auto-target: reduce overkill on one tile by treating in-flight shots as committed damage.
@@ -108,8 +108,8 @@ export const GAME_CONFIG = {
     AB_L3_STEALTH_MISSILES: 2,
     /** Enemy L3 Drone: military + AAS in range get this mult on interval/recharge (slower fire). MF excluded. */
     DRONE_L3_RECHARGE_DEBUFF_MULT: 1.25,
-    /** All Missile Factories: missiles produced × this (global −40%). */
-    MF_GLOBAL_PRODUCTION_MULT: 0.6,
+    /** All Missile Factories: missiles produced × this (1.0 = honest base numbers, no hidden nerf). */
+    MF_GLOBAL_PRODUCTION_MULT: 1.0,
     /** Non–MF3 factory adjacent (hex 1) to a friendly MF3: production × this; MF3 does not buff itself. Non-stack. */
     MF_L3_NEIGHBOR_PRODUCTION_MULT: 1.3,
     /** Max militia with one Government; +MILITIA_PER_EXTRA_GOV for each additional Gov. */
@@ -156,18 +156,18 @@ export const UNIT_STATS = {
     MF: {
         name: "Missile Factory",
         levels: [
-            { id: "MF1", hp: 105, cost: 230, produceInterval: 11111, missilesProduced: 2, vision: 4 },
-            { id: "MF2", hp: 233, cost: 330, produceInterval: 10600, missilesProduced: 4, vision: 5 },
-            { id: "MF3", hp: 399, cost: 430, produceInterval: 10000, missilesProduced: 7, vision: 6 }
+            { id: "MF1", hp: 105, cost: 230, produceInterval: 11111, missilesProduced: 1, vision: 4 },
+            { id: "MF2", hp: 233, cost: 330, produceInterval: 10600, missilesProduced: 3, vision: 5 },
+            { id: "MF3", hp: 399, cost: 430, produceInterval: 10000, missilesProduced: 5, vision: 6 }
         ]
     },
     G: {
         name: "Government",
-        // List costs tuned vs ideal full-disk income (N(r)=1+3r(r+1), one Gov); gold/tile tiers 0.4 / 0.42 / 0.44.
+        // List costs vs full-disk income (N=1+3r(r+1), one Gov): (income/cost) ≈ 0.020 / 0.022 / 0.0242 $/s per $.
         levels: [
-            { id: "G1", hp: 375,  radius: 3,  cost: 410,  influence: 1750, vision: 8,  goldPerTile: 0.4  },
-            { id: "G2", hp: 1081, radius: 6,  cost: 1410, influence: 3050, vision: 10, goldPerTile: 0.42 },
-            { id: "G3", hp: 2457, radius: 9,  cost: 3250, influence: 6050, vision: 12, goldPerTile: 0.44 }
+            { id: "G1", hp: 375,  radius: 4,  cost: 1525, influence: 2000, vision: 8,  goldPerTile: 0.50 },
+            { id: "G2", hp: 1081, radius: 6,  cost: 2019, influence: 3050, vision: 10, goldPerTile: 0.35 },
+            { id: "G3", hp: 2457, radius: 9,  cost: 2800, influence: 6050, vision: 12, goldPerTile: 0.25 }
         ]
     },
     D: {
@@ -182,9 +182,10 @@ export const UNIT_STATS = {
         name: "Militia",
         // Budget glass cannon: cheap, solid damage, low HP. L2+ hp follows same upgrade rule from L1 baseline.
         levels: [
-            { id: "M1", hp: 40,  range: 1, damage: 38, cost: 135, interval: 7600,  projectiles: 1, interceptable: false, vision: 4 },
-            { id: "M2", hp: 86,  range: 2, damage: 52, cost: 185, interval: 4800,  projectiles: 1, interceptable: false, vision: 5 },
-            { id: "M3_PARTISAN", displayName: "Partisan Regiment", hp: 155, range: 2, damage: 52, cost: 275, interval: 4800, projectiles: 1, interceptable: false, vision: 6 }
+            { id: "M1", hp: 40,  range: 2, damage: 38, cost: 135, interval: 7600,  projectiles: 1, interceptable: false, vision: 4 },
+            { id: "M2", hp: 86,  range: 3, damage: 40, cost: 185, interval: 5400,  projectiles: 1, interceptable: false, vision: 5 },
+            { id: "M3_MILITIA_GOV", displayName: "Militia HQ", hp: 155, range: 3, damage: 40, cost: 1500, interval: 5400, projectiles: 1, interceptable: false, vision: 6,
+              radius: 1, influence: 900, goldPerTile: 0.3 }
         ]
     },
     AB: {
@@ -200,18 +201,38 @@ export const UNIT_STATS = {
         name: "Barracks",
         // Tanky: highest HP/$ among combat structures; DPS tuned low–medium.
         levels: [
-            { id: "B1", hp: 250, range: 3, radius: 3, damage: 45,  cost: 425,  interval: 7200, projectiles: 1, interceptable: false, influence: 1450, vision: 8  },
-            { id: "B2", hp: 680, range: 4, radius: 4, damage: 68,  cost: 900,  interval: 5200, projectiles: 1, interceptable: false, influence: 1850, vision: 10 },
-            { id: "B3", hp: 1780, range: 5, radius: 5, damage: 88, cost: 1700, interval: 3400, projectiles: 1, interceptable: false, influence: 2480, vision: 12 }
+            { id: "B1", hp: 250, range: 4, radius: 3, damage: 45,  cost: 425,  interval: 7200, projectiles: 1, interceptable: false, influence: 1450, vision: 8  },
+            { id: "B2", hp: 680, range: 5, radius: 4, damage: 68,  cost: 900,  interval: 5200, projectiles: 1, interceptable: false, influence: 1850, vision: 10 },
+            { id: "B3", hp: 1780, range: 6, radius: 5, damage: 88, cost: 1700, interval: 3400, projectiles: 1, interceptable: false, influence: 2480, vision: 12 }
         ]
     }
 };
 
+/**
+ * playstyle (AI macro layers — after land grab + missile comfort):
+ *   raid    — more militia, forward M3, pressure, fewer passive turrets
+ *   defend  — thicker AAS/B, safer Gov/MF, slower militia spend
+ *   mixed   — middle path
+ */
 export const AI_DOCTRINES = {
-    AGGRESSOR:  { name: "AGGRESSOR",  G: 2,   RL: 3,   AAS: 1.5, MF: 2,   B: 2.5, D: 2.5, AB: 2,   M: 3,   upgradeBias: 0.35, color: "#ff3d00" },
-    TURTLE:     { name: "TURTLE",     G: 3,   RL: 1.5, AAS: 3,   MF: 2,   B: 2,   D: 1.5, AB: 1,   M: 1.5, upgradeBias: 0.55, color: "#00e5ff" },
-    BOMBER:     { name: "BOMBER",     G: 2,   RL: 3,   AAS: 1.5, MF: 3,   B: 1.5, D: 1.5, AB: 3,   M: 2,   upgradeBias: 0.4,  color: "#ffd700" },
-    ECONOMIST:  { name: "ECONOMIST",  G: 4,   RL: 1.5, AAS: 2,   MF: 2.5, B: 2,   D: 1.5, AB: 1.5, M: 2,   upgradeBias: 0.5,  color: "#2ecc71" }
+    // -- Original 4 --
+    AGGRESSOR:  { name: "AGGRESSOR",  G: 2,   RL: 3,   AAS: 1.5, MF: 2,   B: 2.5, D: 2.5, AB: 2,   M: 3,   upgradeBias: 0.35, playstyle: 'raid',   color: "#ff3d00" },
+    TURTLE:     { name: "TURTLE",     G: 3,   RL: 1.5, AAS: 3,   MF: 2,   B: 2,   D: 1.5, AB: 1,   M: 1.5, upgradeBias: 0.55, playstyle: 'defend', color: "#00e5ff" },
+    BOMBER:     { name: "BOMBER",     G: 2,   RL: 3,   AAS: 1.5, MF: 3,   B: 1.5, D: 1.5, AB: 3,   M: 2,   upgradeBias: 0.4,  playstyle: 'raid',   color: "#ffd700" },
+    ECONOMIST:  { name: "ECONOMIST",  G: 4,   RL: 1.5, AAS: 2,   MF: 2.5, B: 2,   D: 1.5, AB: 1.5, M: 2,   upgradeBias: 0.5,  playstyle: 'mixed',  color: "#2ecc71" },
+    // -- New 4 --
+    /** Militia-heavy: floods map with cheap units, abuses M3 HQ for forward bases. */
+    RAIDER:     { name: "RAIDER",     G: 2.5, RL: 1,   AAS: 1,   MF: 1.5, B: 3,   D: 2,   AB: 1,   M: 4,   upgradeBias: 0.3,  playstyle: 'raid',   color: "#e91e63" },
+    /** Maximum AAS coverage: fortress mentality. Lets enemies waste missiles on interceptions. */
+    IRON_DOME:  { name: "IRON DOME",  G: 2.5, RL: 2,   AAS: 4,   MF: 2.5, B: 2.5, D: 1,   AB: 1.5, M: 2,   upgradeBias: 0.6,  playstyle: 'defend', color: "#607d8b" },
+    /** Drone swarm: saturates AAS with cheap projectiles, drains enemy charges. */
+    SWARM:      { name: "SWARM",      G: 2,   RL: 1.5, AAS: 1.5, MF: 1.5, B: 1.5, D: 4,   AB: 2,   M: 3,   upgradeBias: 0.35, playstyle: 'raid',   color: "#9c27b0" },
+    /** Balanced aggression: mix of everything, adapts to the situation. */
+    WARLORD:    { name: "WARLORD",    G: 2.5, RL: 2.5, AAS: 2,   MF: 2.5, B: 2.5, D: 2,   AB: 2,   M: 2.5, upgradeBias: 0.45, playstyle: 'mixed',  color: "#ff9800" },
+    // -- Extra variety (same rules: tiles + missiles first, then weights) --
+    CITADEL:    { name: "CITADEL",    G: 3,   RL: 1,   AAS: 3.5, MF: 2,   B: 3,   D: 1,   AB: 1,   M: 1,   upgradeBias: 0.65, playstyle: 'defend', color: "#5c6bc0" },
+    BLITZ:      { name: "BLITZ",      G: 2,   RL: 3,   AAS: 1,   MF: 2,   B: 2,   D: 3,   AB: 2,   M: 3,   upgradeBias: 0.3,  playstyle: 'raid',   color: "#ff5722" },
+    AMBITIOUS:  { name: "AMBITIOUS",  G: 3.5, RL: 1.5, AAS: 1.5, MF: 2,   B: 2,   D: 2,   AB: 1,   M: 2.5, upgradeBias: 0.4,  playstyle: 'mixed',  color: "#26a69a" },
 };
 
 export const DIFFICULTY = {

@@ -979,7 +979,7 @@ function structureL3PerkHtml(type, levelIdx) {
         case 'B':
             return `<p class="info-perk"><b>Lv3 — Command</b> · In influence: allies +${Math.round((GAME_CONFIG.BARRACKS_L3_COMMAND_OUT_MULT - 1) * 100)}% damage dealt, −${Math.round((1 - GAME_CONFIG.BARRACKS_L3_COMMAND_IN_MULT) * 100)}% damage taken (non-stacking).</p>`;
         case 'M':
-            return `<p class="info-perk"><b>Lv3 — Partisan Regiment</b> · Same range and damage as Lv2; higher HP. Counts toward militia cap.</p>`;
+            return `<p class="info-perk"><b>Lv3 — Militia HQ</b> · Keeps Lv2 range &amp; damage. Gains influence radius 1: claims adjacent tiles and earns +${UNIT_STATS.M.levels[2].goldPerTile}/tile/s on covered land.</p>`;
         case 'AAS':
             return `<p class="info-perk"><b>Lv3 — Battery</b> · Larger magazine and faster recharge cycle vs lower tiers. ${Math.round(GAME_CONFIG.AAS_L3_BONUS_RECHARGE_CHANCE * 100)}% chance +1 intercept charge when recharging.</p>`;
         default:
@@ -994,6 +994,7 @@ function summarizeLevelForTooltip(type, lv) {
     if (lv.range != null) parts.push(`rng ${lv.range}`);
     if (lv.radius != null && type === 'B') parts.push(`cmd ${lv.radius}`);
     if (lv.radius != null && type === 'G') parts.push(`inf rng ${lv.radius}`);
+    if (lv.radius != null && type === 'M') parts.push(`inf rng ${lv.radius}`);
     if (lv.damage != null) parts.push(`dmg ${lv.damage}`);
     if (lv.interval != null) parts.push(`${(lv.interval / 1000).toFixed(1)}s`);
     if (lv.rechargeInterval != null) {
@@ -1099,7 +1100,7 @@ function showBuildTooltip(btn) {
     if (type === 'M') {
         html += `<div class="tt-upgrade">Max: ${GAME_CONFIG.MILITIA_BASE_CAP} + ${GAME_CONFIG.MILITIA_PER_EXTRA_GOV} per Gov beyond your first</div>`;
         const m3 = def.levels[2];
-        html += `<div class="tt-upgrade dim">Lv3: <b>${m3.displayName || 'Partisan Regiment'}</b> — same range and damage as Lv2, more HP.</div>`;
+        html += `<div class="tt-upgrade dim">Lv3: <b>${m3.displayName || 'Militia HQ'}</b> — same range &amp; damage as Lv2; influence radius ${m3.radius ?? 1}: claims nearby tiles &amp; earns +${m3.goldPerTile ?? 0.3}/tile/s.</div>`;
     }
 
     buildTooltip.innerHTML = html;
@@ -1245,9 +1246,10 @@ function selectTile(tile) {
         statRows.push(infoStatRow('Missiles / shot', String(stats.missilesPerShot)));
     }
     if (stats.projectiles > 1) statRows.push(infoStatRow('Projectiles / volley', String(stats.projectiles)));
-    if (effectiveRadius != null && (stype === 'G' || stype === 'B')) {
-        const rv = isOwn ? `${effectiveRadius} <span class="dim">(upgrade expands)</span>` : String(effectiveRadius);
-        statRows.push(infoStatRow(stype === 'G' ? 'Inf. range' : 'Cmd radius', rv));
+    if (effectiveRadius != null && (stype === 'G' || stype === 'B' || (stype === 'M' && stats.radius))) {
+        const rv = String(effectiveRadius);
+        const label = stype === 'G' ? 'Inf. range' : stype === 'M' ? 'Inf. radius' : 'Cmd radius';
+        statRows.push(infoStatRow(label, rv));
     }
     if (stats.influence) statRows.push(infoStatRow('Influence', String(stats.influence)));
     if (stats.vision) statRows.push(infoStatRow('Vision', String(stats.vision)));
