@@ -46,12 +46,12 @@ export const GAME_CONFIG = {
     /**
      * Menu map sizes (axial "radius" R of the containing hex; total hexes = 1 + 3R(R+1)).
      *   small R=20  -> 1,261 cells   · medium R=30 -> 2,791   · large R=45 -> 6,211
-     * Free starting Government uses STARTER_GOV_LEVEL (G3, radius 9) — hexGrid.findSpawnPoints
-     * must use the same tier so spawns are not chosen for a small disk and then clip at the map edge.
+     * Free starting Government: STARTER_GOV_LEVEL = top Gov tier in UNIT_STATS (G3 / in‑game “level 3”, radius 9).
+     * `hexGrid.findSpawnPoints` uses the same tier and scores banded G3+shore $/s in the disk, with a valid mf1 slot.
      * Nudge with player count via getEffectiveMapRadius (same preset feels tight at 7p, roomy at 2p).
      */
     MAP_RADII: { small: 20, medium: 30, large: 45 },
-    /** Index into `UNIT_STATS.G.levels` for the free Government at `Game.start` (must match hexGrid spawn checks). */
+    /** 0-based index into `UNIT_STATS.G.levels` (2 = G3, max Government tier; matches spawn influence radius). */
     STARTER_GOV_LEVEL: 2,
     MAX_PARTICLES: 400,
     // Auto-target: reduce overkill on one tile by treating in-flight shots as committed damage.
@@ -87,6 +87,7 @@ export const GAME_CONFIG = {
         AF: 33,
         B: 28,
         D: 22,
+        SU: 21,
         M: 18,
     },
     /**
@@ -147,6 +148,7 @@ export const GAME_CONFIG = {
         DDG:  5500,
         AF:   3200,
         SSG:  6000,
+        SU:   5000,
     },
     // Lv3 Barracks: friendly structures on hexes within its influence radius (stats.radius) deal +10% damage
     // and take −10% damage from projectiles. Overlapping L3 Barracks do not stack (single application).
@@ -165,6 +167,8 @@ export const GAME_CONFIG = {
     AB_L3_STEALTH_MISSILES: 2,
     /** Enemy L3 Drone: military + AAS in range get this mult on interval/recharge (slower fire). MF excluded. */
     DRONE_L3_RECHARGE_DEBUFF_MULT: 1.25,
+    /** Enemy Lv3 Signature (SU): same jam class as Drone, weaker debuff. */
+    SIGNATURE_L3_RECHARGE_DEBUFF_MULT: 1.12,
     /** All Missile Factories: missiles produced × this (1.0 = honest base numbers, no hidden nerf). */
     MF_GLOBAL_PRODUCTION_MULT: 1.0,
     /** Non–MF3 factory adjacent (hex 1) to a friendly MF3: production × this; MF3 does not buff itself. Non-stack. */
@@ -188,6 +192,11 @@ export const GAME_CONFIG = {
     /** Max militia with one Government; +MILITIA_PER_EXTRA_GOV for each additional Gov. */
     MILITIA_BASE_CAP: 5,
     MILITIA_PER_EXTRA_GOV: 2,
+    /**
+     * Sea trade: owned open-sea tiles (non-shore, depth > 3 from land) earn this flat $/s each.
+     * Rewards claiming deep water via navy or Gov influence expansion.
+     */
+    SEA_TRADE_GOLD_PER_TILE_TICK: 0.12,
 };
 
 /**
@@ -327,6 +336,15 @@ export const UNIT_STATS = {
             { id: "D3", hp: 200, range: 7, damage: 13, cost: 255, interval: 4750, projectiles: 3, interceptable: true, vision: 7, jamming: true }
         ]
     },
+    /** Faction Signature: glassier than D, better DPS/$. L3: area jam (weaker than Drone L3). */
+    SU: {
+        name: "Signature Battery",
+        levels: [
+            { id: "SU1", hp: 52,  range: 5, damage: 12, cost: 158, interval: 6000, projectiles: 1, interceptable: true, vision: 5 },
+            { id: "SU2", hp: 112, range: 6, damage: 14, cost: 208, interval: 5100, projectiles: 2, interceptable: true, vision: 6 },
+            { id: "SU3", hp: 178, range: 7, damage: 14, cost: 262, interval: 4900, projectiles: 3, interceptable: true, vision: 7, signatureJam: true }
+        ]
+    },
     M: {
         name: "Militia",
         // Budget glass cannon: cheap, solid damage, low HP. L2+ hp follows same upgrade rule from L1 baseline.
@@ -435,6 +453,7 @@ export const DEFAULT_KEYBINDS = {
     build_M:    'Digit6',
     build_D:    'Digit7',
     build_AB:   'Digit8',
+    build_SU:   'F10',
     build_DDG:  'F7',
     build_AF:   'F8',
     build_SSG:  'F9',

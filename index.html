@@ -7,6 +7,20 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css?v=balance2026">
+    <script>
+    (function () {
+        function send(d) {
+            fetch('http://127.0.0.1:7800/ingest/05987a93-cd05-4494-a5fb-56e4fc3c37c8', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '7abbd6' }, body: JSON.stringify(Object.assign({ sessionId: '7abbd6', timestamp: Date.now() }, d)) }).catch(function () { });
+        }
+        send({ location: 'index.html:head', message: 'index head script ran', hypothesisId: 'H1', data: {} });
+        window.addEventListener('error', function (e) {
+            send({ location: 'index.html:window.onerror', message: 'uncaught', hypothesisId: 'H1', data: { msg: String(e.message), file: e.filename, line: e.lineno } });
+        });
+        window.addEventListener('unhandledrejection', function (e) {
+            send({ location: 'index.html:unhandledrejection', message: 'rejection', hypothesisId: 'H1', data: { reason: String(e.reason) } });
+        });
+    })();
+    </script>
 </head>
 <body>
 
@@ -56,6 +70,47 @@
                         <button class="option-btn" data-value="archipelago">Archipelago</button>
                         <button class="option-btn" data-value="inland_sea">Inland Sea</button>
                         <button class="option-btn" data-value="fractal">Fractal</button>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label for="faction-select">FACTION</label>
+                    <select id="faction-select" class="menu-select" title="Nation perks + special unit name"></select>
+                </div>
+                <div class="input-group">
+                    <label for="leader-select">LEADER</label>
+                    <select id="leader-select" class="menu-select" title="Stacking modifiers on top of nation"></select>
+                </div>
+
+                <div id="faction-brief" class="faction-brief" aria-live="polite">
+                    <div class="fb-header" id="fb-header" style="--fb-accent: linear-gradient(120deg,#0d1524,#1a3a4a)">
+                        <div id="fb-flag" class="fb-flag" title="Faction"></div>
+                        <div class="fb-headings">
+                            <div id="fb-faction-line" class="fb-fline"></div>
+                            <div id="fb-subline" class="fb-sub"></div>
+                        </div>
+                    </div>
+                    <div class="fb-body">
+                        <div class="fb-col">
+                            <h4 class="fb-h4">NATION BUFFS</h4>
+                            <ul id="fb-nation" class="fb-list"></ul>
+                        </div>
+                        <div class="fb-col">
+                            <h4 class="fb-h4">LEADER BUFF (STACKS)</h4>
+                            <p id="fb-leader-lore" class="fb-lore"></p>
+                            <ul id="fb-leader" class="fb-list"></ul>
+                        </div>
+                        <div class="fb-col fb-su">
+                            <h4 class="fb-h4">SIGNATURE UNIT (SU) · F10</h4>
+                            <p id="fb-special" class="fb-para"></p>
+                        </div>
+                    </div>
+                    <div class="fb-leader-card">
+                        <img id="fb-portrait" class="fb-portrait" src="" width="80" height="80" alt="" />
+                        <div>
+                            <div id="fb-lname" class="fb-lname"></div>
+                            <p id="fb-merged" class="fb-merged">Combined (nation×leader) modifiers are applied in-game.</p>
+                        </div>
                     </div>
                 </div>
 
@@ -290,6 +345,12 @@
                         <div class="name">Drone</div>
                         <div class="cost">$155</div>
                     </button>
+                    <button class="build-btn" data-type="SU" title="[F10] Signature: faction glass cannon; L3 weaker jam than Drone">
+                        <div class="shortcut-tag">F10</div>
+                        <div class="icon">🎯</div>
+                        <div class="name">Sig</div>
+                        <div class="cost">$158</div>
+                    </button>
                     <button class="build-btn" data-type="AB" title="[8] Air Base: Heavy Interceptable Strike">
                         <div class="shortcut-tag">8</div>
                         <div class="icon">✈️</div>
@@ -434,18 +495,23 @@
         </div>
     </div>
 
-    <!-- Synchronous: works even if main.js (module) fails to load; main.js replaces window.rocketioOpenCampaign when ready. -->
+    <!-- Synchronous: onclick runs before the ES module may be ready. Wait for main.js, then open (never show an empty op list from a bare DOM toggle). -->
     <script>
     function rocketioCampaignEntry(e) {
         if (e) { e.preventDefault(); e.stopPropagation(); }
         if (typeof window.rocketioOpenCampaign === 'function') {
             try { window.rocketioOpenCampaign(e); } catch (err) { console.error('Campaign:', err); }
-        } else {
-            var h = document.getElementById('homepage');
-            var c = document.getElementById('campaign-screen');
-            if (h) h.classList.add('hidden');
-            if (c) c.classList.remove('hidden');
+            return false;
         }
+        var n = 0;
+        var id = setInterval(function () {
+            if (typeof window.rocketioOpenCampaign === 'function') {
+                clearInterval(id);
+                try { window.rocketioOpenCampaign(e); } catch (err) { console.error('Campaign:', err); }
+            } else if (++n > 400) {
+                clearInterval(id);
+            }
+        }, 50);
         return false;
     }
     </script>

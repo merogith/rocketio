@@ -9,6 +9,8 @@ import { applyCampaignScenario, m1BuildTutorialCheckPlace, m1OnBuildPlaced } fro
 import { Input } from './input.js?v=balance2026';
 import { updateAI } from './ai.js?v=balance2026';
 import { SFX } from './sfx.js?v=balance2026';
+import { FACTIONS, getFaction, describeModsList, getPlayerMods } from './factions.js?v=balance2026';
+import { FACTION_BANNERS, PLACEHOLDER_LEADER_PORTRAIT, getSpecialUnitBlurb, getLeaderPerkText } from './factionsDisplay.js?v=balance2026';
 
 // ============================================================================
 //  DOM
@@ -76,7 +78,7 @@ const diplomacyCapMax = document.getElementById('diplomacy-cap-max');
 const diplomacyCloseBtn = document.getElementById('diplomacy-close');
 const playerPortraitEl = document.getElementById('player-portrait');
 
-const TARGETABLE_TYPES = new Set(['RL', 'B', 'D', 'M', 'AB', 'DDG', 'SSG']);
+const TARGETABLE_TYPES = new Set(['RL', 'B', 'D', 'SU', 'M', 'AB', 'DDG', 'SSG']);
 const NAVY_BUILD_TYPES_UI = new Set(['DDG', 'AF', 'SSG']);
 
 // ============================================================================
@@ -287,7 +289,45 @@ function renderCampaignMissionList() {
     }
 }
 
-function initWorld(mapSize, mapStyle, playerCount, playerName, victoryConfig, difficulty = 'normal', campaign = null) {
+function openSentinelCampaignFromMenu(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    if (!campaignScreenEl) {
+        console.error('RocketIO: #campaign-screen missing');
+        return;
+    }
+    homepageEl?.classList.add('hidden');
+    try {
+        openCampaignScreen();
+    } catch (err) {
+        console.error('RocketIO: campaign open failed', err);
+        showNoti('Campaign failed to load. Check the console (F12).', 'info');
+        homepageEl?.classList.remove('hidden');
+    }
+}
+
+function registerCampaignOnWindow() {
+    if (!document.getElementById('campaign-btn')) {
+        console.error('RocketIO: #campaign-btn not in DOM. Hard-refresh the page (Ctrl+Shift+R).');
+        return;
+    }
+    window.rocketioOpenCampaign = (e) => {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        if (!homepageEl) return;
+        openSentinelCampaignFromMenu(e);
+    };
+}
+registerCampaignOnWindow();
+if (campaignScreenEl && !campaignScreenEl.classList.contains('hidden')) {
+    renderCampaignMissionList();
+}
+
+function initWorld(mapSize, mapStyle, playerCount, playerName, victoryConfig, difficulty = 'normal', campaign = null, playerOptions = null) {
     const radius = getEffectiveMapRadius(mapSize, playerCount);
     grid = new HexGrid(radius, 30, mapStyle, playerCount);
     game = new Game(grid);
@@ -301,7 +341,12 @@ function initWorld(mapSize, mapStyle, playerCount, playerName, victoryConfig, di
 
     camera.x = 0; camera.y = 0; camera.scale = 0.6;
 
-    game.start(playerCount, playerName, victoryConfig);
+    const po = playerOptions && typeof playerOptions === 'object' ? playerOptions : {};
+    const startOpt = {
+        humanFactionId: po.humanFactionId != null ? (po.humanFactionId | 0) : 0,
+        humanLeaderIdx: po.humanLeaderIdx != null ? (po.humanLeaderIdx | 0) : 0,
+    };
+    game.start(playerCount, playerName, victoryConfig, startOpt);
     game.campaign = null;
 
     if (campaign && campaign.missionId != null) {
@@ -324,7 +369,12 @@ function initWorld(mapSize, mapStyle, playerCount, playerName, victoryConfig, di
         camera.x = -pos.x; camera.y = -pos.y;
     }
 
-    playerLabelEl.textContent = game.players[0].name;
+    {
+        const p0 = game.players[0];
+        const f0 = getFaction(p0.factionId);
+        const l0 = f0.leaders[p0.leaderIdx] || f0.leaders[0];
+        playerLabelEl.textContent = `${p0.name} · ${f0.code} · ${l0.name}`;
+    }
     if (playerPortraitEl) {
         playerPortraitEl.innerHTML = buildPortraitSvg(game.players[0], 28);
         playerPortraitEl.classList.remove('hidden');
@@ -342,6 +392,7 @@ function initWorld(mapSize, mapStyle, playerCount, playerName, victoryConfig, di
 }
 
 function resize() {
+    if (!canvas) return;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const w = window.innerWidth;
     const h = window.innerHeight;
@@ -350,6 +401,7 @@ function resize() {
     canvas.width = Math.floor(w * dpr);
     canvas.height = Math.floor(h * dpr);
     const ctx = canvas.getContext('2d');
+    if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 window.addEventListener('resize', resize);
@@ -444,7 +496,10 @@ function updateVictorySubPicker(mode) {
     }
 }
 
-document.getElementById('play-btn').addEventListener('click', () => {
+document.getElementById('play-btn')?.addEventListener('click', () => {
+    // #region agent log
+    fetch('http://127.0.0.1:7800/ingest/05987a93-cd05-4494-a5fb-56e4fc3c37c8', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '7abbd6' }, body: JSON.stringify({ sessionId: '7abbd6', location: 'main.js:play-btn', message: 'play clicked', hypothesisId: 'H2', data: { map: selectedMapStyle, players: selectedPlayerCount }, timestamp: Date.now() }) }).catch(() => { });
+    // #endregion
     const nameInput = document.getElementById('player-name');
     commanderName = (nameInput.value || '').trim().toUpperCase() || 'COMMANDER';
     activeCampaign = null;
@@ -464,41 +519,23 @@ document.getElementById('play-btn').addEventListener('click', () => {
     SFX.setMusicEnabled(Input.getSetting('musicEnabled') !== false);
 
     const victoryConfig = { mode: selectedVictoryMode, param: selectedVictoryParam };
-    initWorld(selectedMapSize, selectedMapStyle, selectedPlayerCount, commanderName, victoryConfig, selectedDifficulty);
+    const fSel = document.getElementById('faction-select');
+    const lSel = document.getElementById('leader-select');
+    const hF = fSel ? (parseInt(fSel.value, 10) || 0) : 0;
+    const hL = lSel ? (parseInt(lSel.value, 10) || 0) : 0;
+    try {
+        initWorld(selectedMapSize, selectedMapStyle, selectedPlayerCount, commanderName, victoryConfig, selectedDifficulty, null, { humanFactionId: hF, humanLeaderIdx: hL });
+    } catch (e) {
+        // #region agent log
+        fetch('http://127.0.0.1:7800/ingest/05987a93-cd05-4494-a5fb-56e4fc3c37c8', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '7abbd6' }, body: JSON.stringify({ sessionId: '7abbd6', location: 'main.js:play-btn', message: 'initWorld threw', hypothesisId: 'H3', data: { err: String(e) }, timestamp: Date.now() }) }).catch(() => { });
+        // #endregion
+        throw e;
+    }
+    // #region agent log
+    fetch('http://127.0.0.1:7800/ingest/05987a93-cd05-4494-a5fb-56e4fc3c37c8', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '7abbd6' }, body: JSON.stringify({ sessionId: '7abbd6', location: 'main.js:play-btn', message: 'initWorld ok', hypothesisId: 'H3', data: { hasGame: !!game }, timestamp: Date.now() }) }).catch(() => { });
+    // #endregion
     if (!loopRunning) { loopRunning = true; requestAnimationFrame(loop); }
 });
-
-function openSentinelCampaignFromMenu(e) {
-    if (e) {
-        e.preventDefault();
-        e.stopPropagation();
-    }
-    if (!campaignScreenEl) {
-        console.error('RocketIO: #campaign-screen missing');
-        return;
-    }
-    homepageEl?.classList.add('hidden');
-    try {
-        openCampaignScreen();
-    } catch (err) {
-        console.error('RocketIO: campaign open failed', err);
-        showNoti('Campaign failed to load. Check the console (F12).', 'info');
-        homepageEl?.classList.remove('hidden');
-    }
-}
-
-function registerCampaignOnWindow() {
-    if (!document.getElementById('campaign-btn')) {
-        console.error('RocketIO: #campaign-btn not in DOM. Hard-refresh the page (Ctrl+Shift+R).');
-        return;
-    }
-    // Exposed for inline onclick in index.html (fires even if addEventListener / capture order breaks)
-    window.rocketioOpenCampaign = (e) => {
-        if (!homepageEl || homepageEl.classList.contains('hidden')) return;
-        openSentinelCampaignFromMenu(e);
-    };
-}
-registerCampaignOnWindow();
 
 campaignBackBtn?.addEventListener('click', () => {
     closeCampaignScreen();
@@ -509,7 +546,7 @@ campaignBriefingBegin?.addEventListener('click', () => {
     closeCampaignBriefingInGame();
 });
 
-document.getElementById('tutorial-btn').addEventListener('click', () => {
+document.getElementById('tutorial-btn')?.addEventListener('click', () => {
     tutorialOverlay.classList.remove('hidden');
     renderTutorial(0);
 });
@@ -740,10 +777,24 @@ canvas.addEventListener('mousedown', (e) => {
                 } else {
                     const success = game.buildStructure(tile, selectedBuildType, 1);
                     if (!success) {
-                        if (!tile.buildable) {
-                            showNoti(NAVY_BUILD_TYPES_UI.has(selectedBuildType)
-                                ? "Navy: build on your owned, uncontested water (claim with Government)"
-                                : "Can't build on water", "error");
+                        if (NAVY_BUILD_TYPES_UI.has(selectedBuildType)) {
+                            const nDef = UNIT_STATS[selectedBuildType];
+                            const nCost = nDef?.levels?.[0]?.cost ?? 0;
+                            if (tile.buildable) {
+                                showNoti("Navy: not on land — only on your owned, uncontested water (claim with Government or M3 influence)", "error");
+                            } else if (tile.contested) {
+                                showNoti("Navy: that water is contested", "error");
+                            } else if (tile.owner !== 1) {
+                                showNoti("Navy: need water you control (yours, uncontested). Push Government or M3 influence over that sea", "error");
+                            } else if (tile.structure) {
+                                showNoti("That hex already has a structure", "error");
+                            } else if (game.players[0].gold < nCost) {
+                                showNoti("Insufficient gold", "error");
+                            } else {
+                                showNoti("Cannot place navy here", "error");
+                            }
+                        } else if (!tile.buildable) {
+                            showNoti("Can't build on water", "error");
                         } else if (tile.contested) showNoti("Tile is contested", "error");
                         else if (selectedBuildType === 'M' && !game.isVisibleTo(tile, 1)) showNoti("No vision — need a structure nearby", "error");
                         else if (selectedBuildType === 'M' && tile.owner && tile.owner !== 1) showNoti("Militia: your territory or neutral only", "error");
@@ -751,11 +802,13 @@ canvas.addEventListener('mousedown', (e) => {
                         else showNoti("Insufficient gold, limit reached, or occupied", "error");
                     } else {
                         const m1n = m1OnBuildPlaced(game, selectedBuildType, tile, true);
+                        game.recomputeFog();
                         if (m1n?.nudge === 'next') showNoti('Next: Missile Factory — key 4, then the new pulsing hex.', 'info');
                         if (m1n?.nudge === 'complete') {
                             showNoti('Training complete. Main objective is in the op panel — take their Government.', 'success');
                         }
                         syncCampaignBuildQuestPanel();
+                        updateM1BuildButtonLock();
                         m1AutoselectBuild();
                     }
                 }
@@ -1095,7 +1148,7 @@ function handleInput() {
     if (Input.consumePress('settings')) openSettings();
 
     // Build hotkeys
-    const buildTypes = ['G', 'RL', 'AAS', 'MF', 'B', 'M', 'D', 'AB', 'DDG', 'AF', 'SSG'];
+    const buildTypes = ['G', 'RL', 'AAS', 'MF', 'B', 'M', 'D', 'SU', 'AB', 'DDG', 'AF', 'SSG'];
     buildTypes.forEach((type, i) => {
         if (Input.consumePress(`build_${type}`)) {
             if (game.campaign?.buildTutorial?.active) {
@@ -1193,7 +1246,11 @@ document.getElementById('menu-restart')?.addEventListener('click', () => {
             }
         } else {
             const vc = { mode: selectedVictoryMode, param: selectedVictoryParam };
-            initWorld(selectedMapSize, selectedMapStyle, selectedPlayerCount, commanderName, vc, selectedDifficulty);
+            const fSel = document.getElementById('faction-select');
+            const lSel = document.getElementById('leader-select');
+            const hF = fSel ? (parseInt(fSel.value, 10) || 0) : 0;
+            const hL = lSel ? (parseInt(lSel.value, 10) || 0) : 0;
+            initWorld(selectedMapSize, selectedMapStyle, selectedPlayerCount, commanderName, vc, selectedDifficulty, null, { humanFactionId: hF, humanLeaderIdx: hL });
             hideCampaignQuestPanel();
         }
     }
@@ -1304,6 +1361,8 @@ function structureL3PerkHtml(type, levelIdx) {
             return `<p class="info-perk"><b>Lv3 — Stealth sortie</b> · ${Math.round(GAME_CONFIG.AB_L3_STEALTH_CHANCE * 100)}% non-interceptable strike using ${GAME_CONFIG.AB_L3_STEALTH_MISSILES} missiles.</p>`;
         case 'D':
             return `<p class="info-perk"><b>Lv3 — Jamming</b> · Enemy RL, AB, Barracks, Militia &amp; AAS in range: +${Math.round((GAME_CONFIG.DRONE_L3_RECHARGE_DEBUFF_MULT - 1) * 100)}% fire interval (MF excluded).</p>`;
+        case 'SU':
+            return `<p class="info-perk"><b>Lv3 — Signature jam</b> · Same class as Drone, weaker: +${Math.round((GAME_CONFIG.SIGNATURE_L3_RECHARGE_DEBUFF_MULT - 1) * 100)}% enemy fire interval in range (MF excluded).</p>`;
         case 'MF':
             return `<p class="info-perk"><b>Lv3 — Logistics</b> · Adjacent friendly factories +${Math.round((GAME_CONFIG.MF_L3_NEIGHBOR_PRODUCTION_MULT - 1) * 100)}% output (not self). All factories: ×${GAME_CONFIG.MF_GLOBAL_PRODUCTION_MULT} global.</p>`;
         case 'B':
@@ -1350,6 +1409,7 @@ function summarizeLevelForTooltip(type, lv) {
         parts.push(`splash ${Math.round(GAME_CONFIG.RL_L3_SPLASH_CHANCE * 100)}% → ${Math.round(GAME_CONFIG.RL_L3_SPLASH_MULT * 100)}% adj`);
     }
     if (lv.jamming) parts.push(`jam −${Math.round((GAME_CONFIG.DRONE_L3_RECHARGE_DEBUFF_MULT - 1) * 100)}% enemy recharge`);
+    if (lv.signatureJam) parts.push(`sig jam +${Math.round((GAME_CONFIG.SIGNATURE_L3_RECHARGE_DEBUFF_MULT - 1) * 100)}% enemy interval`);
     if (lv.displayName) parts.unshift(lv.displayName);
     return parts.join(' · ');
 }
@@ -1531,7 +1591,7 @@ function selectTile(tile) {
                 ? '<p class="supply-line bad">Contested — no income while tied.</p>'
                 : '';
             const seaNote = !tile.buildable && !tile.shoreIncome
-                ? '<p class="hint dim">Open sea: no Government gold. Sea units, when added, can be built only on <b>water you control</b>.</p>'
+                ? `<p class="hint dim">Open sea: earns <b>+$${GAME_CONFIG.SEA_TRADE_GOLD_PER_TILE_TICK}/s sea trade</b> per owned tile (no Gov needed). Build navy only on <b>water you control</b>.</p>`
                 : '';
             infoPanel.classList.remove('hidden');
             infoContent.innerHTML = `
@@ -1646,13 +1706,23 @@ function selectTile(tile) {
             doctrineLine = `<p class="hint" style="color:${owner.doctrine.color}">Doctrine: ${owner.doctrine.name}</p>`;
         }
     }
+    let facPlayerLine = '';
+    {
+        const fo = game.players[tile.owner - 1];
+        if (fo) {
+            const f = getFaction(fo.factionId);
+            const l = f.leaders[fo.leaderIdx] || f.leaders[0];
+            facPlayerLine = `<p class="hint dim">${f.code} — ${l.name} · <span title="Nation + leader modifiers apply to this player">${f.specialName} signature</span></p>`;
+        }
+    }
 
     const perk = structureL3PerkHtml(stype, levelIdx);
     const govRingHtml = (stype === 'G' && !govWarmupBlock) ? govGoldBandLinesHtml(levelIdx) : '';
-    const titleName = (stats.displayName || UNIT_STATS[stype].name).toUpperCase();
+    const titleName = (tile.structure.displayName || stats.displayName || UNIT_STATS[stype].name).toUpperCase();
     infoContent.innerHTML = `
         <h4>${titleName} · LVL ${levelIdx + 1}</h4>
         <p class="info-owner">Owner: ${game.players[tile.owner - 1]?.name || ('P' + tile.owner)}</p>
+        ${facPlayerLine}
         ${govWarmupBlock}
         <div class="info-card-stats">${statRows.join('')}</div>
         ${govRingHtml}
@@ -2377,8 +2447,15 @@ minimapStatsNextBtn?.addEventListener('click', (e) => {
 });
 
 let lastBuildRefresh = 0;
+let _agentLoopLogOnce = false;
 
 function loop(time) {
+    // #region agent log
+    if (!_agentLoopLogOnce) {
+        _agentLoopLogOnce = true;
+        fetch('http://127.0.0.1:7800/ingest/05987a93-cd05-4494-a5fb-56e4fc3c37c8', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '7abbd6' }, body: JSON.stringify({ sessionId: '7abbd6', location: 'main.js:loop', message: 'first frame', hypothesisId: 'H4', data: { hasGame: !!game }, timestamp: Date.now() }) }).catch(() => { });
+    }
+    // #endregion
     handleInput();
     Input.clearFrame();
 
@@ -2460,7 +2537,7 @@ function loop(time) {
         if (game.selectedTile && !infoPanel.classList.contains('hidden') && time - lastInfoRefresh > 250) {
             const t = game.selectedTile;
             const hash = t.structure
-                ? `${t.owner}|${t.contested ? 1 : 0}|${t.structure.type}|${t.structure.level}|${Math.round(t.hp)}|${t.maxHp}|${t.structure.target ? (t.structure.target.q+','+t.structure.target.r) : '-'}|${(t.structure.charge ?? '')}|${(t.structure.missilesProduced ?? '')}`
+                ? `${t.owner}|${t.contested ? 1 : 0}|${t.structure.type}|${t.structure.level}|${Math.round(t.hp)}|${t.maxHp}|${t.structure.target ? (t.structure.target.q+','+t.structure.target.r) : '-'}|${(t.structure.charge ?? '')}|${(t.structure.missilesProduced ?? '')}|${t.structure.displayName || ''}`
                 : `${t.owner}|${t.contested ? 1 : 0}|empty`;
             if (hash !== _lastInfoHash) {
                 selectTile(t);
@@ -2474,3 +2551,127 @@ function loop(time) {
     }
     requestAnimationFrame(loop);
 }
+
+let _homeFactionUiBound = false;
+
+function refreshHomeFactionBrief() {
+    const brief = document.getElementById('faction-brief');
+    const fs = document.getElementById('faction-select');
+    const ls = document.getElementById('leader-select');
+    if (!brief || !fs || !ls) return;
+    const fi = Math.max(0, Math.min(FACTIONS.length - 1, parseInt(fs.value, 10) || 0));
+    const li = Math.max(0, Math.min(2, parseInt(ls.value, 10) || 0));
+    const f = FACTIONS[fi] || FACTIONS[0];
+    const L = f.leaders[li] || f.leaders[0];
+    const banner = FACTION_BANNERS[fi] || FACTION_BANNERS[0];
+
+    const hdr = document.getElementById('fb-header');
+    if (hdr) {
+        hdr.style.setProperty('--fb-accent', banner.accent);
+    }
+    const fl = document.getElementById('fb-flag');
+    if (fl) {
+        fl.textContent = '';
+        const sp = document.createElement('span');
+        sp.className = 'fb-emoji';
+        sp.textContent = banner.flag;
+        sp.title = f.name;
+        fl.appendChild(sp);
+    }
+    const fline = document.getElementById('fb-faction-line');
+    if (fline) fline.textContent = `${f.name} · ${f.code}`;
+    const sub = document.getElementById('fb-subline');
+    if (sub) sub.textContent = f.specialName + ' — signature build';
+
+    const ulN = document.getElementById('fb-nation');
+    if (ulN) {
+        ulN.innerHTML = '';
+        for (const line of describeModsList(f.nation)) {
+            const li0 = document.createElement('li');
+            li0.textContent = line;
+            ulN.appendChild(li0);
+        }
+    }
+    const ulL = document.getElementById('fb-leader');
+    if (ulL) {
+        ulL.innerHTML = '';
+        for (const line of describeModsList(L.mods || {})) {
+            const li0 = document.createElement('li');
+            li0.textContent = line;
+            ulL.appendChild(li0);
+        }
+    }
+    const lore = document.getElementById('fb-leader-lore');
+    if (lore) {
+        lore.textContent = getLeaderPerkText(fi, li);
+    }
+    const su = document.getElementById('fb-special');
+    if (su) {
+        su.textContent = getSpecialUnitBlurb(f);
+    }
+    const png = document.getElementById('fb-portrait');
+    if (png) {
+        png.src = PLACEHOLDER_LEADER_PORTRAIT;
+        png.alt = L.name;
+    }
+    const lname = document.getElementById('fb-lname');
+    if (lname) {
+        lname.textContent = L.name;
+    }
+    const comb = getPlayerMods(fi, li);
+    const effLines = describeModsList({ ...comb, startMissiles: comb.startMissiles });
+    const mrg = document.getElementById('fb-merged');
+    if (mrg) {
+        mrg.textContent = 'Effective (nation×leader, undertuned): ' + (effLines.length ? effLines.join(' · ') : 'no extra modifiers beyond baseline.');
+    }
+}
+
+function initHomePageFactionUI() {
+    if (_homeFactionUiBound) return;
+    const fs = document.getElementById('faction-select');
+    const ls = document.getElementById('leader-select');
+    if (!fs || !ls) {
+        return;
+    }
+    try {
+        fs.innerHTML = '';
+        for (let i = 0; i < FACTIONS.length; i++) {
+            const f = FACTIONS[i];
+            const b = FACTION_BANNERS[i] || FACTION_BANNERS[0];
+            const o = document.createElement('option');
+            o.value = String(i);
+            o.textContent = `${b.flag} ${f.code} — ${f.name}`;
+            fs.appendChild(o);
+        }
+        fs.selectedIndex = 0;
+        const refill = () => {
+            const idx = Math.max(0, Math.min(FACTIONS.length - 1, parseInt(fs.value, 10) || 0));
+            const fact = FACTIONS[idx] || FACTIONS[0];
+            ls.innerHTML = '';
+            fact.leaders.forEach((le, j) => {
+                const o = document.createElement('option');
+                o.value = String(j);
+                o.textContent = le.name;
+                ls.appendChild(o);
+            });
+            ls.selectedIndex = 0;
+        };
+        fs.addEventListener('change', () => { refill(); refreshHomeFactionBrief(); });
+        ls.addEventListener('change', refreshHomeFactionBrief);
+        refill();
+        refreshHomeFactionBrief();
+        _homeFactionUiBound = true;
+    } catch (err) {
+        console.error('RocketIO: initHomePageFactionUI failed', err);
+    }
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initHomePageFactionUI);
+} else {
+    initHomePageFactionUI();
+}
+
+// #region agent log
+fetch('http://127.0.0.1:7800/ingest/05987a93-cd05-4494-a5fb-56e4fc3c37c8', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '7abbd6' }, body: JSON.stringify({ sessionId: '7abbd6', location: 'main.js:EOF', message: 'main module init finished', hypothesisId: 'H1', data: { playWired: true }, timestamp: Date.now() }) }).catch(() => { });
+// #endregion

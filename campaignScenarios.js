@@ -55,7 +55,6 @@ export function m1OnBuildPlaced(game, type, tile, placementSucceeded) {
     const step = bt.steps[bt.step];
     if (!step || type !== step.type || tile.q !== step.q || tile.r !== step.r) return;
     bt.step++;
-    if (bt.step > 0) bt.prematureFogReveal = false;
     if (bt.step < bt.steps.length) {
         reseedM1BuildTutorial(bt);
         return { nudge: 'next' };
@@ -168,11 +167,11 @@ function applyMission1(game, grid) {
         if (inRange) candidates.push(t);
     }
 
-    const hGov = findGovTile(game, 1);
+    const humanGovForRl = findGovTile(game, 1);
     let best = null;
     let bestD = -1;
     for (const t of candidates) {
-        const d = hGov ? Hex.distance(t, hGov) : 0;
+        const d = humanGovForRl ? Hex.distance(t, humanGovForRl) : 0;
         if (d > bestD) {
             bestD = d;
             best = t;

@@ -1,4 +1,5 @@
 import { UNIT_STATS, COLORS, GAME_CONFIG, DIFFICULTY, DIPLOMACY, govGoldForDistance } from './constants.js?v=balance2026';
+import { getPlayerMods, getSpecialUnitLabelForPlayer } from './factions.js?v=balance2026';
 import { Hex } from './hexGrid.js?v=balance2026';
 import { SFX } from './sfx.js?v=balance2026';
 
@@ -15,7 +16,7 @@ function intervalEff(tile) {
     return 1;
 }
 
-const ATTACK_TYPES = new Set(['RL', 'B', 'D', 'M', 'AB', 'DDG', 'SSG']);
+const ATTACK_TYPES = new Set(['RL', 'B', 'D', 'SU', 'M', 'AB', 'DDG', 'SSG']);
 /** Structures that may be placed on owned water only (see `canBuildNavyOn`). */
 const NAVY_BUILD_TYPES = new Set();
 ['DDG', 'AF', 'SSG'].forEach(t => NAVY_BUILD_TYPES.add(t));
@@ -105,6 +106,7 @@ export class Game {
             if (tile.structure.type === 'B' && tile.structure.level === 2) this._l3BarracksTiles.push(tile);
             if (tile.structure.type === 'G' && tile.structure.level === 2 && tile.owner) this._l3GovTiles.push(tile);
             if (tile.structure.type === 'D' && tile.structure.level === 2 && tile.structure.stats?.jamming) this._d3JamTiles.push(tile);
+            if (tile.structure.type === 'SU' && tile.structure.level === 2 && tile.structure.stats?.signatureJam) this._d3JamTiles.push(tile);
             if (tile.structure.type === 'G' && tile.owner) {
                 this._govTiles.push(tile);
                 this._govCount[tile.owner - 1] = (this._govCount[tile.owner - 1] || 0) + 1;
@@ -205,7 +207,8 @@ export class Game {
         if (bonus > 0 && this._inFriendlyG3GoldAura(tile, tile.owner)) {
             bonus *= GAME_CONFIG.GOV_L3_GOLD_AURA_MULT;
         }
-        return bonus;
+        const gm = this.getPlayerModsForOwner(tile.owner).goldMult;
+        return bonus * gm;
     }
 
     /** Owned land tile earning gov gold: within a friendly Lv3 Government radius (non-stacking mult in tick). */
@@ -221,21 +224,40 @@ export class Game {
         return false;
     }
 
-    /** Enemy Lv3 Drone in range slows this structure's fire/recharge (RL, AB, B, M, D, AAS). */
-    _enemyDroneL3Slows(tile) {
-        if (!tile?.structure) return false;
+    getPlayerModsForOwner(ownerId) {
+        const p = this.players[ownerId - 1];
+        if (!p) {
+            return { goldMult: 1, effMult: 1, mfMult: 1, dealtMult: 1, takenMult: 1, outSupplyMult: 1, startMissiles: 0 };
+        }
+        return getPlayerMods(p.factionId ?? 0, p.leaderIdx ?? 0);
+    }
+
+    /**
+     * >1 = slower fire when debuffed. Combines Drone L3 and Signature L3 in range; takes the stronger (higher) slow.
+     */
+    _enemyJamRechargeMult(tile) {
+        if (!tile?.structure) return 1;
         const t = tile.structure.type;
-        if (t !== 'RL' && t !== 'AB' && t !== 'B' && t !== 'M' && t !== 'D' && t !== 'AAS' && t !== 'DDG' && t !== 'SSG' && t !== 'AF') return false;
+        if (t !== 'RL' && t !== 'AB' && t !== 'B' && t !== 'M' && t !== 'D' && t !== 'SU' && t !== 'AAS' && t !== 'DDG' && t !== 'SSG' && t !== 'AF') {
+            return 1;
+        }
         const owner = tile.owner;
-        if (!owner) return false;
+        if (!owner) return 1;
         this._ensureIndex();
+        let best = 1;
         for (const dTile of this._d3JamTiles) {
             if (!dTile.owner || dTile.owner === owner) continue;
             if (this.areAllied(dTile.owner, owner)) continue;
             const r = dTile.structure.stats.range ?? 0;
-            if (Hex.distance(tile, dTile) <= r) return true;
+            if (Hex.distance(tile, dTile) > r) continue;
+            const st = dTile.structure;
+            if (st.type === 'D' && st.level === 2 && st.stats?.jamming) {
+                best = Math.max(best, GAME_CONFIG.DRONE_L3_RECHARGE_DEBUFF_MULT);
+            } else if (st.type === 'SU' && st.level === 2 && st.stats?.signatureJam) {
+                best = Math.max(best, GAME_CONFIG.SIGNATURE_L3_RECHARGE_DEBUFF_MULT);
+            }
         }
-        return false;
+        return best;
     }
 
     /** Non–MF3 factory tile adjacent to a different friendly MF3 gets production mult (used in MF tick). */
@@ -257,9 +279,12 @@ export class Game {
         return GAME_CONFIG.MILITIA_BASE_CAP + Math.max(0, govs - 1) * GAME_CONFIG.MILITIA_PER_EXTRA_GOV;
     }
 
-    start(playerCount = 4, humanName = "COMMANDER", victoryConfig = null) {
+    start(playerCount = 4, humanName = "COMMANDER", victoryConfig = null, startOptions = {}) {
         this.playerCount = playerCount;
         this.humanName = humanName;
+        const opt = startOptions && typeof startOptions === 'object' ? startOptions : {};
+        const humanFactionId = opt.humanFactionId != null ? (opt.humanFactionId | 0) : 0;
+        const humanLeaderIdx = opt.humanLeaderIdx != null ? (opt.humanLeaderIdx | 0) : 0;
         this.players = [];
         this.projectiles = [];
         this._incomingThreatHumanRef.clear();
@@ -288,11 +313,18 @@ export class Game {
         for (let i = 1; i <= playerCount; i++) {
             const isAi = i !== this.humanId;
             const startGold = GAME_CONFIG.STARTING_GOLD + (isAi ? diff.startGoldDelta : 0);
+            const factionId = i === this.humanId
+                ? ((humanFactionId % 14) + 14) % 14
+                : ((i * 3) % 14 + 14) % 14;
+            const leaderIdx = i === this.humanId
+                ? ((humanLeaderIdx % 3) + 3) % 3
+                : (i % 3);
+            const m0 = getPlayerMods(factionId, leaderIdx);
             this.players.push({
                 id: i,
                 name: i === this.humanId ? humanName : `CPU-${i}`,
                 gold: startGold,
-                missiles: GAME_CONFIG.STARTING_MISSILES,
+                missiles: GAME_CONFIG.STARTING_MISSILES + (m0.startMissiles | 0),
                 goldRate: 0,
                 tileCount: 0,
                 /** Owned open-sea hexes (excludes shore — those count in tileCount). */
@@ -305,6 +337,8 @@ export class Game {
                 nextAiAction: 0,
                 nextDiploAction: 0,
                 portrait: this._buildPortrait(i, i === this.humanId ? humanName : `CPU-${i}`),
+                factionId,
+                leaderIdx,
                 stats: {
                     structuresBuilt: 0,
                     structuresDestroyed: 0,
@@ -439,6 +473,16 @@ export class Game {
                 }
             } else if (this._deepSeaTile(tile)) {
                 seaCounts[oi]++;
+                const stRate = GAME_CONFIG.SEA_TRADE_GOLD_PER_TILE_TICK;
+                if (stRate > 0) {
+                    const isAi = tile.owner !== this.humanId;
+                    const diffMult = isAi ? (this._difficulty || DIFFICULTY.normal).goldMult : 1;
+                    const gm = this.getPlayerModsForOwner(tile.owner).goldMult;
+                    const income = stRate * gm * diffMult;
+                    this.players[oi].gold += income;
+                    this.players[oi].stats.goldEarned += income;
+                    goldRates[oi] += income;
+                }
             }
         }
 
@@ -727,8 +771,13 @@ export class Game {
 
     effFor(tile) {
         let mul = intervalEff(tile);
-        if (!this.isInSupply(tile, tile.owner)) mul *= GAME_CONFIG.SUPPLY_OUT_MULT;
-        if (this._enemyDroneL3Slows(tile)) mul *= GAME_CONFIG.DRONE_L3_RECHARGE_DEBUFF_MULT;
+        if (!this.isInSupply(tile, tile.owner)) {
+            const k = this.getPlayerModsForOwner(tile.owner).outSupplyMult ?? 1;
+            mul *= 1 + (GAME_CONFIG.SUPPLY_OUT_MULT - 1) * k;
+        }
+        const jamM = this._enemyJamRechargeMult(tile);
+        if (jamM > 1) mul *= jamM;
+        mul *= this.getPlayerModsForOwner(tile.owner).effMult ?? 1;
         return mul;
     }
 
@@ -756,6 +805,7 @@ export class Game {
                     if (tile.structure.level !== 2 && this._mfNeighborOfFriendlyMF3(tile)) {
                         prodMult *= GAME_CONFIG.MF_L3_NEIGHBOR_PRODUCTION_MULT;
                     }
+                    prodMult *= this.getPlayerModsForOwner(tile.owner).mfMult ?? 1;
                     p.missiles += Math.floor(stats.missilesProduced * prodMult);
                     tile.lastAction = time;
                 }
@@ -778,7 +828,7 @@ export class Game {
                 }
                 continue;
             }
-            if (s.type === 'D') {
+            if (s.type === 'D' || s.type === 'SU') {
                 if (time - tile.lastAction > stats.interval * eff) {
                     this.fireDrone(tile);
                     tile.lastAction = time;
@@ -897,7 +947,7 @@ export class Game {
         if (t === 'AB') return 'airstrike';
         if (t === 'DDG') return 'navy';
         if (t === 'SSG') return 'cruise';
-        if (t === 'D') return 'drone';
+        if (t === 'D' || t === 'SU') return 'drone';
         if (t === 'B') return 'ground';
         if (t === 'M' && s.stats?.damage) return 'militia';
         return null;
@@ -962,7 +1012,7 @@ export class Game {
             score = 100_000;
         } else if (t === 'G') {
             score = 500_000;
-        } else if (t === 'RL' || t === 'AB' || t === 'D' || t === 'B' || (t === 'M' && st?.damage) || t === 'DDG' || t === 'SSG') {
+        } else if (t === 'RL' || t === 'AB' || t === 'D' || t === 'SU' || t === 'B' || (t === 'M' && st?.damage) || t === 'DDG' || t === 'SSG') {
             score = 2_000_000 + dps * 1000;
         } else {
             score = 400_000 + dps;
@@ -1454,6 +1504,9 @@ export class Game {
         const endPos   = this.grid.hexToPixel(toTile.q,   toTile.r);
         const atkOwner = opts.owner ?? fromTile.owner;
         let dmg = opts.damage ?? 0;
+        if (fromTile?.structure) {
+            dmg *= this.getPlayerModsForOwner(atkOwner).dealtMult ?? 1;
+        }
         if (fromTile?.structure && this._inFriendlyL3BarracksCommandAura(fromTile, atkOwner)) {
             dmg *= GAME_CONFIG.BARRACKS_L3_COMMAND_OUT_MULT;
         }
@@ -1626,6 +1679,7 @@ export class Game {
             if (this._inFriendlyL3BarracksCommandAura(tile, tile.owner)) {
                 dmg *= GAME_CONFIG.BARRACKS_L3_COMMAND_IN_MULT;
             }
+            dmg *= this.getPlayerModsForOwner(tile.owner).takenMult ?? 1;
             tile.hp -= dmg;
             tile.lastDamageTime = this.gameTime;
 
@@ -1639,7 +1693,8 @@ export class Game {
                 this.lastOwnDamageTile = { q: tile.q, r: tile.r };
             }
 
-            const structName = UNIT_STATS[tile.structure.type]?.name || tile.structure.type;
+            const st = tile.structure;
+            const structName = st?.displayName || UNIT_STATS[st?.type]?.name || st?.type;
             this.logEvent(proj.owner, tile.owner, 'hit', `${proj.type} hit ${structName} (-${Math.round(dmg * 10) / 10} HP)`);
 
             if (tile.hp <= 0) this.destroyStructure(tile, proj.owner);
@@ -1656,6 +1711,7 @@ export class Game {
                 if (this._inFriendlyL3BarracksCommandAura(nt, nt.owner)) {
                     sdmg *= GAME_CONFIG.BARRACKS_L3_COMMAND_IN_MULT;
                 }
+                sdmg *= this.getPlayerModsForOwner(nt.owner).takenMult ?? 1;
                 nt.hp -= sdmg;
                 nt.lastDamageTime = this.gameTime;
                 const atk = this.players[proj.owner - 1];
@@ -1666,7 +1722,8 @@ export class Game {
                     this.pushEvent({ kind: 'hit', tile: { q: nt.q, r: nt.r }, t: this.gameTime });
                     this.lastOwnDamageTile = { q: nt.q, r: nt.r };
                 }
-                const sn = UNIT_STATS[nt.structure.type]?.name || nt.structure.type;
+                const nst = nt.structure;
+                const sn = nst?.displayName || UNIT_STATS[nst?.type]?.name || nst?.type;
                 this.logEvent(proj.owner, nt.owner, 'hit', `rocket splash ${sn} (-${Math.round(sdmg * 10) / 10} HP)`);
                 if (nt.hp <= 0) this.destroyStructure(nt, proj.owner);
             }
@@ -1735,6 +1792,7 @@ export class Game {
         const p = this.players[ownerId - 1];
         if (!p) return false;
         if (tile.contested) return false;
+        if (NAVY_BUILD_TYPES.has(type) && !this.isSeaTile(tile)) return false;
         if (!tile.buildable) {
             if (!NAVY_BUILD_TYPES.has(type)) return false;
             if (!this.canBuildNavyOn(tile, ownerId)) return false;
@@ -1766,6 +1824,9 @@ export class Game {
         }
         // AAS starts with 0 charge — it needs BUILD_COOLDOWNS.AAS ms before its first recharge.
         tile.structure = { type, level: levelIdx, stats, charge: 0, target: null, lastFiredAt: 0 };
+        if (type === 'SU') {
+            tile.structure.displayName = getSpecialUnitLabelForPlayer(this, ownerId);
+        }
         tile.owner = ownerId;
         tile.hp = stats.hp || 100;
         tile.maxHp = tile.hp;
@@ -1803,7 +1864,8 @@ export class Game {
         if (type === 'M') p.units.M++;
 
         p.stats.structuresBuilt++;
-        this.logEvent(ownerId, null, 'build', `Built ${def.name}`);
+        const buildLabel = type === 'SU' ? (tile.structure.displayName || def.name) : def.name;
+        this.logEvent(ownerId, null, 'build', `Built ${buildLabel}`);
         this._markStructuresDirty();
         this.updateBorders();
         return true;
@@ -1906,7 +1968,8 @@ export class Game {
             }
         }
 
-        this.logEvent(tile.owner, null, 'upgrade', `Upgraded ${def.name} to Lv${tile.structure.level + 1}`);
+        const upLabel = tile.structure.displayName || def.name;
+        this.logEvent(tile.owner, null, 'upgrade', `Upgraded ${upLabel} to Lv${tile.structure.level + 1}`);
         this._markStructuresDirty();
         this.updateBorders();
         return true;

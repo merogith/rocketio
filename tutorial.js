@@ -80,6 +80,11 @@ export const TUTORIAL_PAGES = [
         <div class="tut-role-label tut-role-defend">🛡️ DEFENSE</div>
         <div class="unit-card"><div class="uc-icon">🛡️</div><div class="uc-info"><div class="uc-name">Anti-Air System <span class="tut-cost">$${L1.AAS.cost}</span></div><div class="uc-desc">Auto-intercepts rockets, air strikes, and drones. Ground fire bypasses it. Always keep one near your Government.</div></div></div>
 
+        <div class="tut-role-label tut-role-navy">⚓ NAVY (water tiles only)</div>
+        <div class="unit-card"><div class="uc-icon">🛳️</div><div class="uc-info"><div class="uc-name">Destroyer (DDG) <span class="tut-cost">$${US.DDG.levels[0].cost}</span></div><div class="uc-desc">Naval missile platform. Fires interceptable cruise shots. Lv3: CEC bonus — +damage vs enemy ships when a friendly navy is nearby. Build on <b>owned water</b> only.</div></div></div>
+        <div class="unit-card"><div class="uc-icon">📡</div><div class="uc-info"><div class="uc-name">Aegis (AF) <span class="tut-cost">$${US.AF.levels[0].cost}</span></div><div class="uc-desc">Sea anti-air. Intercepts missiles fired at your navy and coastal structures. Lv3: illuminator reveals shooter position to nearby strikers.</div></div></div>
+        <div class="unit-card"><div class="uc-icon">🫧</div><div class="uc-info"><div class="uc-name">Cruise Sub (SSG) <span class="tut-cost">$${US.SSG.levels[0].cost}</span></div><div class="uc-desc">Slow-firing heavy naval missile. Lv3: bastion bonus — +damage vs ships when adjacent to another friendly navy unit.</div></div></div>
+
         <div class="tut-role-label tut-role-econ">💰 ECONOMY & EXPANSION</div>
         <div class="unit-card"><div class="uc-icon">🏛️</div><div class="uc-info"><div class="uc-name">Government <span class="tut-cost">$${L1.G.cost}</span></div><div class="uc-desc">Claims land and near-shore water (≤3 from land) via influence. $/s is <b>banded by distance</b> (inner ring = Lv1 rate; Lv2–3 add lower rates outside). Full-disk income matches the old +${US.G.levels[0].goldPerTile} / +${US.G.levels[1].goldPerTile} / +${US.G.levels[2].goldPerTile} per-tile <i>average</i>. Lv3 aura: +${govL3GoldAuraPct}% on tiles that already earn Gov gold. Lose all Govs = you lose.</div></div></div>
         <div class="unit-card"><div class="uc-icon">🏭</div><div class="uc-info"><div class="uc-name">Missile Factory <span class="tut-cost">$${L1.MF.cost}</span></div><div class="uc-desc">Produces ammo (${mfGlobalPct}% less than baseline per cycle). Lv3 boosts adjacent friendly factories by +${mfNeighborPct}% (not itself, range 1).</div></div></div>
@@ -94,7 +99,15 @@ export const TUTORIAL_PAGES = [
             <div class="tut-concept-icon">💰</div>
             <div>
                 <b>Gold = Territory</b><br>
-                Land and coastal water (water within 3 of land) you own can earn gold when a <b>Government</b> or <b>Militia HQ</b> projects onto them. More such tiles in range = higher income. Claim through <b>influence</b> — upgrade or add Govs to expand.
+                Land and coastal water (water within 3 of land) you own earn gold when a <b>Government</b> or <b>Militia HQ</b> projects onto them. More such tiles in range = higher income. Claim through <b>influence</b> — upgrade or add Govs to expand.
+            </div>
+        </div>
+
+        <div class="tut-concept">
+            <div class="tut-concept-icon">⚓</div>
+            <div>
+                <b>Sea Trade</b><br>
+                Owned <b>open-sea</b> tiles (beyond the coastal shore zone) generate a flat <b>+$${GC.SEA_TRADE_GOLD_PER_TILE_TICK}/s</b> each as sea-trade income — no Government required. Expand influence over open water with high-level Govs or Navy to claim the bonus.
             </div>
         </div>
 

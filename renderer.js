@@ -1,6 +1,8 @@
 import { COLORS, UNIT_STATS, PROJECTILE_VISUAL_PRESETS } from './constants.js?v=balance2026';
+import { getSpecialUnitIcon } from './factions.js?v=balance2026';
 
-const TARGETABLE_TYPES = new Set(['RL', 'B', 'D', 'M', 'AB', 'DDG', 'SSG']);
+const TARGETABLE_TYPES = new Set(['RL', 'B', 'D', 'SU', 'M', 'AB', 'DDG', 'SSG']);
+const NAVY_BUILD_GHOST = new Set(['DDG', 'AF', 'SSG']);
 
 export class Renderer {
     constructor(canvas, grid, camera) {
@@ -317,10 +319,27 @@ export class Renderer {
                 case 'MF':  icon = "🏭"; break;
                 case 'M':   icon = structure.level === 2 ? "🎖️" : "🔫"; break;
                 case 'D':   icon = "🚁"; break;
+                case 'SU': {
+                    const fid = gameState?.players?.[tile.owner - 1]?.factionId ?? 0;
+                    icon = getSpecialUnitIcon(fid);
+                    break;
+                }
                 case 'AB':  icon = "✈️"; break;
                 case 'DDG': icon = "🛳️"; break;
                 case 'AF':  icon = "📡"; break;
                 case 'SSG': icon = "🫧"; break;
+            }
+            // Signature (SU): dashed ring under icon (distinct from Drone)
+            if (structure.type === 'SU') {
+                ctx.save();
+                ctx.globalAlpha = isVisible ? 0.5 : 0.22;
+                ctx.strokeStyle = COLORS[`PLAYER${tile.owner}`] || "#00c8e8";
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash([4, 3]);
+                ctx.beginPath();
+                ctx.arc(x, y, size * 0.95, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.restore();
             }
             ctx.globalAlpha = isVisible ? 1 : 0.55;
             ctx.fillText(icon, x, y);
@@ -606,13 +625,21 @@ export class Renderer {
         let color = "rgba(0, 229, 255, 0.85)";
         let fill  = "rgba(0, 229, 255, 0.08)";
 
-        if (!tile.buildable) {
+        const humanId = gameState.humanId;
+        const p = gameState.players[humanId - 1];
+        if (NAVY_BUILD_GHOST.has(this.buildGhostType)) {
+            const def = UNIT_STATS[this.buildGhostType];
+            const li = this.buildGhostLevel ?? 0;
+            const cost = def?.levels?.[li]?.cost ?? 0;
+            valid = !!gameState.canBuildNavyOn(tile, humanId) && !tile.structure
+                && p && p.gold >= cost;
+        } else if (!tile.buildable) {
             valid = false;
         } else {
-            const isOwn = tile.owner === gameState.humanId;
+            const isOwn = tile.owner === humanId;
             const isNeutral = tile.owner == null && !tile.contested;
             if (this.buildGhostType === 'M') {
-                const humanVisible = gameState.players[gameState.humanId - 1]?.fogVisible.has(`${tile.q},${tile.r}`);
+                const humanVisible = gameState.players[humanId - 1]?.fogVisible.has(`${tile.q},${tile.r}`);
                 valid = (isOwn || isNeutral) && !tile.structure && !tile.contested && humanVisible;
             }
             else valid = isOwn && !tile.structure && !tile.contested;

@@ -32,10 +32,16 @@ body {
     inset: 0;
     z-index: 1000;
     display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: center;
+    /* flex-start: when the menu is taller than the viewport, the top stays reachable; scrolls inside this layer */
+    justify-content: flex-start;
+    padding: 20px 12px 32px;
+    box-sizing: border-box;
     background: radial-gradient(ellipse at 50% 30%, #0d1b2a 0%, #0a0a0f 70%);
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
     /* Ensure menu receives clicks (some child layers use pointer-events: none) */
     pointer-events: auto;
 }
@@ -129,6 +135,110 @@ body {
     border-color: var(--accent-blue);
     box-shadow: 0 0 12px rgba(0, 229, 255, 0.2);
 }
+.menu-select {
+    color-scheme: dark;
+    -webkit-appearance: none;
+    appearance: none;
+    background-color: #0b1520 !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%2300c8e8' d='M1 1.5L6 6l5-4.5' stroke='%2300c8e8' stroke-width='1' fill='none'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    border: 1px solid rgba(0, 229, 255, 0.35);
+    border-radius: 6px; padding: 10px 32px 10px 14px;
+    font-family: var(--font-ui); font-size: 0.95rem; font-weight: 600;
+    color: #e8f4ff !important; outline: none; cursor: pointer;
+    max-width: 100%;
+    min-height: 42px;
+}
+.menu-select option {
+    background: #0b1520;
+    color: #e8f4ff;
+    padding: 8px;
+}
+.menu-select:focus {
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 12px rgba(0, 229, 255, 0.2);
+}
+
+/* Faction / leader preview (home menu) */
+.faction-brief {
+    width: 100%;
+    max-width: 100%;
+    margin: 4px 0 8px;
+    padding: 12px 14px 14px;
+    border-radius: 10px;
+    border: 1px solid rgba(0, 229, 255, 0.2);
+    background: linear-gradient(180deg, rgba(8, 16, 28, 0.95) 0%, rgba(6, 10, 18, 0.9) 100%);
+    text-align: left;
+}
+.faction-brief .fb-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: var(--fb-accent, linear-gradient(120deg, #0d1524, #1a3a4a));
+    border: 1px solid rgba(255,255,255,0.08);
+}
+.faction-brief .fb-flag {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px; height: 48px; flex-shrink: 0;
+    font-size: 1.6rem;
+    line-height: 1;
+    border-radius: 8px;
+    background: rgba(0,0,0,0.35);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.12);
+}
+.faction-brief .fb-emoji { user-select: none; }
+.faction-brief .fb-fline {
+    font-family: var(--font-title);
+    font-size: 0.8rem; letter-spacing: 2px;
+    color: #fff; font-weight: 800;
+}
+.faction-brief .fb-sub { font-size: 0.78rem; color: rgba(180, 220, 255, 0.85); margin-top: 4px; }
+.faction-brief .fb-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1.1fr;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+@media (max-width: 700px) {
+    .faction-brief .fb-body { grid-template-columns: 1fr; }
+}
+.faction-brief .fb-h4 {
+    margin: 0 0 6px; padding: 0;
+    font-family: var(--font-title);
+    font-size: 0.6rem; letter-spacing: 2px;
+    color: var(--accent-blue); font-weight: 700;
+    opacity: 0.9;
+}
+.faction-brief .fb-list { margin: 0; padding-left: 1.1em; font-size: 0.78rem; line-height: 1.4; color: rgba(220, 235, 255, 0.9); }
+.faction-brief .fb-list li { margin: 0.2em 0; }
+.faction-brief .fb-para, .faction-brief .fb-lore {
+    font-size: 0.78rem; line-height: 1.45; color: rgba(210, 230, 255, 0.92);
+    margin: 0 0 6px;
+}
+.faction-brief .fb-leader-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0 0;
+    border-top: 1px solid rgba(255,255,255,0.08);
+}
+.faction-brief .fb-portrait {
+    width: 80px; height: 80px; object-fit: cover; flex-shrink: 0;
+    border-radius: 10px; border: 1px solid rgba(0, 229, 255, 0.4);
+    background: #0a0f16;
+    box-shadow: 0 0 12px rgba(0, 200, 255, 0.12);
+}
+.faction-brief .fb-lname {
+    font-weight: 700; font-size: 0.95rem; color: #fff; margin: 0 0 4px;
+}
+.faction-brief .fb-merged { font-size: 0.72rem; line-height: 1.4; color: rgba(180, 200, 220, 0.85); margin: 0; }
+.faction-brief .fb-col.fb-su { min-width: 0; }
 
 .option-row { display: flex; gap: 8px; flex-wrap: wrap; }
 .option-btn {
@@ -279,6 +389,7 @@ body {
 .tut-role-attack { color: var(--accent-red); }
 .tut-role-defend { color: var(--accent-blue); }
 .tut-role-econ { color: var(--accent-gold); }
+.tut-role-navy { color: #6ac4e8; }
 .tut-cost {
     font-family: var(--font-mono); font-size: 0.68rem;
     color: var(--accent-gold); margin-left: 6px;
@@ -1010,9 +1121,16 @@ h3 {
 /* ==================== CAMPAIGN ==================== */
 #campaign-screen {
     position: fixed; inset: 0; z-index: 1001;
-    display: flex; align-items: center; justify-content: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 20px 12px 32px;
+    box-sizing: border-box;
     background: radial-gradient(ellipse at 50% 30%, #0d1b2a 0%, #0a0a0f 70%);
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
 }
 .campaign-mission-card { max-width: 480px; width: 100%; }
 .campaign-mission-h3 {

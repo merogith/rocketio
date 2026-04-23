@@ -1,4 +1,4 @@
-import { UNIT_STATS, GAME_CONFIG } from './constants.js?v=balance2026';
+import { UNIT_STATS, GAME_CONFIG, govGoldForDistance } from './constants.js?v=balance2026';
 
 export class Hex {
     constructor(q, r) {
@@ -465,31 +465,57 @@ export class HexGrid {
         return n;
     }
 
+    /**
+     * Starter MF (mf1) is placed on the first buildable neighbor in fixed hex order.
+     * Only hexes with at least one such neighbor can host a valid G+MF start.
+     */
+    hasBuildableEmptyNeighborForStarterMf(tile) {
+        if (!tile || !tile.buildable) return false;
+        for (const h of new Hex(tile.q, tile.r).getNeighbors()) {
+            const n = this.getTile(h.q, h.r);
+            if (n && n.buildable && !n.structure) return true;
+        }
+        return false;
+    }
+
+    /**
+     * Notional G3 $/s from all land + shore income hexes in the free Gov influence disk, using banded
+     * gov gold (not tile count) — optimizes Lv3 placement vs. thin/outer-heavy disks.
+     */
+    sumG3SoloDiskGoldValue(center, govLevel = GAME_CONFIG.STARTER_GOV_LEVEL) {
+        const r = UNIT_STATS.G.levels[govLevel].radius;
+        let s = 0;
+        for (const t of this.getTilesInRadius(center, r)) {
+            if (!t.buildable && !t.shoreIncome) continue;
+            const d = Hex.distance(center, t);
+            s += govGoldForDistance(govLevel, d);
+        }
+        return s;
+    }
+
     findSpawnPoints(playerCount) {
-        const spawns = [];
-        if (this.islands.length === 0 || playerCount <= 0) return spawns;
+        if (this.islands.length === 0 || playerCount <= 0) return [];
 
         // Assign players round-robin across islands large enough to host them
         const usableIslands = this.islands.filter(isl => isl.length >= 12);
-        if (usableIslands.length === 0) return spawns;
+        if (usableIslands.length === 0) return [];
 
-        // Must match `Game.start` free Government (`UNIT_STATS.G.levels[STARTER_GOV_LEVEL]`), not G1.
-        const spawnGovRadius = UNIT_STATS.G.levels[GAME_CONFIG.STARTER_GOV_LEVEL].radius;
+        // Must match `Game.start` free Government — G3, max tier (`sumG3SoloDiskGoldValue` / `countBuildableInGovDisk`).
 
-        const islandMaxBuildDisk = new Map();
+        const islandMaxGovValue = new Map();
         for (const isl of usableIslands) {
             let m = 0;
             for (const key of isl) {
                 const t = this.tiles.get(key);
-                if (!t || !t.buildable) continue;
-                const d = this.countBuildableInGovDisk(t, spawnGovRadius);
+                if (!t || !t.buildable || !this.hasBuildableEmptyNeighborForStarterMf(t)) continue;
+                const d = this.sumG3SoloDiskGoldValue(t, GAME_CONFIG.STARTER_GOV_LEVEL);
                 if (d > m) m = d;
             }
-            islandMaxBuildDisk.set(isl, m);
+            islandMaxGovValue.set(isl, m);
         }
-        // Round-robin uses island order: put the best "full G-disk" landmasses first for fairer splits.
+        // Round-robin uses island order: put the best G3 economic potential landmasses first for fairer splits.
         usableIslands.sort((a, b) =>
-            (islandMaxBuildDisk.get(b) - islandMaxBuildDisk.get(a)) || (b.length - a.length)
+            (islandMaxGovValue.get(b) - islandMaxGovValue.get(a)) || (b.length - a.length)
         );
 
         // Vary the "first spawn" bias so games don't all anchor the same way vs map center
@@ -502,45 +528,75 @@ export class HexGrid {
             assignments[i % usableIslands.length].push(i);
         }
 
+        // Index i matches `Game.start` (0 = first player / human). Result must be parallel to `spawnPoints[i]`.
+        const out = new Array(playerCount).fill(null);
+
+        // Player 0: best G3 spawn over the map — max banded Gov gold on land+shore in the L3 influence disk, with
+        // a buildable empty neighbor (required for the free mf1). Tie-break: farther from seed bias (spread).
+        let p0Tile = null;
+        let p0GovScore = -1;
+        let p0BiasD = -1;
+        for (const isl of usableIslands) {
+            for (const key of isl) {
+                const tile = this.tiles.get(key);
+                if (!tile || !tile.buildable || !this.hasBuildableEmptyNeighborForStarterMf(tile)) continue;
+                const govValue = this.sumG3SoloDiskGoldValue(tile, GAME_CONFIG.STARTER_GOV_LEVEL);
+                const dBias = Hex.distance(firstSpawnBias, tile);
+                if (govValue > p0GovScore || (govValue === p0GovScore && dBias > p0BiasD)) {
+                    p0GovScore = govValue;
+                    p0BiasD = dBias;
+                    p0Tile = tile;
+                }
+            }
+        }
+        if (p0Tile) {
+            out[0] = { q: p0Tile.q, r: p0Tile.r };
+        }
+
         for (let iIdx = 0; iIdx < usableIslands.length; iIdx++) {
             const playerIndices = assignments[iIdx];
             if (playerIndices.length === 0) continue;
             const island = usableIslands[iIdx];
 
             for (let p = 0; p < playerIndices.length; p++) {
+                const playerIndex = playerIndices[p];
+                if (out[playerIndex]) continue;
+
                 let bestTile = null;
-                let bestLandDisk = -1;
+                let bestGovScore = -1;
                 let bestMinDist = -1;
 
                 for (const key of island) {
                     const tile = this.tiles.get(key);
-                    if (!tile || !tile.buildable) continue;
+                    if (!tile || !tile.buildable || !this.hasBuildableEmptyNeighborForStarterMf(tile)) continue;
 
-                    const landDisk = this.countBuildableInGovDisk(tile, spawnGovRadius);
+                    const govValue = this.sumG3SoloDiskGoldValue(tile, GAME_CONFIG.STARTER_GOV_LEVEL);
 
                     let minDist = Infinity;
-                    for (const existing of spawns) {
-                        const d = Hex.distance(tile, existing);
+                    for (let o = 0; o < playerCount; o++) {
+                        if (!out[o]) continue;
+                        const d = Hex.distance(tile, out[o]);
                         if (d < minDist) minDist = d;
                     }
+                    if (!out.some(Boolean)) {
+                        minDist = Hex.distance(firstSpawnBias, tile);
+                    }
 
-                    if (spawns.length === 0) minDist = Hex.distance(firstSpawnBias, tile);
-
-                    if (landDisk > bestLandDisk ||
-                        (landDisk === bestLandDisk && minDist > bestMinDist)) {
-                        bestLandDisk = landDisk;
+                    if (govValue > bestGovScore ||
+                        (govValue === bestGovScore && minDist > bestMinDist)) {
+                        bestGovScore = govValue;
                         bestMinDist = minDist;
                         bestTile = tile;
                     }
                 }
 
                 if (bestTile) {
-                    spawns.push({ q: bestTile.q, r: bestTile.r });
+                    out[playerIndex] = { q: bestTile.q, r: bestTile.r };
                 }
             }
         }
 
-        return spawns;
+        return out;
     }
 
     hexToPixel(q, r) {

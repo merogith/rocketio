@@ -33,10 +33,10 @@ import { Hex } from './hexGrid.js?v=balance2026';
 
 const PHASES = { EXPAND: 0, FORTIFY: 1, PRESSURE: 2, DOMINATE: 3 };
 
-const KILL_VALUE = { G: 100, AB: 60, SSG: 34, MF: 55, AAS: 45, AF: 42, RL: 40, DDG: 30, B: 35, D: 25, M: 8 };
+const KILL_VALUE = { G: 100, AB: 60, SSG: 34, MF: 55, AAS: 45, AF: 42, RL: 40, DDG: 30, B: 35, D: 25, SU: 24, M: 8 };
 
-const ATTACKER_TYPES = new Set(['RL', 'B', 'D', 'AB', 'M', 'DDG', 'SSG']);
-const COMBAT_TYPES   = new Set(['RL', 'B', 'D', 'AB', 'M', 'DDG', 'SSG']);
+const ATTACKER_TYPES = new Set(['RL', 'B', 'D', 'SU', 'AB', 'M', 'DDG', 'SSG']);
+const COMBAT_TYPES   = new Set(['RL', 'B', 'D', 'SU', 'AB', 'M', 'DDG', 'SSG']);
 
 const DOCTRINE_KEYS = Object.keys(AI_DOCTRINES);
 
@@ -117,7 +117,7 @@ function counterCompositionMults(snap, game) {
     const eDDG = get('DDG');
     const eSSG = get('SSG');
     const eShooters = eRL + eAB + eDDG + eSSG;
-    const eD = get('D');
+    const eD = get('D') + get('SU');
     const eM = get('M');
     const eB = get('B');
     const s = counterAggressionScale(game);
@@ -540,7 +540,7 @@ function buildSnapshot(game, p, shared) {
 function detectPhase(game, p, snap, shared) {
     const tc = p.tileCount;
     const hasAttacker = (snap.ownByType.RL?.length || 0) + (snap.ownByType.AB?.length || 0) + (snap.ownByType.DDG?.length || 0) + (snap.ownByType.SSG?.length || 0) > 0;
-    const hasDrones   = (snap.ownByType.D?.length || 0) > 0;
+    const hasDrones   = (snap.ownByType.D?.length || 0) + (snap.ownByType.SU?.length || 0) > 0;
     const hasCombat   = hasAttacker || hasDrones || (snap.ownByType.B?.length || 0) > 0;
     const isLeader    = shared.leaderId === p.id;
 
@@ -857,6 +857,7 @@ function tryOpeningBuildOrder(game, p, snap, shared, phase) {
             if (canAffordType(p, 'B') && p.missiles >= 0) options.push({ type: 'B', w: doctrine.B * 1.15 });
             if (canAffordType(p, 'RL') && p.missiles >= 1) options.push({ type: 'RL', w: doctrine.RL * 1.1 });
             if (canAffordType(p, 'D')) options.push({ type: 'D', w: doctrine.D * 1.1 });
+            if (canAffordType(p, 'SU')) options.push({ type: 'SU', w: doctrine.D * 0.42 });
             if (options.length > 0) {
                 const weights = {};
                 for (const o of options) weights[o.type] = o.w;
@@ -978,7 +979,7 @@ function tryCounterPlay(game, p, snap) {
 
     const myAAS = snap.ownByType.AAS?.length || 0;
     const myB   = snap.ownByType.B?.length || 0;
-    const myD   = snap.ownByType.D?.length || 0;
+    const myD   = (snap.ownByType.D?.length || 0) + (snap.ownByType.SU?.length || 0);
 
     const enemyAASV  = countNear('AAS');
     const enemyShotV = countNear('RL') + countNear('AB');
@@ -997,16 +998,16 @@ function tryCounterPlay(game, p, snap) {
 
     // Ground-dominant (M/B): AAS does not protect vs ground — Barracks (non-intercept. fire + supply) answers militia/ground
     const eGr = countNear('M') + countNear('B');
-    const eAirK = countNear('RL') + countNear('AB') + countNear('D');
+    const eAirK = countNear('RL') + countNear('AB') + countNear('D') + countNear('SU');
     if (eGr >= 2 && eGr > eAirK && myB < 2 && canAffordType(p, 'B')) {
         const sp = pickDirectionalFrontierSpot(game, p, snap, snap.visibleEnemies.filter(e => e.structure.type === 'M' || e.structure.type === 'B'));
         if (sp) return game.buildStructure(sp, 'B', p.id);
     }
 
     // Heavy drone presence → AAS (proportional response)
-    const enemyDrones = enemyTypeNearMe.D || countNear('D');
+    const enemyDrones = (enemyTypeNearMe.D || 0) + (enemyTypeNearMe.SU || 0) + countNear('D') + countNear('SU');
     if (enemyDrones >= 2 && myAAS < Math.ceil(enemyDrones / 2) && canAffordType(p, 'AAS')) {
-        const spot = pickDirectionalFrontierSpot(game, p, snap, snap.visibleEnemies.filter(e => e.structure.type === 'D'));
+        const spot = pickDirectionalFrontierSpot(game, p, snap, snap.visibleEnemies.filter(e => e.structure.type === 'D' || e.structure.type === 'SU'));
         if (spot) return game.buildStructure(spot, 'AAS', p.id);
     }
 
@@ -1109,7 +1110,7 @@ function tryFocusFire(game, p, snap, shared) {
         if (missileShort && incomingShooterKeys?.has(`${en.q},${en.r}`)) {
             value *= 1.55;
         }
-        if (missileShort && (t === 'RL' || t === 'AB' || t === 'D')) {
+        if (missileShort && (t === 'RL' || t === 'AB' || t === 'D' || t === 'SU')) {
             const st = en.structure.stats;
             const edps = (st.damage || 0) / Math.max(1, (st.interval || 1000) / 1000);
             value *= 1 + Math.min(0.85, edps / 45);
@@ -1165,7 +1166,7 @@ function tryFocusFire(game, p, snap, shared) {
     const secondary = scored.length > 1 ? scored[1].tile : null;
 
     const orderedAttackers = [
-        ...attackers.filter(a => a.structure.type === 'D'),
+        ...attackers.filter(a => a.structure.type === 'D' || a.structure.type === 'SU'),
         ...attackers.filter(a => a.structure.type === 'AB' || a.structure.type === 'RL'),
         ...attackers.filter(a => a.structure.type === 'B'),
         ...attackers.filter(a => a.structure.type === 'M'),
@@ -1561,7 +1562,7 @@ function tryUpgrade(game, p, snap, doctrine, shared) {
 
         // AAS: more valuable per level when enemy is drone-heavy (many interceptable projectiles)
         if (typ === 'AAS') {
-            const ed = snap.visibleEnemyTypeCounts?.D || 0;
+            const ed = (snap.visibleEnemyTypeCounts?.D || 0) + (snap.visibleEnemyTypeCounts?.SU || 0);
             if (ed >= 2) value *= 1.1 + 0.04 * Math.min(4, ed);
         }
 
@@ -1569,7 +1570,7 @@ function tryUpgrade(game, p, snap, doctrine, shared) {
         if (typ === 'B' && isFront && curLv >= 0 && next.radius != null) value *= 1.2;
 
         // D: D3 applies jamming — prioritize when many enemy AAS need debuff
-        if (typ === 'D' && curLv < 2) {
+        if ((typ === 'D' || typ === 'SU') && curLv < 2) {
             const aasE = snap.visibleEnemyTypeCounts?.AAS || 0;
             if (aasE >= 2) value *= 1.1 + 0.05 * Math.min(3, aasE);
         }
@@ -1766,8 +1767,8 @@ function pickPlacementForType(game, p, snap, type, valuableEnemies) {
         return pickDirectionalFrontierSpot(game, p, snap, valuableEnemies);
     }
 
-    if (type === 'D') {
-        const baseStats = statsAtLevel('D', 0);
+    if (type === 'D' || type === 'SU') {
+        const baseStats = statsAtLevel(type, 0);
         const range = baseStats.range;
         let bestSpot = null;
         let bestScore = -Infinity;
@@ -1780,7 +1781,7 @@ function pickPlacementForType(game, p, snap, type, valuableEnemies) {
             if (inRange === 0) continue;
             // Drones cluster near AAS to overwhelm — bonus for being near other drones
             let droneCluster = 0;
-            for (const d of snap.ownByType.D || []) {
+            for (const d of [...(snap.ownByType.D || []), ...(snap.ownByType.SU || [])]) {
                 if (Hex.distance(t, d) <= 3) droneCluster++;
             }
             // Prefer hexes in range of enemy AAS (saturate intercept, apply debuffs)
