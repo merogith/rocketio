@@ -5,7 +5,7 @@ import { UNIT_STATS, GAME_CONFIG, getEffectiveMapRadius, VICTORY_MODES, COLORS, 
 import { TUTORIAL_PAGES } from './tutorial.js?v=balance2026';
 import { getMissionById, CAMPAIGN_MISSIONS } from './campaignData.js?v=balance2026';
 import { loadCampaignProgress, canStartMission, markMissionBeaten } from './campaignProgress.js?v=balance2026';
-import { applyCampaignScenario } from './campaignScenarios.js?v=balance2026';
+import { applyCampaignScenario, m1BuildTutorialCheckPlace, m1OnBuildPlaced } from './campaignScenarios.js?v=balance2026';
 import { Input } from './input.js?v=balance2026';
 import { updateAI } from './ai.js?v=balance2026';
 import { SFX } from './sfx.js?v=balance2026';
@@ -76,7 +76,8 @@ const diplomacyCapMax = document.getElementById('diplomacy-cap-max');
 const diplomacyCloseBtn = document.getElementById('diplomacy-close');
 const playerPortraitEl = document.getElementById('player-portrait');
 
-const TARGETABLE_TYPES = new Set(['RL', 'B', 'D', 'M', 'AB']);
+const TARGETABLE_TYPES = new Set(['RL', 'B', 'D', 'M', 'AB', 'DDG', 'SSG']);
+const NAVY_BUILD_TYPES_UI = new Set(['DDG', 'AF', 'SSG']);
 
 // ============================================================================
 //  WORLD
@@ -130,6 +131,50 @@ function hideCampaignQuestPanel() {
     campaignQuestEl?.classList.add('hidden');
 }
 
+function syncCampaignBuildQuestPanel() {
+    if (!game?.campaign || !campaignQuestPrimary) return;
+    const c = game.campaign;
+    const bt = c.buildTutorial;
+    if (c.missionId === 1 && bt?.active) {
+        const st = bt.steps[bt.step];
+        if (st) {
+            campaignQuestPrimary.innerHTML = campaignLineToHtml(st.questPrimary);
+            if (campaignQuestHint) {
+                campaignQuestHint.innerHTML = campaignLineToHtml(st.questHint);
+                campaignQuestHint.classList.remove('hidden');
+            }
+        }
+        return;
+    }
+    const op = c._objectivePrimary ?? c.mission?.objectivePrimary;
+    if (op) campaignQuestPrimary.innerHTML = campaignLineToHtml(op);
+    if (campaignQuestHint) {
+        const h = c._objectiveHint ?? c.mission?.objectiveHint;
+        campaignQuestHint.innerHTML = h ? campaignLineToHtml(h) : '';
+        campaignQuestHint.classList.toggle('hidden', !h);
+    }
+}
+
+function m1AutoselectBuild() {
+    const st = game?.campaign?.buildTutorial?.steps[game.campaign?.buildTutorial?.step];
+    if (!st) return;
+    const btn = document.querySelector(`.build-btn[data-type="${st.type}"]`);
+    if (btn) btn.click();
+}
+
+function updateM1BuildButtonLock() {
+    const on = game?.campaign?.buildTutorial?.active;
+    if (!on) {
+        buildBtns.forEach(b => b.classList.remove('campaign-locked'));
+        return;
+    }
+    const st = game.campaign.buildTutorial.steps[game.campaign.buildTutorial.step];
+    buildBtns.forEach(btn => {
+        const t = btn.dataset.type;
+        btn.classList.toggle('campaign-locked', !!(st && t !== st.type));
+    });
+}
+
 function showCampaignBriefingInGame(m) {
     if (!campaignBriefingOverlay || !m) return;
     if (campaignBriefingTitle) campaignBriefingTitle.textContent = m.briefingTitle || 'BRIEFING';
@@ -151,6 +196,8 @@ function closeCampaignBriefingInGame() {
         game.paused = false;
         if (!gameMenuOpen) pauseOverlay?.classList.add('hidden');
     }
+    m1AutoselectBuild();
+    updateM1BuildButtonLock();
 }
 
 function openCampaignScreen() {
@@ -200,6 +247,7 @@ function startCampaignMission(missionId) {
     initWorld(m.mapSize, m.mapStyle, m.playerCount, playerName, victoryConfig, m.difficulty, { missionId: m.id });
 
     showCampaignQuestPanel(m);
+    syncCampaignBuildQuestPanel();
     showCampaignBriefingInGame(m);
     if (!loopRunning) {
         loopRunning = true;
@@ -259,7 +307,13 @@ function initWorld(mapSize, mapStyle, playerCount, playerName, victoryConfig, di
     if (campaign && campaign.missionId != null) {
         const m = getMissionById(campaign.missionId);
         if (m && m.implemented) {
-            game.campaign = { missionId: m.id, mission: m, freezeEnemyAi: !!m.freezeEnemyAi };
+            game.campaign = {
+                missionId: m.id,
+                mission: m,
+                freezeEnemyAi: !!m.freezeEnemyAi,
+                _objectivePrimary: m.objectivePrimary,
+                _objectiveHint: m.objectiveHint
+            };
             applyCampaignScenario(game, grid, m.id);
         }
     }
@@ -680,16 +734,32 @@ canvas.addEventListener('mousedown', (e) => {
 
         if (tile) {
             if (selectedBuildType) {
-                const success = game.buildStructure(tile, selectedBuildType, 1);
-                if (!success) {
-                    if (!tile.buildable) showNoti("Can't build on water", "error");
-                    else if (tile.contested) showNoti("Tile is contested", "error");
-                    else if (selectedBuildType === 'M' && !game.isVisibleTo(tile, 1)) showNoti("No vision — need a structure nearby", "error");
-                    else if (selectedBuildType === 'M' && tile.owner && tile.owner !== 1) showNoti("Militia: your territory or neutral only", "error");
-                    else if (tile.owner !== 1 && selectedBuildType !== 'M') showNoti("Must build on your territory", "error");
-                    else showNoti("Insufficient gold, limit reached, or occupied", "error");
+                const m1c = m1BuildTutorialCheckPlace(game, selectedBuildType, tile);
+                if (!m1c.ok) {
+                    showNoti(m1c.msg, 'error');
+                } else {
+                    const success = game.buildStructure(tile, selectedBuildType, 1);
+                    if (!success) {
+                        if (!tile.buildable) {
+                            showNoti(NAVY_BUILD_TYPES_UI.has(selectedBuildType)
+                                ? "Navy: build on your owned, uncontested water (claim with Government)"
+                                : "Can't build on water", "error");
+                        } else if (tile.contested) showNoti("Tile is contested", "error");
+                        else if (selectedBuildType === 'M' && !game.isVisibleTo(tile, 1)) showNoti("No vision — need a structure nearby", "error");
+                        else if (selectedBuildType === 'M' && tile.owner && tile.owner !== 1) showNoti("Militia: your territory or neutral only", "error");
+                        else if (tile.owner !== 1 && selectedBuildType !== 'M') showNoti("Must build on your territory", "error");
+                        else showNoti("Insufficient gold, limit reached, or occupied", "error");
+                    } else {
+                        const m1n = m1OnBuildPlaced(game, selectedBuildType, tile, true);
+                        if (m1n?.nudge === 'next') showNoti('Next: Missile Factory — key 4, then the new pulsing hex.', 'info');
+                        if (m1n?.nudge === 'complete') {
+                            showNoti('Training complete. Main objective is in the op panel — take their Government.', 'success');
+                        }
+                        syncCampaignBuildQuestPanel();
+                        m1AutoselectBuild();
+                    }
                 }
-                if (!Input.getSetting('quickBuild')) resetSelection();
+                if (m1c.ok && !Input.getSetting('quickBuild')) resetSelection();
                 dragPaintedHexes = new Set();
                 dragPaintWarned = false;
                 if (tile) dragPaintedHexes.add(`${tile.q},${tile.r}`);
@@ -763,7 +833,8 @@ canvas.addEventListener('mousemove', (e) => {
             renderer.buildGhostLevel = selectedBuildLevel;
         }
 
-        if (isDragging && selectedBuildType && Input.getSetting('dragPaintBuild') && tile) {
+        if (isDragging && selectedBuildType && !game.campaign?.buildTutorial?.active
+            && Input.getSetting('dragPaintBuild') && tile) {
             const key = `${tile.q},${tile.r}`;
             if (!dragPaintedHexes.has(key)) {
                 dragPaintedHexes.add(key);
@@ -939,7 +1010,9 @@ function handleInput() {
     }
 
     if (Input.consumePress('upgrade') && !isDragging) {
-        if (multiSelected.length > 0) {
+        if (game.campaign?.buildTutorial?.active) {
+            showNoti('Finish the training builds first (pulsing hexes).', 'error');
+        } else if (multiSelected.length > 0) {
             let upgraded = 0;
             for (const tile of multiSelected) {
                 if (game.upgradeStructure(tile)) upgraded++;
@@ -966,15 +1039,21 @@ function handleInput() {
     }
 
     if (Input.consumePress('upgrade_all')) {
+        if (game.campaign?.buildTutorial?.active) {
+            showNoti('Finish the training builds first.', 'error');
+        } else {
         const count = game.upgradeAll(1);
         if (count > 0) showNoti(`Upgraded ${count} structures!`, "success");
         else showNoti("Nothing to upgrade", "error");
         if (multiSelected.length > 0) showMultiSelectPanel();
         if (game.selectedTile && !infoPanel.classList.contains('hidden')) selectTile(game.selectedTile);
+        }
     }
 
     if (Input.consumePress('demolish')) {
-        if (multiSelected.length > 0) {
+        if (game.campaign?.buildTutorial?.active) {
+            showNoti('No demolitions during training — follow the pulsing hexes.', 'error');
+        } else if (multiSelected.length > 0) {
             let totalRefund = 0;
             const count = multiSelected.length;
             for (const tile of [...multiSelected]) {
@@ -1016,9 +1095,16 @@ function handleInput() {
     if (Input.consumePress('settings')) openSettings();
 
     // Build hotkeys
-    const buildTypes = ['G', 'RL', 'AAS', 'MF', 'B', 'M', 'D', 'AB'];
+    const buildTypes = ['G', 'RL', 'AAS', 'MF', 'B', 'M', 'D', 'AB', 'DDG', 'AF', 'SSG'];
     buildTypes.forEach((type, i) => {
         if (Input.consumePress(`build_${type}`)) {
+            if (game.campaign?.buildTutorial?.active) {
+                const st = game.campaign.buildTutorial.steps[game.campaign.buildTutorial.step];
+                if (st && type !== st.type) {
+                    showNoti(`Training: use the ${st.label} hotkey (key ${st.key}) first.`, 'error');
+                    return;
+                }
+            }
             const btn = buildBtns[i];
             if (btn) btn.click();
         }
@@ -1102,6 +1188,7 @@ document.getElementById('menu-restart')?.addEventListener('click', () => {
                 const vc = { mode: m.victoryMode, param: m.victoryParam == null ? null : m.victoryParam };
                 initWorld(m.mapSize, m.mapStyle, m.playerCount, pn, vc, m.difficulty, { missionId: m.id });
                 showCampaignQuestPanel(m);
+                syncCampaignBuildQuestPanel();
                 showCampaignBriefingInGame(m);
             }
         } else {
@@ -1162,6 +1249,13 @@ let tooltipTimer = null;
 buildBtns.forEach(btn => {
     btn.addEventListener('click', () => {
         const type = btn.dataset.type;
+        if (game?.campaign?.buildTutorial?.active) {
+            const st = game.campaign.buildTutorial.steps[game.campaign.buildTutorial.step];
+            if (st && type !== st.type) {
+                showNoti(`Training: select ${st.label} only (key ${st.key}).`, 'error');
+                return;
+            }
+        }
         if (selectedBuildType === type) { resetSelection(); return; }
         buildBtns.forEach(b => b.classList.remove('active'));
         selectedBuildType = type;
@@ -1172,7 +1266,9 @@ buildBtns.forEach(btn => {
         const lvl = def.levels[0];
         const label = def.name.toUpperCase();
         const costStr = `$${lvl.cost}`;
-        const hint = type === 'M' ? 'PLACE on a VISIBLE tile you own or neutral land' : 'PLACE on your own territory';
+        const hint = type === 'M'
+            ? 'PLACE on a VISIBLE tile you own or neutral land'
+            : (NAVY_BUILD_TYPES_UI.has(type) ? 'PLACE on your owned, uncontested water' : 'PLACE on your own territory (land)');
         buildModeBanner.innerHTML = `<b>${label}</b> — ${costStr} <span class="dim">· ${hint} · ESC to cancel</span>`;
         buildModeBanner.classList.remove('hidden');
     });
@@ -1216,6 +1312,12 @@ function structureL3PerkHtml(type, levelIdx) {
             return `<p class="info-perk"><b>Lv3 — Militia HQ</b> · Keeps Lv2 range &amp; damage. Gains influence radius 1: claims adjacent land &amp; shore and earns +${UNIT_STATS.M.levels[2].goldPerTile}/tile/s on covered eligible tiles.</p>`;
         case 'AAS':
             return `<p class="info-perk"><b>Lv3 — Battery</b> · Larger magazine and faster recharge cycle vs lower tiers. ${Math.round(GAME_CONFIG.AAS_L3_BONUS_RECHARGE_CHANCE * 100)}% chance +1 intercept charge when recharging.</p>`;
+        case 'DDG':
+            return `<p class="info-perk"><b>Lv3 — CEC</b> · +${Math.round((GAME_CONFIG.DDG3_CEC_DMG_MULT - 1) * 100)}% volley damage vs <b>enemy ships</b> when another friendly <b>navy</b> unit is within 3 hexes.</p>`;
+        case 'AF':
+            return `<p class="info-perk"><b>Lv3 — Illumination BMD</b> · +${GAME_CONFIG.AF3_NAVY_ORIGIN_RANGE} intercept range vs shots fired from <b>enemy naval</b> tiles. Intercepts briefly <b>spot</b> the shooter for your DDG/SSG.</p>`;
+        case 'SSG':
+            return `<p class="info-perk"><b>Lv3 — SAG</b> · +${Math.round((GAME_CONFIG.SSG3_BASTION_DMG_MULT - 1) * 100)}% cruise damage vs <b>enemy ships</b> with another friendly <b>navy</b> in an adjacent hex.</p>`;
         default:
             return '';
     }
@@ -1368,6 +1470,7 @@ function refreshBuildAffordability() {
         const costEl = btn.querySelector('.cost');
         if (costEl) costEl.textContent = `$${lvl.cost}`;
     });
+    updateM1BuildButtonLock();
 }
 
 // ============================================================================

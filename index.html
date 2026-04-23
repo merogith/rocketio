@@ -297,8 +297,30 @@
                         <div class="cost">$350</div>
                     </button>
                 </div>
+                <h3>NAVY <span class="dim" style="font-size:0.7em">(water)</span></h3>
+                <div class="build-group">
+                    <button class="build-btn" data-type="DDG" title="[F7] Destroyer: anti-ship missiles (sea)">
+                        <div class="shortcut-tag">F7</div>
+                        <div class="icon">🛳️</div>
+                        <div class="name">DDG</div>
+                        <div class="cost">$270</div>
+                    </button>
+                    <button class="build-btn" data-type="AF" title="[F8] Aegis (sea): intercept, sea AA">
+                        <div class="shortcut-tag">F8</div>
+                        <div class="icon">📡</div>
+                        <div class="name">Aegis</div>
+                        <div class="cost">$250</div>
+                    </button>
+                    <button class="build-btn" data-type="SSG" title="[F9] Cruise sub: heavy cruise strike">
+                        <div class="shortcut-tag">F9</div>
+                        <div class="icon">🫧</div>
+                        <div class="name">SSG</div>
+                        <div class="cost">$430</div>
+                    </button>
+                </div>
             </div>
 
+            <div id="right-hud">
             <!-- INFO PANEL -->
             <div id="info-panel" class="glass hud-panel hidden">
                 <div id="info-content"></div>
@@ -308,12 +330,6 @@
                 <button id="clear-target-btn" class="action-btn hidden">CLEAR TARGET</button>
                 <button id="close-info" class="action-btn">CLOSE</button>
             </div>
-
-            <!-- HOVER UPGRADE CHIP -->
-            <div id="hover-chip" class="hidden"></div>
-
-            <!-- BUILD TOOLTIP -->
-            <div id="build-tooltip" class="glass hidden"></div>
 
             <!-- MINIMAP -->
             <div id="minimap-wrap" class="glass hud-panel">
@@ -332,6 +348,13 @@
                 </div>
                 <div id="scoreboard" class="scoreboard"></div>
             </div>
+            </div>
+
+            <!-- HOVER UPGRADE CHIP -->
+            <div id="hover-chip" class="hidden"></div>
+
+            <!-- BUILD TOOLTIP -->
+            <div id="build-tooltip" class="glass hidden"></div>
 
             <!-- BUILD MODE BANNER -->
             <div id="build-mode-banner" class="glass hud-panel hidden"></div>

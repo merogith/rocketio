@@ -1,6 +1,6 @@
 import { COLORS, UNIT_STATS, PROJECTILE_VISUAL_PRESETS } from './constants.js?v=balance2026';
 
-const TARGETABLE_TYPES = new Set(['RL', 'B', 'D', 'M', 'AB']);
+const TARGETABLE_TYPES = new Set(['RL', 'B', 'D', 'M', 'AB', 'DDG', 'SSG']);
 
 export class Renderer {
     constructor(canvas, grid, camera) {
@@ -43,6 +43,7 @@ export class Renderer {
         this.drawSelection(gameState);
         this.drawTargetDragPreview(gameState);
         this.drawHitCallouts(gameState);
+        this.drawCampaignBuildTutorialRing(gameState);
         if (this.settings.threatRings) this.drawThreatIndicators(gameState);
 
         ctx.restore();
@@ -317,6 +318,9 @@ export class Renderer {
                 case 'M':   icon = structure.level === 2 ? "🎖️" : "🔫"; break;
                 case 'D':   icon = "🚁"; break;
                 case 'AB':  icon = "✈️"; break;
+                case 'DDG': icon = "🛳️"; break;
+                case 'AF':  icon = "📡"; break;
+                case 'SSG': icon = "🫧"; break;
             }
             ctx.globalAlpha = isVisible ? 1 : 0.55;
             ctx.fillText(icon, x, y);
@@ -473,7 +477,7 @@ export class Renderer {
         const t = this.time;
 
         // AAS radar sweep
-        if (structure.type === 'AAS' && structure.charge !== undefined) {
+        if ((structure.type === 'AAS' || structure.type === 'AF') && structure.charge !== undefined) {
             const cap = structure.stats?.chargeCap || 10;
             const chargeRatio = (structure.charge || 0) / cap;
             const angle = (t * 0.002) % (Math.PI * 2);
@@ -776,6 +780,12 @@ export class Renderer {
                     } else if (p.type === 'drone') {
                         ctx.strokeStyle = "rgba(120, 200, 255, 0.7)";
                         ctx.lineWidth = 1 * sc;
+                    } else if (p.type === 'navy') {
+                        ctx.strokeStyle = "rgba(80, 160, 200, 0.8)";
+                        ctx.lineWidth = 2 * sc;
+                    } else if (p.type === 'cruise') {
+                        ctx.strokeStyle = "rgba(140, 180, 210, 0.75)";
+                        ctx.lineWidth = 1.5 * sc;
                     } else {
                         ctx.strokeStyle = p.color || "white";
                         ctx.lineWidth = 2 * sc;
@@ -832,6 +842,20 @@ export class Renderer {
                 ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
                 ctx.beginPath();
                 ctx.arc(0, 0, 6 * sc, 0, Math.PI * 2);
+                ctx.fill();
+            } else if (p.type === 'navy' || p.type === 'cruise') {
+                const dx = p.targetX - p.x, dy = p.targetY - p.y;
+                const angle = Math.atan2(dy, dx);
+                const len = p.type === 'cruise' ? 7 * sc : 5 * sc;
+                const w = 2.2 * sc;
+                ctx.translate(sp.x, sp.y);
+                ctx.rotate(angle);
+                ctx.fillStyle = p.type === 'cruise' ? "#a8b8c8" : "#5aa0c0";
+                ctx.beginPath();
+                ctx.moveTo(len, 0);
+                ctx.lineTo(-len * 0.4, -w);
+                ctx.lineTo(-len * 0.4, w);
+                ctx.closePath();
                 ctx.fill();
             } else if (p.type === 'drone') {
                 // Tiny zigzagging dart
@@ -911,6 +935,33 @@ export class Renderer {
         ctx.lineWidth = 3;
         this.hexPath(sp.x, sp.y, this.grid.hexSize * 1.1 * this.camera.scale);
         ctx.stroke();
+    }
+
+    drawCampaignBuildTutorialRing(gameState) {
+        const bt = gameState.campaign?.buildTutorial;
+        if (!bt?.active) return;
+        const step = bt.steps[bt.step];
+        if (!step) return;
+        const tile = this.grid.getTile(step.q, step.r);
+        if (!tile) return;
+        const pos = this.grid.hexToPixel(tile.q, tile.r);
+        const sp = this.camera.worldToScreen(pos.x, pos.y, this._cw, this._ch);
+        const sz = this.grid.hexSize * this.camera.scale;
+        const t = this.time;
+        const pulse = 0.4 + 0.35 * Math.sin(t * 0.006);
+        const { ctx } = this;
+        ctx.save();
+        ctx.setLineDash([5, 4]);
+        ctx.lineWidth = 2.2 + pulse * 1.4;
+        ctx.strokeStyle = `rgba(0, 229, 255, ${0.55 + pulse * 0.3})`;
+        this.hexPath(sp.x, sp.y, sz * (1.2 + 0.08 * pulse));
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.arc(sp.x, sp.y, sz * 0.35, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0, 229, 255, 0.2)';
+        ctx.fill();
+        ctx.restore();
     }
 
     drawTargetDragPreview(gameState) {

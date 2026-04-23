@@ -1,4 +1,4 @@
-import { UNIT_STATS } from './constants.js?v=balance2026';
+import { UNIT_STATS, GAME_CONFIG } from './constants.js?v=balance2026';
 
 export class Hex {
     constructor(q, r) {
@@ -456,7 +456,7 @@ export class HexGrid {
         }
     }
 
-    /** Buildable tiles within starter Government (G1) influence radius — used to pick spawn centers with a full land disk. */
+    /** Buildable land hexes under a Government influence disk (axial radius) — used to pick spawn centers. */
     countBuildableInGovDisk(center, radius) {
         let n = 0;
         for (const t of this.getTilesInRadius(center, radius)) {
@@ -473,12 +473,29 @@ export class HexGrid {
         const usableIslands = this.islands.filter(isl => isl.length >= 12);
         if (usableIslands.length === 0) return spawns;
 
+        // Must match `Game.start` free Government (`UNIT_STATS.G.levels[STARTER_GOV_LEVEL]`), not G1.
+        const spawnGovRadius = UNIT_STATS.G.levels[GAME_CONFIG.STARTER_GOV_LEVEL].radius;
+
+        const islandMaxBuildDisk = new Map();
+        for (const isl of usableIslands) {
+            let m = 0;
+            for (const key of isl) {
+                const t = this.tiles.get(key);
+                if (!t || !t.buildable) continue;
+                const d = this.countBuildableInGovDisk(t, spawnGovRadius);
+                if (d > m) m = d;
+            }
+            islandMaxBuildDisk.set(isl, m);
+        }
+        // Round-robin uses island order: put the best "full G-disk" landmasses first for fairer splits.
+        usableIslands.sort((a, b) =>
+            (islandMaxBuildDisk.get(b) - islandMaxBuildDisk.get(a)) || (b.length - a.length)
+        );
+
         // Vary the "first spawn" bias so games don't all anchor the same way vs map center
         const rot = ((this.seed >>> 0) % 6283) / 1000;
         const refD = this.radius * (0.22 + ((this.seed >>> 8) % 17) * 0.01);
         const firstSpawnBias = { q: Math.round(Math.cos(rot) * refD), r: Math.round(Math.sin(rot) * refD) };
-
-        const spawnGovRadius = UNIT_STATS.G.levels[0].radius;
 
         const assignments = usableIslands.map(() => []);
         for (let i = 0; i < playerCount; i++) {

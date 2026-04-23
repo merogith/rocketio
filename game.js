@@ -15,9 +15,10 @@ function intervalEff(tile) {
     return 1;
 }
 
-const ATTACK_TYPES = new Set(['RL', 'B', 'D', 'M', 'AB']);
-/** Add keys via `registerNavyBuildType('N')` for structures that may be placed on owned sea. */
+const ATTACK_TYPES = new Set(['RL', 'B', 'D', 'M', 'AB', 'DDG', 'SSG']);
+/** Structures that may be placed on owned water only (see `canBuildNavyOn`). */
 const NAVY_BUILD_TYPES = new Set();
+['DDG', 'AF', 'SSG'].forEach(t => NAVY_BUILD_TYPES.add(t));
 
 function isInfluencer(structure) {
     if (!structure) return false;
@@ -100,7 +101,7 @@ export class Game {
         for (const tile of this.grid.tiles.values()) {
             if (!tile.structure) continue;
             this._structureTiles.push(tile);
-            if (tile.structure.type === 'AAS') this._aasTiles.push(tile);
+            if (tile.structure.type === 'AAS' || tile.structure.type === 'AF') this._aasTiles.push(tile);
             if (tile.structure.type === 'B' && tile.structure.level === 2) this._l3BarracksTiles.push(tile);
             if (tile.structure.type === 'G' && tile.structure.level === 2 && tile.owner) this._l3GovTiles.push(tile);
             if (tile.structure.type === 'D' && tile.structure.level === 2 && tile.structure.stats?.jamming) this._d3JamTiles.push(tile);
@@ -224,7 +225,7 @@ export class Game {
     _enemyDroneL3Slows(tile) {
         if (!tile?.structure) return false;
         const t = tile.structure.type;
-        if (t !== 'RL' && t !== 'AB' && t !== 'B' && t !== 'M' && t !== 'D' && t !== 'AAS') return false;
+        if (t !== 'RL' && t !== 'AB' && t !== 'B' && t !== 'M' && t !== 'D' && t !== 'AAS' && t !== 'DDG' && t !== 'SSG' && t !== 'AF') return false;
         const owner = tile.owner;
         if (!owner) return false;
         this._ensureIndex();
@@ -332,7 +333,7 @@ export class Game {
             }
             if (tile) {
                 tile.owner = p.id;
-                this.buildStructure(tile, 'G', p.id, 2, true);
+                this.buildStructure(tile, 'G', p.id, GAME_CONFIG.STARTER_GOV_LEVEL, true);
                 const neighbor = new Hex(tile.q, tile.r).getNeighbors()
                     .map(h => this.grid.getTile(h.q, h.r))
                     .find(t => t && t.buildable && !t.structure);
@@ -499,6 +500,25 @@ export class Game {
                     if (this.grid.tiles.has(key)) {
                         player.fogVisible.add(key);
                         player.fogExplored.add(key);
+                    }
+                }
+            }
+        }
+
+        const btF = this.campaign?.buildTutorial;
+        if (btF?.active && btF.prematureFogReveal && Array.isArray(btF.seedHexes) && this.humanId) {
+            const human = this.players[this.humanId - 1];
+            if (human) {
+                const R = typeof btF.revealRadius === 'number' ? btF.revealRadius : 7;
+                for (const s of btF.seedHexes) {
+                    for (let dq = -R; dq <= R; dq++) {
+                        for (let dr = Math.max(-R, -dq - R); dr <= Math.min(R, -dq + R); dr++) {
+                            const key = `${s.q + dq},${s.r + dr}`;
+                            if (this.grid.tiles.has(key)) {
+                                human.fogVisible.add(key);
+                                human.fogExplored.add(key);
+                            }
+                        }
                     }
                 }
             }
@@ -724,7 +744,7 @@ export class Game {
             if (tile.contested) continue;
 
             const s = tile.structure;
-            if (s.type === 'RL' || s.type === 'AB') continue;
+            if (s.type === 'RL' || s.type === 'AB' || s.type === 'DDG' || s.type === 'SSG') continue;
 
             const stats = s.stats;
             const p = this.players[tile.owner - 1];
@@ -741,10 +761,10 @@ export class Game {
                 }
                 continue;
             }
-            if (s.type === 'AAS') {
+            if (s.type === 'AAS' || s.type === 'AF') {
                 if (time - tile.lastAction > stats.rechargeInterval * eff) {
                     let add = stats.missilesRecharged;
-                    if (tile.structure.level === 2 && Math.random() < GAME_CONFIG.AAS_L3_BONUS_RECHARGE_CHANCE) {
+                    if (s.type === 'AAS' && tile.structure.level === 2 && Math.random() < GAME_CONFIG.AAS_L3_BONUS_RECHARGE_CHANCE) {
                         add += 1;
                     }
                     s.charge = Math.min(stats.chargeCap || 10, (s.charge || 0) + add);
@@ -778,7 +798,7 @@ export class Game {
             if (!tile.structure) continue;
             if (tile.contested) continue;
             const s = tile.structure;
-            if (s.type !== 'RL' && s.type !== 'AB') continue;
+            if (s.type !== 'RL' && s.type !== 'AB' && s.type !== 'DDG' && s.type !== 'SSG') continue;
             const stats = s.stats;
             const p = this.players[tile.owner - 1];
             const eff = this.effFor(tile);
@@ -803,14 +823,15 @@ export class Game {
 
         for (const [pid, entries] of missileReadyByPlayer) {
             const p = this.players[pid - 1];
+            this._autoTargetAllocMap = new Map();
             let order = entries;
             if (this._missileSmartPlayers?.has(pid)) {
                 const inc = this._incomingShooterKeysForDefender(pid);
                 order = [...entries].sort((a, b) => {
-                    const ta = this.resolveTarget(a.tile, a.tile.structure.stats, { missileSmart: true });
-                    const tb = this.resolveTarget(b.tile, b.tile.structure.stats, { missileSmart: true });
-                    const pa = ta ? this.missileTargetPriority(pid, ta, inc) : -Infinity;
-                    const pb = tb ? this.missileTargetPriority(pid, tb, inc) : -Infinity;
+                    const ta = this.resolveTarget(a.tile, a.tile.structure.stats, { missileSmart: true, allocMap: null });
+                    const tb = this.resolveTarget(b.tile, b.tile.structure.stats, { missileSmart: true, allocMap: null });
+                    const pa = ta ? this.missileTargetPriority(pid, ta, inc, a.tile) : -Infinity;
+                    const pb = tb ? this.missileTargetPriority(pid, tb, inc, b.tile) : -Infinity;
                     if (pb !== pa) return pb - pa;
                     if (a.tile.q !== b.tile.q) return a.tile.q - b.tile.q;
                     return a.tile.r - b.tile.r;
@@ -826,17 +847,22 @@ export class Game {
                 if (p.missiles < minM) continue;
                 if (s.type === 'RL') {
                     if (this.fireRocket(tile)) tile.lastAction = time;
-                } else if (this.fireAirBase(tile)) {
-                    tile.lastAction = time;
+                } else if (s.type === 'AB') {
+                    if (this.fireAirBase(tile)) tile.lastAction = time;
+                } else if (s.type === 'DDG') {
+                    if (this.fireNavyDDG(tile)) tile.lastAction = time;
+                } else if (s.type === 'SSG') {
+                    if (this.fireNavySSG(tile)) tile.lastAction = time;
                 }
             }
+            this._autoTargetAllocMap = null;
         }
 
         this._missileSmartPlayers = null;
     }
 
     // ========================================================================
-    //  TARGETING — distance-first; within tie band: struct weight -> lowest HP -> (q,r)
+    //  TARGETING — scored: missile-smart stack, distance, struct class, HP spread/finish, peers, layer
     // ========================================================================
     /** Weighted in-flight damage to enemy structures from projectiles fired by ownerId and allies. */
     _pendingDamageToEnemyStructures(ownerId) {
@@ -869,6 +895,8 @@ export class Game {
         const t = s.type;
         if (t === 'RL') return 'rocket';
         if (t === 'AB') return 'airstrike';
+        if (t === 'DDG') return 'navy';
+        if (t === 'SSG') return 'cruise';
         if (t === 'D') return 'drone';
         if (t === 'B') return 'ground';
         if (t === 'M' && s.stats?.damage) return 'militia';
@@ -911,8 +939,9 @@ export class Game {
 
     /**
      * Higher = more urgent target for missile auto-fire (active shooter > DPS > Gov > AAS/MF).
+     * @param {object} [sourceTile] optional launcher — navy-first / land deprioritization
      */
-    missileTargetPriority(defenderId, targetTile, incomingShooterKeys) {
+    missileTargetPriority(defenderId, targetTile, incomingShooterKeys, sourceTile) {
         const key = `${targetTile.q},${targetTile.r}`;
         const st = targetTile.structure?.stats;
         const dps = this._structureDps(st);
@@ -929,60 +958,176 @@ export class Game {
         let score;
         if (incomingShooterKeys.has(key)) {
             score = 3_000_000 + dps;
-        } else if (t === 'AAS' || t === 'MF') {
+        } else if (t === 'AAS' || t === 'AF' || t === 'MF') {
             score = 100_000;
         } else if (t === 'G') {
             score = 500_000;
-        } else if (t === 'RL' || t === 'AB' || t === 'D' || t === 'B' || (t === 'M' && st?.damage)) {
+        } else if (t === 'RL' || t === 'AB' || t === 'D' || t === 'B' || (t === 'M' && st?.damage) || t === 'DDG' || t === 'SSG') {
             score = 2_000_000 + dps * 1000;
         } else {
             score = 400_000 + dps;
         }
+        if (sourceTile?.structure) {
+            const s = sourceTile.structure;
+            const stType = s.type;
+            const o = sourceTile.owner;
+            if ((stType === 'DDG' || stType === 'SSG') && this._enemyNavyOnSeaForOwner(targetTile, o)) {
+                score += GAME_CONFIG.NAVY_FIRST_TARGET_BONUS;
+            }
+            if ((stType === 'RL' || stType === 'AB') && sourceTile.buildable
+                && this._enemyNavyOnSeaForOwner(targetTile, o)
+                && !this._navyWithinHexesOfMyLand(targetTile, o, GAME_CONFIG.NAVY_COASTAL_LAND_EXCEPT_HEX)) {
+                score -= GAME_CONFIG.NAVY_LAND_DEPRIOR_PENALTY;
+            }
+        }
         return score + (recent ? recentBonus : 0);
     }
 
-    resolveTarget(tile, stats, opts = {}) {
-        const assigned = tile.structure.target;
+    _enemyNavyOnSeaForOwner(targetTile, attackerOwner) {
+        if (!targetTile?.structure) return false;
+        if (targetTile.buildable) return false;
+        if (!NAVY_BUILD_TYPES.has(targetTile.structure.type)) return false;
+        if (targetTile.owner == null) return false;
+        if (targetTile.owner === attackerOwner || this.areAllied(targetTile.owner, attackerOwner)) return false;
+        return true;
+    }
+
+    _navyWithinHexesOfMyLand(navyTile, myOwnerId, maxD) {
+        for (const t of this.grid.tiles.values()) {
+            if (t.owner !== myOwnerId || !t.buildable) continue;
+            if (Hex.distance(navyTile, t) <= maxD) return true;
+        }
+        return false;
+    }
+
+    /** 'land' | 'sea' — for future navy: navy types, explicit stats, or water hex. */
+    _autoTargetLayerKey(tile) {
+        const s = tile?.structure;
+        if (s?.stats?.autoTargetLayer === 'sea' || s?.stats?.autoTargetLayer === 'land') {
+            return s.stats.autoTargetLayer;
+        }
+        if (s && NAVY_BUILD_TYPES.has(s.type)) return 'sea';
+        if (tile && !tile.buildable) return 'sea';
+        return 'land';
+    }
+
+    _autoTargetLayerScore(sKey, tKey) {
+        const L = GAME_CONFIG.AUTO_TARGET_LAYER || {};
+        if (sKey === tKey) return L.SAME_LAYER_BONUS ?? 0;
+        if (sKey === 'land' && tKey === 'sea') return L.LAND_TO_SEA_PENALTY ?? 0;
+        if (sKey === 'sea' && tKey === 'land') return L.SEA_TO_LAND_PENALTY ?? 0;
+        return 0;
+    }
+
+    _structWeightForSource(sourceType, targetType) {
+        const bySrc = GAME_CONFIG.AUTO_TARGET_STRUCT_WEIGHT_BY_SOURCE;
+        if (bySrc && typeof bySrc[sourceType] === 'object' && bySrc[sourceType] != null) {
+            const w = bySrc[sourceType][targetType];
+            if (typeof w === 'number') return w;
+        }
+        return GAME_CONFIG.AUTO_TARGET_STRUCT_WEIGHT?.[targetType] ?? 0;
+    }
+
+    _countPeersSameTypeToHex(ownerId, srcType, hexKey, allocMap, sourceTile) {
+        let n = 0;
+        if (allocMap) {
+            const v = allocMap.get(`${srcType}:${hexKey}`);
+            if (v) n += v;
+        }
+        for (const t of this._structureTiles) {
+            if (t.owner !== ownerId) continue;
+            if (!t.structure || t.structure.type !== srcType) continue;
+            if (t === sourceTile) continue;
+            const tg = t.structure.target;
+            if (tg && `${tg.q},${tg.r}` === hexKey) n++;
+        }
+        return n;
+    }
+
+    _autoTargetCandidateScore(source, c, dMin, sourceOwner, missileSmart, inc, allocMap) {
+        const cfg = GAME_CONFIG.AUTO_TARGET_SCORE || {};
+        const distW = typeof cfg.DIST_PER_HEX === 'number' ? cfg.DIST_PER_HEX : 0;
+        const stMult = typeof cfg.STRUCT_MULT === 'number' ? cfg.STRUCT_MULT : 100;
+        const finish = typeof cfg.FINISH_LOW_HPRATIO === 'number' ? cfg.FINISH_LOW_HPRATIO : 0;
+        const fullSpread = typeof cfg.FULL_HP_SPREAD === 'number' ? cfg.FULL_HP_SPREAD : 0;
+        const peerPen = typeof cfg.PEER_SAME_TYPE === 'number' ? cfg.PEER_SAME_TYPE : 0;
+
+        let s = 0;
+        if (missileSmart && inc) {
+            s += this.missileTargetPriority(sourceOwner, c.tile, inc, source);
+        }
+        s += (dMin - c.d) * distW;
+
+        const st = source?.structure;
+        const srcT = st?.type;
+        const tgtT = c.tile.structure?.type;
+        if (srcT && tgtT) s += this._structWeightForSource(srcT, tgtT) * stMult;
+
+        const maxHp = c.tile.maxHp || 0;
+        const hpR = maxHp > 0 ? c.tile.hp / maxHp : 1;
+        s += finish * (1 - Math.min(1, Math.max(0, hpR)));
+        if (hpR >= 0.999) s += fullSpread;
+
+        const hKey = `${c.tile.q},${c.tile.r}`;
+        if (srcT && peerPen) {
+            const peer = this._countPeersSameTypeToHex(
+                sourceOwner, srcT, hKey, allocMap, source
+            );
+            s -= peer * peerPen;
+        }
+        const sk0 = this._autoTargetLayerKey(source);
+        const tk0 = this._autoTargetLayerKey(c.tile);
+        const L = GAME_CONFIG.AUTO_TARGET_LAYER || {};
+        s += this._autoTargetLayerScore(sk0, tk0);
+        if (sk0 === 'land' && tk0 === 'sea' && this._enemyNavyOnSeaForOwner(c.tile, sourceOwner)
+            && this._navyWithinHexesOfMyLand(c.tile, sourceOwner, GAME_CONFIG.NAVY_COASTAL_LAND_EXCEPT_HEX)) {
+            s -= (L.LAND_TO_SEA_PENALTY ?? 0);
+        }
+        const sType = st?.type;
+        if ((sType === 'DDG' || sType === 'SSG') && (c.tile.navyIlluminatedUntil | 0) > this.gameTime) {
+            s += (GAME_CONFIG.NAVY_ILLUM_TIE_BONUS || 0) * stMult;
+        }
+
+        return s;
+    }
+
+    _pickByAutoTargetScore(source, cands, sourceOwner, missileSmart, inc, allocMap) {
+        if (!cands.length) return null;
+        const dMin = Math.min(...cands.map(c => c.d));
+        let best = cands[0];
+        let bestS = this._autoTargetCandidateScore(source, best, dMin, sourceOwner, missileSmart, inc, allocMap);
+        for (let i = 1; i < cands.length; i++) {
+            const sc = this._autoTargetCandidateScore(source, cands[i], dMin, sourceOwner, missileSmart, inc, allocMap);
+            if (sc > bestS) {
+                bestS = sc;
+                best = cands[i];
+            } else if (sc === bestS) {
+                const t = cands[i].tile, o = best.tile;
+                if (t.q < o.q || (t.q === o.q && t.r < o.r)) best = cands[i];
+            }
+        }
+        return best.tile;
+    }
+
+    _resolveTargetWithFlags(tile, stats, opts = {}) {
+        const assigned = tile.structure?.target;
         if (assigned) {
             const live = this.grid.getTile(assigned.q, assigned.r);
             if (live) {
                 const d = Hex.distance(tile, live);
                 if (d <= stats.range && live.owner !== tile.owner && live.structure && !this.areAllied(live.owner, tile.owner)) {
-                    return live;
+                    return { target: live, fromManual: true };
                 }
             }
         }
-        return this.autoTarget(tile, stats.range, opts);
+        return {
+            target: this.autoTarget(tile, stats.range, opts),
+            fromManual: false,
+        };
     }
 
-    /** Tie-break for auto-target: missile-smart layer, then distance band + struct weight + HP + (q,r). */
-    _compareAutoTargetTieBreak(a, b, dMin, sourceOwner, missileSmart, inc) {
-        if (missileSmart && inc) {
-            const pa = this.missileTargetPriority(sourceOwner, a.tile, inc);
-            const pb = this.missileTargetPriority(sourceOwner, b.tile, inc);
-            if (pb !== pa) return pb - pa;
-        }
-        const tieBand = GAME_CONFIG.AUTO_TARGET_DISTANCE_TIE_HEXES ?? 0;
-        const weights = GAME_CONFIG.AUTO_TARGET_STRUCT_WEIGHT || {};
-        const wOf = (c) => weights[c.tile.structure?.type] ?? 0;
-        const aNear = a.d <= dMin + tieBand;
-        const bNear = b.d <= dMin + tieBand;
-        if (aNear !== bNear) return aNear ? -1 : 1;
-        if (!aNear) {
-            if (a.d !== b.d) return a.d - b.d;
-        } else {
-            const wa = wOf(a), wb = wOf(b);
-            if (wb !== wa) return wb - wa;
-            if (a.hp !== b.hp) return a.hp - b.hp;
-        }
-        if (a.tile.q !== b.tile.q) return a.tile.q - b.tile.q;
-        return a.tile.r - b.tile.r;
-    }
-
-    _sortAutoTargetCandidates(arr, sourceOwner, missileSmart, inc) {
-        if (arr.length <= 1) return;
-        const dMin = Math.min(...arr.map(c => c.d));
-        arr.sort((a, b) => this._compareAutoTargetTieBreak(a, b, dMin, sourceOwner, missileSmart, inc));
+    resolveTarget(tile, stats, opts = {}) {
+        return this._resolveTargetWithFlags(tile, stats, opts).target;
     }
 
     autoTarget(source, range, opts = {}) {
@@ -999,6 +1144,8 @@ export class Game {
 
         const missileSmart = !!opts.missileSmart && this._missileSmartPlayers?.has(source.owner);
         const inc = missileSmart ? this._incomingShooterKeysForDefender(source.owner) : null;
+        const allocMap = opts.allocMap ?? null;
+        const sourceOwner = source.owner;
 
         const inboundType = this._inboundProjectileTypeForSource(source);
         const caps = GAME_CONFIG.AUTO_TARGET_MAX_INBOUND_BY_PROJECTILE_TYPE || {};
@@ -1027,27 +1174,34 @@ export class Game {
         const preferred = candidates.filter(c => !isInboundBlocked(c) && !blockedByPending(c));
 
         if (preferred.length) {
-            this._sortAutoTargetCandidates(preferred, source.owner, missileSmart, inc);
-            return preferred[0].tile;
+            return this._pickByAutoTargetScore(source, preferred, sourceOwner, missileSmart, inc, allocMap);
         }
 
         const allowFallback =
             !GAME_CONFIG.AUTO_TARGET_USE_PENDING_DAMAGE || GAME_CONFIG.AUTO_TARGET_FALLBACK_WHEN_ALL_SATURATED;
         if (allowFallback) {
-            this._sortAutoTargetCandidates(candidates, source.owner, missileSmart, inc);
-            return candidates[0].tile;
+            return this._pickByAutoTargetScore(source, candidates, sourceOwner, missileSmart, inc, allocMap);
         }
 
+        if (!pending) {
+            return this._pickByAutoTargetScore(source, candidates, sourceOwner, missileSmart, inc, allocMap);
+        }
         const dMin = Math.min(...candidates.map(c => c.d));
-        candidates.sort((a, b) => {
-            const ka = `${a.tile.q},${a.tile.r}`;
-            const kb = `${b.tile.q},${b.tile.r}`;
-            const pa = pending.get(ka) || 0;
-            const pb = pending.get(kb) || 0;
-            if (pa !== pb) return pa - pb;
-            return this._compareAutoTargetTieBreak(a, b, dMin, source.owner, missileSmart, inc);
+        const scored = candidates.map(c => {
+            const k = `${c.tile.q},${c.tile.r}`;
+            return {
+                c,
+                p: pending.get(k) || 0,
+                s: this._autoTargetCandidateScore(source, c, dMin, sourceOwner, missileSmart, inc, allocMap),
+            };
         });
-        return candidates[0].tile;
+        scored.sort((a, b) => {
+            if (a.p !== b.p) return a.p - b.p;
+            if (a.s !== b.s) return b.s - a.s;
+            if (a.c.tile.q !== b.c.tile.q) return a.c.tile.q - b.c.tile.q;
+            return a.c.tile.r - b.c.tile.r;
+        });
+        return scored[0].c.tile;
     }
 
     // ========================================================================
@@ -1095,11 +1249,18 @@ export class Game {
     fireRocket(tile) {
         const p = this.players[tile.owner - 1];
         const stats = tile.structure.stats;
-        const target = this.resolveTarget(tile, stats, { missileSmart: true });
+        const { target, fromManual } = this._resolveTargetWithFlags(tile, stats, {
+            missileSmart: true,
+            allocMap: this._autoTargetAllocMap,
+        });
         if (!target) return false;
 
         p.missiles -= stats.missilesPerShot;
         tile.structure.lastFiredAt = this.gameTime;
+        if (this._autoTargetAllocMap && !fromManual) {
+            const k = `${tile.structure.type}:${target.q},${target.r}`;
+            this._autoTargetAllocMap.set(k, (this._autoTargetAllocMap.get(k) || 0) + 1);
+        }
         const count = stats.projectiles || 1;
         const splash = stats.splash && tile.structure.level === 2
             && Math.random() < GAME_CONFIG.RL_L3_SPLASH_CHANCE;
@@ -1121,7 +1282,10 @@ export class Game {
     fireAirBase(tile) {
         const p = this.players[tile.owner - 1];
         const stats = tile.structure.stats;
-        const target = this.resolveTarget(tile, stats, { missileSmart: true });
+        const { target, fromManual } = this._resolveTargetWithFlags(tile, stats, {
+            missileSmart: true,
+            allocMap: this._autoTargetAllocMap,
+        });
         if (!target) return false;
 
         const isAb3 = tile.structure.type === 'AB' && tile.structure.level === 2;
@@ -1131,6 +1295,10 @@ export class Game {
 
         p.missiles -= missilesCost;
         tile.structure.lastFiredAt = this.gameTime;
+        if (this._autoTargetAllocMap && !fromManual) {
+            const k = `${tile.structure.type}:${target.q},${target.r}`;
+            this._autoTargetAllocMap.set(k, (this._autoTargetAllocMap.get(k) || 0) + 1);
+        }
         const count = stats.projectiles || 1;
         for (let i = 0; i < count; i++) {
             this.spawnProjectile(tile, target, {
@@ -1142,6 +1310,90 @@ export class Game {
             });
         }
         this.spawnMuzzleFlash(tile, target, { color: '#e8f3ff', size: 1.5, count: 4 });
+        this._fireSfx(tile, 'launch_airstrike');
+        return true;
+    }
+
+    _otherFriendlyNavyInRangeExcl(fromTile, maxD, ownerId) {
+        let n = 0;
+        this._ensureIndex();
+        for (const t of this._structureTiles) {
+            if (t.owner !== ownerId) continue;
+            if (t === fromTile) continue;
+            if (!t.structure || !NAVY_BUILD_TYPES.has(t.structure.type)) continue;
+            if (Hex.distance(fromTile, t) <= maxD) n++;
+        }
+        return n;
+    }
+
+    fireNavyDDG(tile) {
+        const p = this.players[tile.owner - 1];
+        const s = tile.structure;
+        const stats = s.stats;
+        const { target, fromManual } = this._resolveTargetWithFlags(tile, stats, {
+            missileSmart: true,
+            allocMap: this._autoTargetAllocMap,
+        });
+        if (!target) return false;
+        if (p.missiles < stats.missilesPerShot) return false;
+        let dmg = stats.damage;
+        if (s.type === 'DDG' && tile.structure.level === 2 && stats.cec
+            && this._enemyNavyOnSeaForOwner(target, tile.owner)
+            && this._otherFriendlyNavyInRangeExcl(tile, 3, tile.owner) > 0) {
+            dmg *= GAME_CONFIG.DDG3_CEC_DMG_MULT;
+        }
+        p.missiles -= stats.missilesPerShot;
+        s.lastFiredAt = this.gameTime;
+        if (this._autoTargetAllocMap && !fromManual) {
+            const k = `${s.type}:${target.q},${target.r}`;
+            this._autoTargetAllocMap.set(k, (this._autoTargetAllocMap.get(k) || 0) + 1);
+        }
+        for (let i = 0; i < (stats.projectiles || 1); i++) {
+            this.spawnProjectile(tile, target, {
+                type: 'navy',
+                damage: dmg,
+                speed: 2.9,
+                interceptable: stats.interceptable !== false,
+                trail: true,
+            });
+        }
+        this.spawnMuzzleFlash(tile, target, { color: '#4aa8c8', size: 1.6, count: 4 });
+        this._fireSfx(tile, 'launch_rocket');
+        return true;
+    }
+
+    fireNavySSG(tile) {
+        const p = this.players[tile.owner - 1];
+        const s = tile.structure;
+        const stats = s.stats;
+        const { target, fromManual } = this._resolveTargetWithFlags(tile, stats, {
+            missileSmart: true,
+            allocMap: this._autoTargetAllocMap,
+        });
+        if (!target) return false;
+        if (p.missiles < stats.missilesPerShot) return false;
+        let dmg = stats.damage;
+        if (s.type === 'SSG' && tile.structure.level === 2 && stats.bastion
+            && this._enemyNavyOnSeaForOwner(target, tile.owner)
+            && this._otherFriendlyNavyInRangeExcl(tile, 1, tile.owner) > 0) {
+            dmg *= GAME_CONFIG.SSG3_BASTION_DMG_MULT;
+        }
+        p.missiles -= stats.missilesPerShot;
+        s.lastFiredAt = this.gameTime;
+        if (this._autoTargetAllocMap && !fromManual) {
+            const k = `${s.type}:${target.q},${target.r}`;
+            this._autoTargetAllocMap.set(k, (this._autoTargetAllocMap.get(k) || 0) + 1);
+        }
+        for (let i = 0; i < (stats.projectiles || 1); i++) {
+            this.spawnProjectile(tile, target, {
+                type: 'cruise',
+                damage: dmg,
+                speed: stats.projectileSpeed || 4.2,
+                interceptable: stats.interceptable !== false,
+                trail: true
+            });
+        }
+        this.spawnMuzzleFlash(tile, target, { color: '#7aa0c0', size: 1.2, count: 3 });
         this._fireSfx(tile, 'launch_airstrike');
         return true;
     }
@@ -1308,7 +1560,13 @@ export class Game {
                 if (tile.contested) continue;
                 if ((tile.structure.charge || 0) <= 0) continue;
 
-                const range = tile.structure.stats.range;
+                let range = tile.structure.stats.range;
+                if (tile.structure.type === 'AF' && tile.structure.level === 2 && proj.fromQR) {
+                    const fTile = this.grid.getTile(proj.fromQR.q, proj.fromQR.r);
+                    if (fTile?.structure && !fTile.buildable && NAVY_BUILD_TYPES.has(fTile.structure.type)) {
+                        range += GAME_CONFIG.AF3_NAVY_ORIGIN_RANGE;
+                    }
+                }
                 if (Hex.distance(hex, tile) <= range) eligible.push(tile);
             }
             if (eligible.length === 0) continue;
@@ -1316,15 +1574,21 @@ export class Game {
             let best = eligible[0];
             let bestD = Hex.distance(best, hex);
             for (let i = 1; i < eligible.length; i++) {
-                const tile = eligible[i];
-                const d = Hex.distance(tile, hex);
+                const t = eligible[i];
+                const d = Hex.distance(t, hex);
                 if (d < bestD) {
-                    best = tile;
+                    best = t;
                     bestD = d;
                 } else if (d === bestD) {
-                    if (tile.q < best.q || (tile.q === best.q && tile.r < best.r)) {
-                        best = tile;
+                    if (t.q < best.q || (t.q === best.q && t.r < best.r)) {
+                        best = t;
                     }
+                }
+            }
+            if (proj.fromQR) {
+                const srcShot = this.grid.getTile(proj.fromQR.q, proj.fromQR.r);
+                if (srcShot) {
+                    srcShot.navyIlluminatedUntil = this.gameTime + (GAME_CONFIG.NAVY_ILLUM_MS || 3000);
                 }
             }
             best.structure.charge--;
@@ -1342,6 +1606,8 @@ export class Game {
         const IMPACT_TIER = {
             rocket:    { burst: 18, color: '#ffb060', shake: 4, sfx: 'impact_big'   },
             airstrike: { burst: 22, color: '#ffe9c0', shake: 5, sfx: 'impact_big'   },
+            navy:      { burst: 16, color: '#5aa0c0', shake: 3, sfx: 'impact_big'   },
+            cruise:    { burst: 20, color: '#8aa0b8', shake: 4, sfx: 'impact_big'   },
             drone:     { burst: 7,  color: '#78c8ff', shake: 1, sfx: 'impact_small' },
             ground:    { burst: 5,  color: '#fff0a0', shake: 1, sfx: 'impact_small' },
             militia:   { burst: 4,  color: '#ffe680', shake: 0, sfx: 'impact_small' },
@@ -1508,7 +1774,7 @@ export class Game {
         const buildCooldown = GAME_CONFIG.BUILD_COOLDOWNS[type] ?? 0;
         const structInterval =
             type === 'MF'  ? (stats.produceInterval  || 10000) :
-            type === 'AAS' ? (stats.rechargeInterval  || 12000) :
+            type === 'AAS' || type === 'AF' ? (stats.rechargeInterval  || 12000) :
                              (stats.interval          || 10000);
         tile.lastAction = this.gameTime + (buildCooldown - structInterval);
 
@@ -1625,7 +1891,7 @@ export class Game {
         const newStats = tile.structure.stats;
         const newInterval =
             type === 'MF'  ? (newStats.produceInterval  || 10000) :
-            type === 'AAS' ? (newStats.rechargeInterval || 12000) :
+            type === 'AAS' || type === 'AF' ? (newStats.rechargeInterval || 12000) :
                              (newStats.interval ?? prevLevelStats?.interval ?? 10000);
         if (tile.buildCooldownUntil && this.gameTime < tile.buildCooldownUntil) {
             const remaining = tile.buildCooldownUntil - this.gameTime;
@@ -1736,6 +2002,17 @@ export class Game {
                     tile.owner = best;
                 }
                 tile.contested = false;
+            }
+        }
+
+        const bt = this.campaign?.buildTutorial;
+        if (bt?.active && Array.isArray(bt.seedHexes)) {
+            for (const s of bt.seedHexes) {
+                const t = this.grid.getTile(s.q, s.r);
+                if (t && !t.structure) {
+                    t.owner = s.ownerId;
+                    t.contested = false;
+                }
             }
         }
     }

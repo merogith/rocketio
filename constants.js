@@ -46,11 +46,13 @@ export const GAME_CONFIG = {
     /**
      * Menu map sizes (axial "radius" R of the containing hex; total hexes = 1 + 3R(R+1)).
      *   small R=20  -> 1,261 cells   · medium R=30 -> 2,791   · large R=45 -> 6,211
-     * G1 (starter Government) has influence radius 4 — hex disk under it has at most
-     *   1 + 3×4×5 = 61 buildable land checks (countBuildableInGovDisk) vs full map above.
+     * Free starting Government uses STARTER_GOV_LEVEL (G3, radius 9) — hexGrid.findSpawnPoints
+     * must use the same tier so spawns are not chosen for a small disk and then clip at the map edge.
      * Nudge with player count via getEffectiveMapRadius (same preset feels tight at 7p, roomy at 2p).
      */
     MAP_RADII: { small: 20, medium: 30, large: 45 },
+    /** Index into `UNIT_STATS.G.levels` for the free Government at `Game.start` (must match hexGrid spawn checks). */
+    STARTER_GOV_LEVEL: 2,
     MAX_PARTICLES: 400,
     // Auto-target: reduce overkill on one tile by treating in-flight shots as committed damage.
     // Interceptable projectiles count at a fraction (AA may shoot them down).
@@ -64,21 +66,66 @@ export const GAME_CONFIG = {
     AUTO_TARGET_MAX_INBOUND_BY_PROJECTILE_TYPE: {
         rocket: 6,
         airstrike: 2,
+        /** Naval cruise / anti-ship (DDG) — keep undertuned saturation vs land RL. */
+        navy: 4,
+        cruise: 2,
         drone: 7,
         ground: 2,
         militia: 3,
     },
-    // Within this many hexes of the closest enemy, prefer higher AUTO_TARGET_STRUCT_WEIGHT before HP tie-break.
+    /** @deprecated Superseded by `AUTO_TARGET_SCORE.DIST_PER_HEX` (continuous distance in pick score). */
     AUTO_TARGET_DISTANCE_TIE_HEXES: 2,
     AUTO_TARGET_STRUCT_WEIGHT: {
         G: 100,
         MF: 85,
         AB: 45,
         RL: 40,
+        /** Navy — for tie-break; fleet combat uses targeting logic in game.js */
+        SSG: 25,
+        DDG: 24,
         AAS: 35,
+        AF: 33,
         B: 28,
         D: 22,
         M: 18,
+    },
+    /**
+     * Optional per-**source** structure type weights: `bySource[RL|AB][G|MF|…]`.
+     * Omitted source types and missing keys fall back to `AUTO_TARGET_STRUCT_WEIGHT`.
+     */
+    AUTO_TARGET_STRUCT_WEIGHT_BY_SOURCE: {
+        // Example: RL: { G: 100, MF: 90 },
+    },
+    /**
+     * Scored auto-pick: higher = better. Distance + spread/finish + peer spread + layer; missile-smart stack still first.
+     * (intervalEff: any damage → slower fire — use FULL_HP_SPREAD to also chip fresh buildings.)
+     */
+    AUTO_TARGET_SCORE: {
+        /** Score per hex closer to this launcher than the farthest in-range candidate. */
+        DIST_PER_HEX: 8000,
+        /** Multiply `AUTO_TARGET_STRUCT_WEIGHT` (and BY_SOURCE) into the same score range as distance. */
+        STRUCT_MULT: 110,
+        /**
+         * Per other same-type friendly launcher already on this hex this tick (alloc) or on manual `structure.target` (peers excl. self).
+         * Large value discourages 50 launchers piling the same place while inbound cap covers mixed types.
+         */
+        PEER_SAME_TYPE: 24_000,
+        /** Up to this much extra score to finish off low-HP (hpRatio = hp/maxHp, lower → higher score). */
+        FINISH_LOW_HPRATIO: 9_000,
+        /** If essentially full HP, add this to spread *intervalEff* slows onto more buildings. */
+        FULL_HP_SPREAD: 11_000,
+    },
+    /**
+     * MTG-style layers for future land vs navy: only applies when a side is "sea" (Navy type or `stats.autoTargetLayer` / water tile).
+     * Same layer gets SAME_LAYER_BONUS; cross gets penalties (negative in score = avoid).
+     */
+    AUTO_TARGET_LAYER: {
+        /** Both sea or both land — undertuned: fleet vs fleet / land vs land. */
+        SAME_LAYER_BONUS: 36_000,
+        /** Land→sea (e.g. RL vs ship); cancelled if `NAVY_COASTAL_LAND_EXCEPT_HEX` in game.js. */
+        LAND_TO_SEA_PENALTY: -40_000,
+        /** Sea→land (e.g. destroyer vs coastal base). */
+        SEA_TO_LAND_PENALTY: -30_000,
     },
     // Missile-starved: prioritize targets (incoming shooters > enemy DPS > Gov > AAS/MF) and RL/AB fire order.
     MISSILE_SMART_PRIORITY: true,
@@ -97,6 +144,9 @@ export const GAME_CONFIG = {
         B:    5000,   // 5 s before first ground attack
         D:    5000,   // 5 s before first drone volley
         M:    5000,   // 5 s before first militia attack
+        DDG:  5500,
+        AF:   3200,
+        SSG:  6000,
     },
     // Lv3 Barracks: friendly structures on hexes within its influence radius (stats.radius) deal +10% damage
     // and take −10% damage from projectiles. Overlapping L3 Barracks do not stack (single application).
@@ -119,6 +169,22 @@ export const GAME_CONFIG = {
     MF_GLOBAL_PRODUCTION_MULT: 1.0,
     /** Non–MF3 factory adjacent (hex 1) to a friendly MF3: production × this; MF3 does not buff itself. Non-stack. */
     MF_L3_NEIGHBOR_PRODUCTION_MULT: 1.3,
+    // --- Navy (slightly undertuned) ---
+    /** In missileTargetPriority: DDG/SSG add this when target is an enemy **naval** (sea) unit. */
+    NAVY_FIRST_TARGET_BONUS: 310_000,
+    /** In missileTargetPriority: land-based RL/AB with missile-smart de-prioritize “deep” enemy navy. */
+    NAVY_LAND_DEPRIOR_PENALTY: 620_000,
+    /** If enemy navy is within this (hex) of your **buildable** land, no deprioritization. */
+    NAVY_COASTAL_LAND_EXCEPT_HEX: 2,
+    /** DDG3: with another friendly **navy** (DDG/AF/SSG) in 3 hexes, +damage vs **enemy** ships only. */
+    DDG3_CEC_DMG_MULT: 1.04,
+    /** SSG3: with another friendly navy adjacent (1 hex), +damage vs enemy **naval** only. */
+    SSG3_BASTION_DMG_MULT: 1.05,
+    /** AF3: +intercept range (hex) vs interceptable shots **from** enemy **naval** structure tiles. */
+    AF3_NAVY_ORIGIN_RANGE: 1,
+    /** On intercept: mark shooter tile; navy strikers prefer that hex briefly. */
+    NAVY_ILLUM_MS: 3_200,
+    NAVY_ILLUM_TIE_BONUS: 8,
     /** Max militia with one Government; +MILITIA_PER_EXTRA_GOV for each additional Gov. */
     MILITIA_BASE_CAP: 5,
     MILITIA_PER_EXTRA_GOV: 2,
@@ -288,6 +354,31 @@ export const UNIT_STATS = {
             { id: "B2", hp: 680, range: 5, radius: 4, damage: 68,  cost: 900,  interval: 5200, projectiles: 1, interceptable: false, influence: 1850, vision: 10 },
             { id: "B3", hp: 1780, range: 6, radius: 5, damage: 88, cost: 1700, interval: 3400, projectiles: 1, interceptable: false, influence: 2480, vision: 12 }
         ]
+    },
+    // --- Water-only. Glassier HP/$; slower cadence than drones; L3: see GAME_CONFIG. ---
+    DDG: {
+        name: "Destroyer",
+        levels: [
+            { id: "DDG1", hp: 92,  range: 6,  damage: 45,  cost: 270,  interval: 11_200, missilesPerShot: 1, projectiles: 1, interceptable: true,  vision: 5 },
+            { id: "DDG2", hp: 200, range: 7,  damage: 65,  cost: 380,  interval: 7_900,  missilesPerShot: 1, projectiles: 1, interceptable: true,  vision: 7 },
+            { id: "DDG3", hp: 338, range: 8,  damage: 84,  cost: 480,  interval: 5_900,  missilesPerShot: 1, projectiles: 1, interceptable: true,  vision: 8, cec: true }
+        ]
+    },
+    AF: {
+        name: "Aegis (Sea AA)",
+        levels: [
+            { id: "AF1",  hp: 86,  range: 3,  cost: 250,  rechargeInterval: 11_600, missilesRecharged: 1, chargeCap: 3,  vision: 4 },
+            { id: "AF2",  hp: 198, range: 4,  cost: 355,  rechargeInterval: 8_200,  missilesRecharged: 1, chargeCap: 4,  vision: 5 },
+            { id: "AF3",  hp: 345, range: 5,  cost: 455,  rechargeInterval: 6_000,  missilesRecharged: 2, chargeCap: 5,  vision: 6,  illuminator: true }
+        ]
+    },
+    SSG: {
+        name: "Cruise Sub",
+        levels: [
+            { id: "SSG1", hp: 128, range: 5,  damage: 108, cost: 430,  interval: 17_500, missilesPerShot: 1, projectiles: 1, interceptable: true,  projectileSpeed: 3.6, vision: 5 },
+            { id: "SSG2", hp: 350, range: 6,  damage: 178, cost: 900,  interval: 12_200, missilesPerShot: 2, projectiles: 1, interceptable: true,  projectileSpeed: 4.2, vision: 7 },
+            { id: "SSG3", hp: 900, range: 7,  damage: 430, cost: 1_580, interval: 10_200, missilesPerShot: 2, projectiles: 1, interceptable: true,  projectileSpeed: 4.6, vision: 9, bastion: true }
+        ]
     }
 };
 
@@ -344,6 +435,9 @@ export const DEFAULT_KEYBINDS = {
     build_M:    'Digit6',
     build_D:    'Digit7',
     build_AB:   'Digit8',
+    build_DDG:  'F7',
+    build_AF:   'F8',
+    build_SSG:  'F9',
     upgrade:    'Space',
     cancel:     'Escape',
     pan_up:     'KeyW',

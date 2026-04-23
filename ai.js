@@ -33,10 +33,10 @@ import { Hex } from './hexGrid.js?v=balance2026';
 
 const PHASES = { EXPAND: 0, FORTIFY: 1, PRESSURE: 2, DOMINATE: 3 };
 
-const KILL_VALUE = { G: 100, AB: 60, MF: 55, AAS: 45, RL: 40, B: 35, D: 25, M: 8 };
+const KILL_VALUE = { G: 100, AB: 60, SSG: 34, MF: 55, AAS: 45, AF: 42, RL: 40, DDG: 30, B: 35, D: 25, M: 8 };
 
-const ATTACKER_TYPES = new Set(['RL', 'B', 'D', 'AB', 'M']);
-const COMBAT_TYPES   = new Set(['RL', 'B', 'D', 'AB', 'M']);
+const ATTACKER_TYPES = new Set(['RL', 'B', 'D', 'AB', 'M', 'DDG', 'SSG']);
+const COMBAT_TYPES   = new Set(['RL', 'B', 'D', 'AB', 'M', 'DDG', 'SSG']);
 
 const DOCTRINE_KEYS = Object.keys(AI_DOCTRINES);
 
@@ -114,7 +114,9 @@ function counterCompositionMults(snap, game) {
     const eAAS = get('AAS');
     const eRL = get('RL');
     const eAB = get('AB');
-    const eShooters = eRL + eAB;
+    const eDDG = get('DDG');
+    const eSSG = get('SSG');
+    const eShooters = eRL + eAB + eDDG + eSSG;
     const eD = get('D');
     const eM = get('M');
     const eB = get('B');
@@ -122,7 +124,7 @@ function counterCompositionMults(snap, game) {
     const mult = { RL: 1, AB: 1, D: 1, B: 1, AAS: 1 };
 
     const eGround = eM + eB;
-    const eAirThreat = eRL + eAB + eD;
+    const eAirThreat = eRL + eAB + eD + eDDG + eSSG;
     if (eGround >= 2 && eGround > eAirThreat) {
         mult.B *= 1.14 * s;
         mult.AAS *= 0.88;
@@ -334,7 +336,7 @@ function computeSharedAssessment(game) {
                 const sec = (ms.produceInterval * eff) / 1000;
                 missileProd.set(pid, missileProd.get(pid) + (ms.missilesProduced / sec));
             }
-            if (s.type === 'RL' || s.type === 'AB') {
+            if (s.type === 'RL' || s.type === 'AB' || s.type === 'DDG' || s.type === 'SSG') {
                 const ms = s.stats;
                 const eff = game.effFor(tile);
                 const sec = (ms.interval * eff) / 1000;
@@ -537,7 +539,7 @@ function buildSnapshot(game, p, shared) {
 // ============================================================================
 function detectPhase(game, p, snap, shared) {
     const tc = p.tileCount;
-    const hasAttacker = (snap.ownByType.RL?.length || 0) + (snap.ownByType.AB?.length || 0) > 0;
+    const hasAttacker = (snap.ownByType.RL?.length || 0) + (snap.ownByType.AB?.length || 0) + (snap.ownByType.DDG?.length || 0) + (snap.ownByType.SSG?.length || 0) > 0;
     const hasDrones   = (snap.ownByType.D?.length || 0) > 0;
     const hasCombat   = hasAttacker || hasDrones || (snap.ownByType.B?.length || 0) > 0;
     const isLeader    = shared.leaderId === p.id;
@@ -792,6 +794,8 @@ function runAITick(game, p, time) {
     if (tryEconomy(game, p, snap, phase, shared, doctrine)) { goto_done(p); return; }
     if (tryStrategicBuild(game, p, snap, shared, phase, doctrine)) { goto_done(p); return; }
 
+    if (tryNavyOpportunism(game, p, snap)) { goto_done(p); return; }
+
     // ── PRIORITY 7: UPGRADE / DEMOLISH ──
     tryMilitiaUpgradeStrategy(game, p, snap, phase) ||
     tryUpgrade(game, p, snap, doctrine, shared) ||
@@ -889,6 +893,9 @@ function tryEmergencyDefense(game, p, snap, tileLoss) {
         const protectedByAAS = (snap.ownByType.AAS || []).some(a =>
             (a.structure.charge || 0) > 0 &&
             Hex.distance(a, vt) <= a.structure.stats.range
+        ) || (snap.ownByType.AF || []).some(a =>
+            (a.structure.charge || 0) > 0 &&
+            Hex.distance(a, vt) <= a.structure.stats.range
         );
         if (protectedByAAS) continue;
 
@@ -921,12 +928,14 @@ function tryEmergencyDefense(game, p, snap, tileLoss) {
     // (c) Gov unshielded + enemy attackers nearby
     for (const g of govs) {
         const visEnemyAttackers = snap.visibleEnemies.filter(e =>
-            (e.structure.type === 'RL' || e.structure.type === 'AB') &&
+            (e.structure.type === 'RL' || e.structure.type === 'AB' || e.structure.type === 'DDG' || e.structure.type === 'SSG') &&
             Hex.distance(g, e) <= (e.structure.stats.range || 0) + 2
         );
         if (visEnemyAttackers.length === 0) continue;
 
         const protectedByAAS = (snap.ownByType.AAS || []).some(a =>
+            Hex.distance(a, g) <= a.structure.stats.range
+        ) || (snap.ownByType.AF || []).some(a =>
             Hex.distance(a, g) <= a.structure.stats.range
         );
         if (!protectedByAAS && canAffordType(p, 'AAS')) {
@@ -1257,7 +1266,8 @@ function tryStrategicBuild(game, p, snap, shared, phase, doctrine) {
 
     // Proactive missile economy: enough MF to feed launchers, capped so we do not wall off the map with factories
     const mfCap = maxMissileFactoriesForPlayer(game, p, snap);
-    const futureConsumers = (snap.ownByType.RL?.length || 0) + (snap.ownByType.AB?.length || 0);
+    const futureConsumers = (snap.ownByType.RL?.length || 0) + (snap.ownByType.AB?.length || 0)
+        + (snap.ownByType.DDG?.length || 0) + (snap.ownByType.SSG?.length || 0);
     const wantMf = Math.min(mfCap, 1 + (phase >= PHASES.PRESSURE ? 1 : 0) + (futureConsumers >= 3 ? 1 : 0));
     const needMoreMF = snap.mfCount < mfCap && (
         snap.mfCount < wantMf
@@ -1331,7 +1341,7 @@ function tryStrategicBuild(game, p, snap, shared, phase, doctrine) {
         const type = weightedPick(w);
 
         // Pre-flight check: if we're about to build RL/AB, make sure we have MF capacity
-        if ((type === 'RL' || type === 'AB') && snap.mfCount === 0 && canAffordType(p, 'MF')) {
+        if ((type === 'RL' || type === 'AB' || type === 'DDG' || type === 'SSG') && snap.mfCount === 0 && canAffordType(p, 'MF')) {
             const mfSpot = pickSupplyAwareRearSpot(game, p, snap);
             if (mfSpot) return game.buildStructure(mfSpot, 'MF', p.id);
         }
@@ -1352,6 +1362,22 @@ function tryStrategicBuild(game, p, snap, shared, phase, doctrine) {
     }
 
     return false;
+}
+
+function tryNavyOpportunism(game, p, snap) {
+    if (p.missiles < 4 || p.gold < 300) return false;
+    if (Math.random() > 0.032) return false;
+    const n = (snap.ownByType.DDG?.length || 0) + (snap.ownByType.AF?.length || 0) + (snap.ownByType.SSG?.length || 0);
+    if (n >= 3) return false;
+    if ((snap.missileProd || 0) < (snap.missileCons || 0) * 0.8) return false;
+    const spot = findFirstNavyWater(game, p.id);
+    if (!spot) return false;
+    const w = {};
+    if (canAffordType(p, 'DDG') && p.missiles >= 1) w.DDG = 0.5;
+    if (canAffordType(p, 'AF') && p.missiles >= 0) w.AF = 0.38;
+    if (canAffordType(p, 'SSG') && p.missiles >= 2) w.SSG = 0.12;
+    if (Object.keys(w).length === 0) return false;
+    return game.buildStructure(spot, weightedPick(w), p.id);
 }
 
 // ============================================================================
@@ -1677,6 +1703,14 @@ function pickSpotTowardDirection(game, p, snap, dirQ, dirR) {
     return best;
 }
 
+function findFirstNavyWater(game, ownerId) {
+    for (const t of game.grid.tiles.values()) {
+        if (t.structure) continue;
+        if (game.canBuildNavyOn(t, ownerId)) return t;
+    }
+    return null;
+}
+
 // ============================================================================
 //  PLACEMENT — TYPE-AWARE spot picking
 // ============================================================================
@@ -1697,6 +1731,11 @@ function pickPlacementForType(game, p, snap, type, valuableEnemies) {
         }
         return pickDirectionalFrontierSpot(game, p, snap, snap.visibleEnemies) ||
                pickSupplyAwareRearSpot(game, p, snap);
+    }
+
+    if (type === 'DDG' || type === 'AF' || type === 'SSG') {
+        return findFirstNavyWater(game, p.id) ||
+            null;
     }
 
     if (type === 'RL' || type === 'AB') {

@@ -12,6 +12,69 @@ function findGovTile(game, ownerId) {
     return null;
 }
 
+function findMfTile(game, ownerId) {
+    for (const t of game.grid.tiles.values()) {
+        if (t.structure?.type === 'MF' && t.owner === ownerId) return t;
+    }
+    return null;
+}
+
+/**
+ * @param {import('./game.js').Game} game
+ * @param {string} type
+ * @param {import('./hexGrid.js').Hex} tile
+ * @returns {{ ok: boolean, msg?: string }}
+ */
+export function m1BuildTutorialCheckPlace(game, type, tile) {
+    const bt = game.campaign?.buildTutorial;
+    if (!bt?.active) return { ok: true };
+    const step = bt.steps[bt.step];
+    if (!step) {
+        bt.active = false;
+        return { ok: true };
+    }
+    if (type !== step.type) {
+        return { ok: false, msg: `Training: only build your ${step.label} (key ${step.key}).` };
+    }
+    if (tile.q !== step.q || tile.r !== step.r) {
+        return { ok: false, msg: 'Not that tile — build on the pulsing cyan hex.' };
+    }
+    return { ok: true };
+}
+
+/**
+ * @param {import('./game.js').Game} game
+ * @param {string} type
+ * @param {import('./hexGrid.js').Hex} tile
+ * @param {boolean} [placementSucceeded]
+ * @returns {{ nudge: 'next' } | { nudge: 'complete' } | void}
+ */
+export function m1OnBuildPlaced(game, type, tile, placementSucceeded) {
+    const bt = game.campaign?.buildTutorial;
+    if (!bt?.active || !placementSucceeded) return;
+    const step = bt.steps[bt.step];
+    if (!step || type !== step.type || tile.q !== step.q || tile.r !== step.r) return;
+    bt.step++;
+    if (bt.step > 0) bt.prematureFogReveal = false;
+    if (bt.step < bt.steps.length) {
+        reseedM1BuildTutorial(bt);
+        return { nudge: 'next' };
+    } else {
+        bt.active = false;
+        bt.prematureFogReveal = false;
+        bt.seedHexes = [];
+        return { nudge: 'complete' };
+    }
+}
+
+function reseedM1BuildTutorial(bt) {
+    bt.seedHexes = [];
+    for (let i = bt.step; i < bt.steps.length; i++) {
+        const s = bt.steps[i];
+        bt.seedHexes.push({ q: s.q, r: s.r, ownerId: 1 });
+    }
+}
+
 function allOwnedTiles(grid, ownerId) {
     const a = [];
     for (const t of grid.tiles.values()) {
@@ -27,8 +90,51 @@ function applyMission1(game, grid) {
 
     const pHuman = game.players[0];
     if (pHuman) {
-        pHuman.gold = Math.max(pHuman.gold, 2200);
+        pHuman.gold = Math.max(pHuman.gold, 2500);
         pHuman.missiles = Math.max(pHuman.missiles, 10);
+    }
+
+    // Hands-on start: no free Government/Factory — the player must place L1 Gov then MF on the marked hexes.
+    const hGov = findGovTile(game, 1);
+    const hMf = findMfTile(game, 1);
+    if (hGov && hMf && game.campaign) {
+        const gQ = hGov.q;
+        const gR = hGov.r;
+        const mfQ = hMf.q;
+        const mfR = hMf.r;
+        // MF first, then Government — keeps a brief influence anchor so borders don't spuriously flip mid-teardown in odd maps.
+        game.destroyStructure(hMf, null, false);
+        game.destroyStructure(hGov, null, false);
+        const steps = [
+            {
+                type: 'G',
+                level: 0,
+                q: gQ,
+                r: gR,
+                key: 1,
+                label: 'Government (Lv1)',
+                questPrimary: 'TRAINING — **1/2** · Build a **Government (Lv1)** on the **pulsing hex**.',
+                questHint: 'Press **[1]**, then click the highlighted tile (starter tier — you earn this income core back).',
+            },
+            {
+                type: 'MF',
+                level: 0,
+                q: mfQ,
+                r: mfR,
+                key: 4,
+                label: 'Missile Factory (Lv1)',
+                questPrimary: 'TRAINING — **2/2** · Build a **Missile Factory (Lv1)** on the next **pulsing** hex.',
+                questHint: 'Press **[4]**, then click the adjacent highlight — factories refill **missiles** for your launchers.',
+            },
+        ];
+        game.campaign.buildTutorial = {
+            active: true,
+            step: 0,
+            steps,
+            prematureFogReveal: true,
+            revealRadius: 7,
+        };
+        reseedM1BuildTutorial(game.campaign.buildTutorial);
     }
 
     // Remove AI's starter Missile Factory — we replace the forward slot with a pressure RL.
