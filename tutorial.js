@@ -81,9 +81,9 @@ export const TUTORIAL_PAGES = [
         <div class="unit-card"><div class="uc-icon">🛡️</div><div class="uc-info"><div class="uc-name">Anti-Air System <span class="tut-cost">$${L1.AAS.cost}</span></div><div class="uc-desc">Auto-intercepts rockets, air strikes, and drones. Ground fire bypasses it. Always keep one near your Government.</div></div></div>
 
         <div class="tut-role-label tut-role-econ">💰 ECONOMY & EXPANSION</div>
-        <div class="unit-card"><div class="uc-icon">🏛️</div><div class="uc-info"><div class="uc-name">Government <span class="tut-cost">$${L1.G.cost}</span></div><div class="uc-desc">Claims territory via influence. Gold/tile +${US.G.levels[0].goldPerTile} / +${US.G.levels[1].goldPerTile} / +${US.G.levels[2].goldPerTile}/s (Lv1–3). Lv3 aura: +${govL3GoldAuraPct}% gold on tiles it covers (non-stacking). Lose all Govs = you lose.</div></div></div>
+        <div class="unit-card"><div class="uc-icon">🏛️</div><div class="uc-info"><div class="uc-name">Government <span class="tut-cost">$${L1.G.cost}</span></div><div class="uc-desc">Claims land and near-shore water (≤3 from land) via influence. $/s is <b>banded by distance</b> (inner ring = Lv1 rate; Lv2–3 add lower rates outside). Full-disk income matches the old +${US.G.levels[0].goldPerTile} / +${US.G.levels[1].goldPerTile} / +${US.G.levels[2].goldPerTile} per-tile <i>average</i>. Lv3 aura: +${govL3GoldAuraPct}% on tiles that already earn Gov gold. Lose all Govs = you lose.</div></div></div>
         <div class="unit-card"><div class="uc-icon">🏭</div><div class="uc-info"><div class="uc-name">Missile Factory <span class="tut-cost">$${L1.MF.cost}</span></div><div class="uc-desc">Produces ammo (${mfGlobalPct}% less than baseline per cycle). Lv3 boosts adjacent friendly factories by +${mfNeighborPct}% (not itself, range 1).</div></div></div>
-        <div class="unit-card"><div class="uc-icon">🔫</div><div class="uc-info"><div class="uc-name">Militia <span class="tut-cost">$${L1.M.cost}</span></div><div class="uc-desc">Place on visible tiles you own or neutral land. Lv3 <b>${US.M.levels[2].displayName || 'Militia HQ'}</b> — keeps Lv2 firepower; gains influence radius ${US.M.levels[2].radius ?? 1} (claims nearby tiles, earns +${US.M.levels[2].goldPerTile ?? 0.3}/tile/s).</div></div></div>
+        <div class="unit-card"><div class="uc-icon">🔫</div><div class="uc-info"><div class="uc-name">Militia <span class="tut-cost">$${L1.M.cost}</span></div><div class="uc-desc">Place on visible tiles you own or neutral land. Lv3 <b>${US.M.levels[2].displayName || 'Militia HQ'}</b> — keeps Lv2 firepower; gains influence radius ${US.M.levels[2].radius ?? 1} (claims adjacent land &amp; shore, earns +${US.M.levels[2].goldPerTile ?? 0.3}/tile/s on those tiles).</div></div></div>
     `,
 
     /* 3 — ECONOMY */
@@ -94,7 +94,7 @@ export const TUTORIAL_PAGES = [
             <div class="tut-concept-icon">💰</div>
             <div>
                 <b>Gold = Territory</b><br>
-                Every tile you own generates gold per second. More tiles = bigger budget. Governments claim tiles through <b>influence</b> — upgrade them or build more to expand.
+                Land and coastal water (water within 3 of land) you own can earn gold when a <b>Government</b> or <b>Militia HQ</b> projects onto them. More such tiles in range = higher income. Claim through <b>influence</b> — upgrade or add Govs to expand.
             </div>
         </div>
 

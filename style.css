@@ -36,11 +36,14 @@ body {
     justify-content: center;
     background: radial-gradient(ellipse at 50% 30%, #0d1b2a 0%, #0a0a0f 70%);
     overflow: hidden;
+    /* Ensure menu receives clicks (some child layers use pointer-events: none) */
+    pointer-events: auto;
 }
 
 .stars {
     position: absolute;
     inset: 0;
+    pointer-events: none;
     background-image:
         radial-gradient(1px 1px at 10% 20%, rgba(255,255,255,0.6), transparent),
         radial-gradient(1px 1px at 30% 60%, rgba(255,255,255,0.4), transparent),
@@ -73,6 +76,7 @@ body {
     position: relative; z-index: 3;
     display: flex; flex-direction: column; align-items: center;
     gap: 30px; width: 100%; max-width: 480px; padding: 20px;
+    pointer-events: auto;
 }
 
 .logo-section { text-align: center; }
@@ -96,6 +100,9 @@ body {
     backdrop-filter: blur(20px);
     border-radius: 12px;
     box-shadow: 0 0 40px rgba(0, 229, 255, 0.08);
+    pointer-events: auto;
+    position: relative;
+    z-index: 1;
 }
 
 .input-group { display: flex; flex-direction: column; gap: 8px; }
@@ -155,6 +162,26 @@ body {
 .play-button:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,229,255,0.35); }
 .play-button:active { transform: translateY(0); }
 .play-icon { font-size: 0.9rem; }
+
+/* Full-width on menu — separate from flex row to avoid width:100% + flex glitches eating clicks */
+.campaign-entry-btn {
+    width: 100%;
+    margin-top: 4px;
+    background: linear-gradient(135deg, #1a2a3a 0%, #0d1b2a 100%) !important;
+    border: 1px solid rgba(0, 229, 255, 0.45) !important;
+    color: #e0f4ff !important;
+    font-size: 0.95rem !important;
+    padding: 12px 16px !important;
+    position: relative;
+    z-index: 2;
+    pointer-events: auto;
+    cursor: pointer;
+}
+.campaign-entry-btn:hover {
+    border-color: var(--accent-blue) !important;
+    color: #fff !important;
+    box-shadow: 0 0 20px rgba(0, 229, 255, 0.25);
+}
 
 .tutorial-button {
     width: 100%; padding: 12px; background: transparent;
@@ -950,3 +977,70 @@ h3 {
 .tutorial-body::-webkit-scrollbar-track { background: transparent; }
 .tutorial-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 3px; }
 .tutorial-body::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+/* ==================== CAMPAIGN ==================== */
+#campaign-screen {
+    position: fixed; inset: 0; z-index: 1001;
+    display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(ellipse at 50% 30%, #0d1b2a 0%, #0a0a0f 70%);
+    overflow: hidden;
+}
+.campaign-mission-card { max-width: 480px; width: 100%; }
+.campaign-mission-h3 {
+    font-family: var(--font-title);
+    font-size: 0.9rem; letter-spacing: 4px; color: var(--accent-blue);
+    margin-bottom: 8px;
+}
+.campaign-mission-list { display: flex; flex-direction: column; gap: 8px; max-height: 45vh; overflow-y: auto; }
+.campaign-mission-item {
+    display: grid;
+    grid-template-columns: 72px 1fr 72px;
+    gap: 8px; align-items: center;
+    padding: 10px 12px;
+    text-align: left; cursor: pointer;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid rgba(0, 229, 255, 0.15);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-family: var(--font-ui);
+}
+.campaign-mission-item:hover:not(:disabled) {
+    border-color: var(--accent-blue);
+    background: rgba(0, 229, 255, 0.06);
+}
+.campaign-mission-item:disabled { cursor: not-allowed; opacity: 0.5; }
+.campaign-mission-dim { filter: grayscale(0.2); }
+.cm-idx { font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-dim); }
+.cm-name { font-weight: 700; letter-spacing: 1.5px; }
+.cm-st { font-family: var(--font-mono); font-size: 0.65rem; text-align: right; text-transform: uppercase; }
+.cm-ready { color: var(--accent-green); }
+.cm-locked { color: rgba(255, 255, 255, 0.35); }
+.cm-cleared { color: var(--accent-blue); }
+
+#campaign-briefing-overlay {
+    position: fixed; inset: 0; z-index: 1200;
+    display: flex; align-items: center; justify-content: center;
+}
+#campaign-briefing-overlay .tutorial-backdrop { position: absolute; inset: 0; }
+.campaign-briefing-box { position: relative; z-index: 1; max-width: 520px; width: 90%; max-height: 80vh; overflow-y: auto; }
+.campaign-briefing-h2 { font-size: 1.1rem; margin-bottom: 10px; color: var(--accent-blue); letter-spacing: 2px; }
+.campaign-briefing-body { font-size: 0.95rem; line-height: 1.5; color: #d0d8e2; }
+.campaign-briefing-body .cb-line { margin-bottom: 10px; }
+.campaign-briefing-body strong { color: #fff; font-weight: 600; }
+
+.campaign-quest {
+    position: fixed; top: 100px; left: 12px; z-index: 40;
+    max-width: 280px; width: min(90vw, 300px);
+    padding: 10px 12px; pointer-events: none;
+    border: 1px solid rgba(0, 229, 255, 0.2);
+    background: rgba(10, 15, 25, 0.9);
+    border-radius: 8px;
+}
+.cq-label {
+    font-family: var(--font-mono); font-size: 0.62rem; letter-spacing: 2px;
+    color: var(--accent-gold); margin-bottom: 6px;
+}
+.cq-text { font-size: 0.82rem; line-height: 1.4; }
+.cq-primary { color: #fff; }
+.cq-hint { color: var(--text-dim); font-size: 0.75rem; margin-top: 8px; }
+.cq-hint.hidden { display: none !important; }

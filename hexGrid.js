@@ -89,10 +89,12 @@ const origin = { q: 0, r: 0 };
 
 function carvePangaea(tiles, radius, rng) {
     const noise = createGradientNoise(rng);
-    const threshold = radius - 2;
+    const nScale = 0.08 + rng() * 0.05;
+    const nOff = (rng() - 0.5) * 40;
+    const threshold = (radius - 2) + (rng() * 1.1 - 0.55);
     for (const tile of tiles.values()) {
         const dist = Hex.distance(origin, tile);
-        const coastNoise = fbm(noise, tile.q * 0.1, tile.r * 0.1, 3) * 3.5 - 1.75;
+        const coastNoise = fbm(noise, (tile.q + nOff) * nScale, (tile.r - nOff * 0.3) * nScale, 3) * 3.5 - 1.75;
         if (dist > threshold + coastNoise) {
             tile.buildable = false;
         }
@@ -101,16 +103,19 @@ function carvePangaea(tiles, radius, rng) {
 }
 
 function carveContinents(tiles, radius, rng, playerCount) {
-    const n = Math.max(2, Math.floor(playerCount * 0.75) + 1);
+    const n = Math.max(2, Math.floor(playerCount * 0.75) + 1 + (radius >= 40 ? 1 : 0));
     const noise = createGradientNoise(rng);
+    const nScale = 0.07 + rng() * 0.04;
+    const globalSpin = (rng() - 0.5) * 1.2;
     const centers = [];
-    const innerRadius = radius * 0.55;
+    const innerRadius = radius * (0.5 + rng() * 0.1);
     for (let i = 0; i < n; i++) {
-        const angle = (2 * Math.PI * i) / n + (rng() - 0.5) * 0.8;
-        const dist = innerRadius * (0.3 + rng() * 0.5);
+        const angle = (2 * Math.PI * i) / n + (rng() - 0.5) * 0.95 + globalSpin;
+        const dist = innerRadius * (0.28 + rng() * 0.55);
         centers.push({ q: Math.round(dist * Math.cos(angle)), r: Math.round(dist * Math.sin(angle)) });
     }
 
+    const straitTight = 0.76 + rng() * 0.06;
     for (const tile of tiles.values()) {
         const edgeDist = Hex.distance(origin, tile);
         const edgeNoise = fbm(noise, tile.q * 0.08, tile.r * 0.08, 3) * 4 - 2;
@@ -121,7 +126,7 @@ function carveContinents(tiles, radius, rng, playerCount) {
         const dists = centers.map(c => Hex.distance(c, tile)).sort((a, b) => a - b);
         if (dists.length >= 2 && dists[0] > 0) {
             const ratio = dists[0] / dists[1];
-            const boundary = 0.78 + fbm(noise, tile.q * 0.15 + 50, tile.r * 0.15 + 50, 2) * 0.18 - 0.09;
+            const boundary = straitTight + fbm(noise, tile.q * nScale + 50, tile.r * nScale + 50, 2) * 0.18 - 0.09;
             if (ratio > boundary) tile.buildable = false;
         }
     }
@@ -130,13 +135,16 @@ function carveContinents(tiles, radius, rng, playerCount) {
 
 function carveArchipelago(tiles, radius, rng) {
     const noise = createGradientNoise(rng);
+    const nScale = 0.11 + rng() * 0.05;
+    const landCut = 0.41 + rng() * 0.06;
+    const edgePow = 2.2 + rng() * 0.6;
 
     for (const tile of tiles.values()) {
         const dist = Hex.distance(origin, tile);
         if (dist > radius - 1) { tile.buildable = false; continue; }
-        const edgeFalloff = Math.max(0, 1 - Math.pow(dist / (radius - 1), 2.5));
-        const n = fbm(noise, tile.q * 0.13, tile.r * 0.13, 4);
-        if (n - edgeFalloff * 0.25 < 0.43) tile.buildable = false;
+        const edgeFalloff = Math.max(0, 1 - Math.pow(dist / (radius - 1), edgePow));
+        const n = fbm(noise, tile.q * nScale, tile.r * nScale, 4);
+        if (n - edgeFalloff * 0.25 < landCut) tile.buildable = false;
     }
 
     cellularAutomataPass(tiles, 3);
@@ -145,7 +153,8 @@ function carveArchipelago(tiles, radius, rng) {
 
 function carveInlandSea(tiles, radius, rng) {
     const noise = createGradientNoise(rng);
-    const seaRadius = radius * 0.35;
+    const seaPortion = 0.3 + rng() * 0.1;
+    const seaRadius = radius * seaPortion;
     for (const tile of tiles.values()) {
         const dist = Hex.distance(origin, tile);
         const innerNoise = fbm(noise, tile.q * 0.12, tile.r * 0.12, 3) * 3 - 1.5;
@@ -160,15 +169,18 @@ function carveInlandSea(tiles, radius, rng) {
 function carveFractal(tiles, radius, rng) {
     const noise = createGradientNoise(rng);
     const warpNoise = createGradientNoise(rng);
+    const sCoast = 0.085 + rng() * 0.04;
+    const wAmp = 4.5 + rng() * 3.5;
+    const landThresh = 0.44 + rng() * 0.06;
 
     for (const tile of tiles.values()) {
         const dist = Hex.distance(origin, tile);
         if (dist > radius - 1) { tile.buildable = false; continue; }
         const edgeFactor = 1 - Math.pow(dist / radius, 2);
-        const warpX = fbm(warpNoise, tile.q * 0.06, tile.r * 0.06, 3) * 6 - 3;
-        const warpY = fbm(warpNoise, tile.q * 0.06 + 100, tile.r * 0.06 + 100, 3) * 6 - 3;
-        const n = fbm(noise, (tile.q + warpX) * 0.09, (tile.r + warpY) * 0.09, 5);
-        if (n < 0.46 - edgeFactor * 0.12) tile.buildable = false;
+        const warpX = fbm(warpNoise, tile.q * 0.06, tile.r * 0.06, 3) * wAmp - wAmp / 2;
+        const warpY = fbm(warpNoise, tile.q * 0.06 + 100, tile.r * 0.06 + 100, 3) * wAmp - wAmp / 2;
+        const n = fbm(noise, (tile.q + warpX) * sCoast, (tile.r + warpY) * sCoast, 5);
+        if (n < landThresh - edgeFactor * 0.12) tile.buildable = false;
     }
 
     cellularAutomataPass(tiles, 2);
@@ -319,6 +331,41 @@ function assignTerrain(tiles, rng, radius) {
         else if (tile.elevation < 0.72)  tile.biome = 'hills';
         else                             tile.biome = 'highland';
     }
+    markShoreIncomeFromLand(tiles);
+}
+
+/** Water (non-buildable) within `maxD` steps of any land: can be claimed and earn gold like land. */
+function markShoreIncomeFromLand(tiles, maxD = 3) {
+    const INF = 1e7;
+    const q = [];
+    for (const t of tiles.values()) {
+        t.shoreIncome = false;
+        if (t.buildable) {
+            t.distToLand = 0;
+            q.push(t);
+        } else {
+            t.distToLand = INF;
+        }
+    }
+    const dirs = [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]];
+    let qi = 0;
+    while (qi < q.length) {
+        const t = q[qi++];
+        const d0 = t.distToLand;
+        for (const [dq, dr] of dirs) {
+            const n = tiles.get(`${t.q + dq},${t.r + dr}`);
+            if (!n || n.buildable) continue;
+            const d1 = d0 + 1;
+            if (d1 < n.distToLand) {
+                n.distToLand = d1;
+                q.push(n);
+            }
+        }
+    }
+    for (const t of tiles.values()) {
+        if (t.buildable) t.distToLand = 0;
+        else t.shoreIncome = t.distToLand >= 1 && t.distToLand <= maxD;
+    }
 }
 
 export class HexGrid {
@@ -327,7 +374,12 @@ export class HexGrid {
         this.hexSize = hexSize;
         this.tiles = new Map();
         this.landTileCount = 0;
-        this.seed = Date.now();
+        let s = (Date.now() & 0xffffffff) ^ 0;
+        s ^= (style || 'pangaea').split('').reduce((a, c) => Math.imul(a + c.charCodeAt(0), 31) | 0, 7);
+        s ^= ((playerCount | 0) * 0x9e3779b1) | 0;
+        s ^= ((radius | 0) * 0x6a09e667) | 0;
+        s ^= (Math.random() * 0x1fffffff) | 0;
+        this.seed = s | 0;
         this.islands = [];
         this.generate(radius, style, playerCount);
     }
@@ -348,7 +400,8 @@ export class HexGrid {
                     lastAction: 0,
                     lastDamageTime: 0,
                     contested: false,
-                    buildable: true
+                    buildable: true,
+                    shoreIncome: false,
                 });
             }
         }
@@ -420,6 +473,11 @@ export class HexGrid {
         const usableIslands = this.islands.filter(isl => isl.length >= 12);
         if (usableIslands.length === 0) return spawns;
 
+        // Vary the "first spawn" bias so games don't all anchor the same way vs map center
+        const rot = ((this.seed >>> 0) % 6283) / 1000;
+        const refD = this.radius * (0.22 + ((this.seed >>> 8) % 17) * 0.01);
+        const firstSpawnBias = { q: Math.round(Math.cos(rot) * refD), r: Math.round(Math.sin(rot) * refD) };
+
         const spawnGovRadius = UNIT_STATS.G.levels[0].radius;
 
         const assignments = usableIslands.map(() => []);
@@ -449,7 +507,7 @@ export class HexGrid {
                         if (d < minDist) minDist = d;
                     }
 
-                    if (spawns.length === 0) minDist = Hex.distance(origin, tile);
+                    if (spawns.length === 0) minDist = Hex.distance(firstSpawnBias, tile);
 
                     if (landDisk > bestLandDisk ||
                         (landDisk === bestLandDisk && minDist > bestMinDist)) {

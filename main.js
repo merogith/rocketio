@@ -1,8 +1,11 @@
 import { Hex, HexGrid, Camera } from './hexGrid.js?v=balance2026';
 import { Game } from './game.js?v=balance2026';
 import { Renderer } from './renderer.js?v=balance2026';
-import { UNIT_STATS, GAME_CONFIG, VICTORY_MODES, COLORS, DIPLOMACY } from './constants.js?v=balance2026';
+import { UNIT_STATS, GAME_CONFIG, getEffectiveMapRadius, VICTORY_MODES, COLORS, DIPLOMACY, govGoldBandLinesHtml } from './constants.js?v=balance2026';
 import { TUTORIAL_PAGES } from './tutorial.js?v=balance2026';
+import { getMissionById, CAMPAIGN_MISSIONS } from './campaignData.js?v=balance2026';
+import { loadCampaignProgress, canStartMission, markMissionBeaten } from './campaignProgress.js?v=balance2026';
+import { applyCampaignScenario } from './campaignScenarios.js?v=balance2026';
 import { Input } from './input.js?v=balance2026';
 import { updateAI } from './ai.js?v=balance2026';
 import { SFX } from './sfx.js?v=balance2026';
@@ -47,6 +50,16 @@ const endTitle = document.getElementById('end-title');
 const endSub = document.getElementById('end-sub');
 const endStats = document.getElementById('end-stats');
 const endRestart = document.getElementById('end-restart');
+const campaignScreenEl = document.getElementById('campaign-screen');
+const campaignMissionListEl = document.getElementById('campaign-mission-list');
+const campaignBackBtn = document.getElementById('campaign-back');
+const campaignBriefingOverlay = document.getElementById('campaign-briefing-overlay');
+const campaignBriefingTitle = document.getElementById('campaign-briefing-title');
+const campaignBriefingBody = document.getElementById('campaign-briefing-body');
+const campaignBriefingBegin = document.getElementById('campaign-briefing-begin');
+const campaignQuestEl = document.getElementById('campaign-quest');
+const campaignQuestPrimary = document.getElementById('campaign-quest-primary');
+const campaignQuestHint = document.getElementById('campaign-quest-hint');
 const buildModeBanner = document.getElementById('build-mode-banner');
 const hoverChip = document.getElementById('hover-chip');
 const pauseOverlay = document.getElementById('pause-overlay');
@@ -86,12 +99,152 @@ let multiSelected = [];
 let loopRunning = false;
 let prevSpeedBeforePause = 1;
 
-function initWorld(mapSize, mapStyle, playerCount, playerName, victoryConfig, difficulty = 'normal') {
-    const radius = GAME_CONFIG.MAP_RADII[mapSize] || GAME_CONFIG.MAP_RADII.medium;
+/** @type {{ missionId: number } | null} */
+let activeCampaign = null;
+let endReturnTarget = 'home';
+
+function campaignLineToHtml(line) {
+    if (!line) return '';
+    const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return esc(line).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+}
+
+function showCampaignQuestPanel(m) {
+    if (!campaignQuestEl) return;
+    if (!m) {
+        campaignQuestEl.classList.add('hidden');
+        return;
+    }
+    campaignQuestEl.classList.remove('hidden');
+    if (campaignQuestPrimary) {
+        campaignQuestPrimary.innerHTML = campaignLineToHtml(m.objectivePrimary || '');
+    }
+    if (campaignQuestHint) {
+        const h = m.objectiveHint || '';
+        campaignQuestHint.innerHTML = h ? campaignLineToHtml(h) : '';
+        campaignQuestHint.classList.toggle('hidden', !h);
+    }
+}
+
+function hideCampaignQuestPanel() {
+    campaignQuestEl?.classList.add('hidden');
+}
+
+function showCampaignBriefingInGame(m) {
+    if (!campaignBriefingOverlay || !m) return;
+    if (campaignBriefingTitle) campaignBriefingTitle.textContent = m.briefingTitle || 'BRIEFING';
+    if (campaignBriefingBody) {
+        campaignBriefingBody.innerHTML = (m.briefingLines || [])
+            .map(p => `<p class="cb-line">${campaignLineToHtml(p)}</p>`)
+            .join('');
+    }
+    campaignBriefingOverlay.classList.remove('hidden');
+    if (game) {
+        game.paused = true;
+        pauseOverlay?.classList.remove('hidden');
+    }
+}
+
+function closeCampaignBriefingInGame() {
+    campaignBriefingOverlay?.classList.add('hidden');
+    if (game) {
+        game.paused = false;
+        if (!gameMenuOpen) pauseOverlay?.classList.add('hidden');
+    }
+}
+
+function openCampaignScreen() {
+    if (campaignScreenEl) {
+        campaignScreenEl.classList.remove('hidden');
+        renderCampaignMissionList();
+    }
+}
+
+function closeCampaignScreen() {
+    campaignScreenEl?.classList.add('hidden');
+}
+
+function startCampaignMission(missionId) {
+    const m = getMissionById(missionId);
+    if (!m || !m.implemented) {
+        showNoti('That operation is not available yet.', 'info');
+        return;
+    }
+    const prog = loadCampaignProgress();
+    if (!canStartMission(missionId, prog.beaten)) {
+        showNoti('Locked — clear the prior op first.', 'info');
+        return;
+    }
+    const nameInput = document.getElementById('player-name');
+    const playerName = ((nameInput?.value || '').trim() || 'ECLIPSE').toUpperCase();
+    if (nameInput) nameInput.value = playerName;
+
+    activeCampaign = { missionId: m.id };
+    endReturnTarget = 'campaign';
+    endShown = false;
+    endOutcomeAt = 0;
+    gameMenuOpen = false;
+    gameMenu?.classList.add('hidden');
+
+    closeCampaignScreen();
+    homepageEl.classList.add('hidden');
+    appEl.classList.remove('hidden');
+
+    SFX.init();
+    SFX.setSfxVolume(Input.getSetting('sfxVolume') ?? 0.7);
+    SFX.setMusicVolume(Input.getSetting('musicVolume') ?? 0.7);
+    SFX.setSfxEnabled(Input.getSetting('sfxEnabled') !== false);
+    SFX.setMusicEnabled(Input.getSetting('musicEnabled') !== false);
+
+    const victoryConfig = { mode: m.victoryMode, param: m.victoryParam == null ? null : m.victoryParam };
+    initWorld(m.mapSize, m.mapStyle, m.playerCount, playerName, victoryConfig, m.difficulty, { missionId: m.id });
+
+    showCampaignQuestPanel(m);
+    showCampaignBriefingInGame(m);
+    if (!loopRunning) {
+        loopRunning = true;
+        requestAnimationFrame(loop);
+    }
+}
+
+function renderCampaignMissionList() {
+    if (!campaignMissionListEl) return;
+    const prog = loadCampaignProgress();
+    campaignMissionListEl.innerHTML = '';
+    for (const m of CAMPAIGN_MISSIONS) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'campaign-mission-item';
+        const can = canStartMission(m.id, prog.beaten) && m.implemented;
+        const prefix = m.act === 1 ? 'I' : 'II';
+        const done = !!prog.beaten[m.id];
+        const label = m.implemented
+            ? (done ? 'CLEARED' : (can ? 'DEPLOY' : 'LOCKED'))
+            : 'SOON';
+        btn.innerHTML = `
+            <span class="cm-idx">M${m.id} · ${prefix}</span>
+            <span class="cm-name">${m.codename}</span>
+            <span class="cm-st ${done ? 'cm-cleared' : (can && m.implemented ? 'cm-ready' : 'cm-locked')}">${label}</span>
+        `;
+        if (can) {
+            btn.addEventListener('click', () => startCampaignMission(m.id));
+        } else if (!m.implemented) {
+            btn.disabled = true;
+            btn.classList.add('campaign-mission-dim');
+        } else {
+            btn.disabled = true;
+            btn.classList.add('campaign-mission-dim');
+        }
+        campaignMissionListEl.appendChild(btn);
+    }
+}
+
+function initWorld(mapSize, mapStyle, playerCount, playerName, victoryConfig, difficulty = 'normal', campaign = null) {
+    const radius = getEffectiveMapRadius(mapSize, playerCount);
     grid = new HexGrid(radius, 30, mapStyle, playerCount);
     game = new Game(grid);
     game.aiDifficulty = difficulty;
-    game.diplomacyEnabled = Input.getSetting('diplomacyEnabled') !== false;
+    game.diplomacyEnabled = campaign ? false : (Input.getSetting('diplomacyEnabled') !== false);
     renderer = new Renderer(canvas, grid, camera);
     renderer.settings.screenShake = Input.getSetting('screenShake');
     renderer.settings.threatRings = Input.getSetting('threatRings') !== false;
@@ -101,6 +254,15 @@ function initWorld(mapSize, mapStyle, playerCount, playerName, victoryConfig, di
     camera.x = 0; camera.y = 0; camera.scale = 0.6;
 
     game.start(playerCount, playerName, victoryConfig);
+    game.campaign = null;
+
+    if (campaign && campaign.missionId != null) {
+        const m = getMissionById(campaign.missionId);
+        if (m && m.implemented) {
+            game.campaign = { missionId: m.id, mission: m, freezeEnemyAi: !!m.freezeEnemyAi };
+            applyCampaignScenario(game, grid, m.id);
+        }
+    }
 
     const p1Start = Array.from(grid.tiles.values()).find(t => t.owner === 1);
     if (p1Start) {
@@ -120,6 +282,9 @@ function initWorld(mapSize, mapStyle, playerCount, playerName, victoryConfig, di
     combatLogEntries.innerHTML = '';
     lastDamageTakenSample = 0;
     musicIntensitySmoothed = 0;
+    missileStarvedSince = 0;
+    endShown = false;
+    endOutcomeAt = 0;
 }
 
 function resize() {
@@ -228,6 +393,13 @@ function updateVictorySubPicker(mode) {
 document.getElementById('play-btn').addEventListener('click', () => {
     const nameInput = document.getElementById('player-name');
     commanderName = (nameInput.value || '').trim().toUpperCase() || 'COMMANDER';
+    activeCampaign = null;
+    endReturnTarget = 'home';
+    endShown = false;
+    endOutcomeAt = 0;
+    closeCampaignScreen();
+    hideCampaignQuestPanel();
+    closeCampaignBriefingInGame();
     homepageEl.classList.add('hidden');
     appEl.classList.remove('hidden');
 
@@ -240,6 +412,47 @@ document.getElementById('play-btn').addEventListener('click', () => {
     const victoryConfig = { mode: selectedVictoryMode, param: selectedVictoryParam };
     initWorld(selectedMapSize, selectedMapStyle, selectedPlayerCount, commanderName, victoryConfig, selectedDifficulty);
     if (!loopRunning) { loopRunning = true; requestAnimationFrame(loop); }
+});
+
+function openSentinelCampaignFromMenu(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    if (!campaignScreenEl) {
+        console.error('RocketIO: #campaign-screen missing');
+        return;
+    }
+    homepageEl?.classList.add('hidden');
+    try {
+        openCampaignScreen();
+    } catch (err) {
+        console.error('RocketIO: campaign open failed', err);
+        showNoti('Campaign failed to load. Check the console (F12).', 'info');
+        homepageEl?.classList.remove('hidden');
+    }
+}
+
+function registerCampaignOnWindow() {
+    if (!document.getElementById('campaign-btn')) {
+        console.error('RocketIO: #campaign-btn not in DOM. Hard-refresh the page (Ctrl+Shift+R).');
+        return;
+    }
+    // Exposed for inline onclick in index.html (fires even if addEventListener / capture order breaks)
+    window.rocketioOpenCampaign = (e) => {
+        if (!homepageEl || homepageEl.classList.contains('hidden')) return;
+        openSentinelCampaignFromMenu(e);
+    };
+}
+registerCampaignOnWindow();
+
+campaignBackBtn?.addEventListener('click', () => {
+    closeCampaignScreen();
+    homepageEl.classList.remove('hidden');
+});
+
+campaignBriefingBegin?.addEventListener('click', () => {
+    closeCampaignBriefingInGame();
 });
 
 document.getElementById('tutorial-btn').addEventListener('click', () => {
@@ -881,8 +1094,21 @@ document.getElementById('menu-restart')?.addEventListener('click', () => {
         endOutcomeAt = 0;
         endOverlay.classList.add('hidden');
         setPaused(false);
-        const vc = { mode: selectedVictoryMode, param: selectedVictoryParam };
-        initWorld(selectedMapSize, selectedMapStyle, selectedPlayerCount, commanderName, vc, selectedDifficulty);
+        if (activeCampaign) {
+            const m = getMissionById(activeCampaign.missionId);
+            if (m && m.implemented) {
+                const nameInput = document.getElementById('player-name');
+                const pn = ((nameInput?.value || '').trim() || game.players[0].name).toUpperCase();
+                const vc = { mode: m.victoryMode, param: m.victoryParam == null ? null : m.victoryParam };
+                initWorld(m.mapSize, m.mapStyle, m.playerCount, pn, vc, m.difficulty, { missionId: m.id });
+                showCampaignQuestPanel(m);
+                showCampaignBriefingInGame(m);
+            }
+        } else {
+            const vc = { mode: selectedVictoryMode, param: selectedVictoryParam };
+            initWorld(selectedMapSize, selectedMapStyle, selectedPlayerCount, commanderName, vc, selectedDifficulty);
+            hideCampaignQuestPanel();
+        }
     }
 });
 let surrenderArmed = false;
@@ -918,7 +1144,15 @@ document.getElementById('menu-quit')?.addEventListener('click', () => {
     endShown = false;
     endOutcomeAt = 0;
     appEl.classList.add('hidden');
-    homepageEl.classList.remove('hidden');
+    closeCampaignBriefingInGame();
+    hideCampaignQuestPanel();
+    if (activeCampaign) {
+        homepageEl.classList.add('hidden');
+        endReturnTarget = 'campaign';
+        openCampaignScreen();
+    } else {
+        homepageEl.classList.remove('hidden');
+    }
 });
 
 // ============================================================================
@@ -967,7 +1201,7 @@ function structureL3PerkHtml(type, levelIdx) {
     if (levelIdx !== 2) return '';
     switch (type) {
         case 'G':
-            return `<p class="info-perk"><b>Lv3 — Economic aura</b> · Friendly owned tiles in radius that already earn gov gold get ×${GAME_CONFIG.GOV_L3_GOLD_AURA_MULT} (non-stacking).</p>`;
+            return `<p class="info-perk"><b>Lv3 — Economic aura</b> · Friendly land &amp; shore (in influence) that already earn Gov gold get ×${GAME_CONFIG.GOV_L3_GOLD_AURA_MULT} (non-stacking).</p>`;
         case 'RL':
             return `<p class="info-perk"><b>Lv3 — Siege</b> · 2 missiles per volley. ${Math.round(GAME_CONFIG.RL_L3_SPLASH_CHANCE * 100)}% chance to deal ${Math.round(GAME_CONFIG.RL_L3_SPLASH_MULT * 100)}% splash damage to adjacent enemy structures.</p>`;
         case 'AB':
@@ -979,7 +1213,7 @@ function structureL3PerkHtml(type, levelIdx) {
         case 'B':
             return `<p class="info-perk"><b>Lv3 — Command</b> · In influence: allies +${Math.round((GAME_CONFIG.BARRACKS_L3_COMMAND_OUT_MULT - 1) * 100)}% damage dealt, −${Math.round((1 - GAME_CONFIG.BARRACKS_L3_COMMAND_IN_MULT) * 100)}% damage taken (non-stacking).</p>`;
         case 'M':
-            return `<p class="info-perk"><b>Lv3 — Militia HQ</b> · Keeps Lv2 range &amp; damage. Gains influence radius 1: claims adjacent tiles and earns +${UNIT_STATS.M.levels[2].goldPerTile}/tile/s on covered land.</p>`;
+            return `<p class="info-perk"><b>Lv3 — Militia HQ</b> · Keeps Lv2 range &amp; damage. Gains influence radius 1: claims adjacent land &amp; shore and earns +${UNIT_STATS.M.levels[2].goldPerTile}/tile/s on covered eligible tiles.</p>`;
         case 'AAS':
             return `<p class="info-perk"><b>Lv3 — Battery</b> · Larger magazine and faster recharge cycle vs lower tiers. ${Math.round(GAME_CONFIG.AAS_L3_BONUS_RECHARGE_CHANCE * 100)}% chance +1 intercept charge when recharging.</p>`;
         default:
@@ -1006,7 +1240,7 @@ function summarizeLevelForTooltip(type, lv) {
         parts.push(`${(lv.produceInterval / 1000).toFixed(1)}s +${lv.missilesProduced} msl`);
     }
     if (lv.influence != null && (type === 'G' || type === 'B')) parts.push(`inf ${lv.influence}`);
-    if (lv.goldPerTile != null) parts.push(`+${lv.goldPerTile}/tile`);
+    if (lv.goldPerTile != null) parts.push(type === 'G' ? 'gold: banded rings' : `+${lv.goldPerTile}/tile`);
     if (lv.chargeCap) parts.push(`cap ${lv.chargeCap}`);
     if (lv.missilesPerShot != null && lv.missilesPerShot > 1) parts.push(`×${lv.missilesPerShot} msl`);
     if (lv.projectiles != null && lv.projectiles > 1) parts.push(`×${lv.projectiles} proj`);
@@ -1049,10 +1283,7 @@ function showBuildTooltip(btn) {
     });
 
     if (type === 'G' && def.levels.length >= 3) {
-        const a = def.levels[0].goldPerTile;
-        const b = def.levels[1].goldPerTile;
-        const c = def.levels[2].goldPerTile;
-        html += `<div class="tt-stat"><span class="tt-label">Gold/tile</span><span class="tt-val">+${a} / +${b} / +${c}/s</span></div>`;
+        html += `<div class="tt-stat"><span class="tt-label">Gold</span><span class="tt-val">Banded by r from Gov; disk $/s ≈ Lv1–3 as before</span></div>`;
     } else if (l1.goldPerTile) {
         html += `<div class="tt-stat"><span class="tt-label">Gold/tile</span><span class="tt-val">+${l1.goldPerTile}/s</span></div>`;
     }
@@ -1181,9 +1412,39 @@ function selectTile(tile) {
             upgradeAllBtn.classList.add('hidden');
             demolishBtn.classList.add('hidden');
             clearTargetBtn.classList.add('hidden');
-        } else {
-            infoPanel.classList.add('hidden');
+            return;
         }
+        if (game.isVisibleTo(tile, 1) || game.isExploredBy(tile, 1)) {
+            const owner = tile.owner;
+            const name = owner
+                ? (game.players[owner - 1]?.name || `Player ${owner}`)
+                : 'Neutral';
+            const kind = tile.buildable
+                ? 'Land'
+                : (tile.shoreIncome ? 'Shore water' : 'Open sea');
+            const g = game.previewGoldPerSecOnTile(tile);
+            const gStr = g > 0 ? `+$${g.toFixed(2)}/s` : '$0/s';
+            const lineCont = tile.contested
+                ? '<p class="supply-line bad">Contested — no income while tied.</p>'
+                : '';
+            const seaNote = !tile.buildable && !tile.shoreIncome
+                ? '<p class="hint dim">Open sea: no Government gold. Sea units, when added, can be built only on <b>water you control</b>.</p>'
+                : '';
+            infoPanel.classList.remove('hidden');
+            infoContent.innerHTML = `
+                <h4>${kind.toUpperCase()}</h4>
+                <p class="info-owner">Controller: <b>${name}</b></p>
+                <div class="info-card-stats">${infoStatRow('Gold (this tile)', gStr)}</div>
+                <p class="hint dim">Land &amp; shore pay Gov/M3 within range. Overlapping govs: diminishing returns.</p>
+                ${seaNote}
+                ${lineCont}`;
+            upgradeBtn.classList.add('hidden');
+            upgradeAllBtn.classList.add('hidden');
+            demolishBtn.classList.add('hidden');
+            clearTargetBtn.classList.add('hidden');
+            return;
+        }
+        infoPanel.classList.add('hidden');
         return;
     }
 
@@ -1234,6 +1495,8 @@ function selectTile(tile) {
         if (warmingUp) {
             const secsLeft = Math.ceil((tile.govWarmupUntil - game.gameTime) / 1000);
             govWarmupBlock = `<p class="supply-line bad">GOV WARMUP — ${secsLeft}s (no gold yet)</p>`;
+        } else if (stype === 'G') {
+            // Ring detail is in govRingHtml
         } else {
             statRows.push(infoStatRow('Gold/tile', `+${stats.goldPerTile}/s`));
         }
@@ -1282,12 +1545,14 @@ function selectTile(tile) {
     }
 
     const perk = structureL3PerkHtml(stype, levelIdx);
+    const govRingHtml = (stype === 'G' && !govWarmupBlock) ? govGoldBandLinesHtml(levelIdx) : '';
     const titleName = (stats.displayName || UNIT_STATS[stype].name).toUpperCase();
     infoContent.innerHTML = `
         <h4>${titleName} · LVL ${levelIdx + 1}</h4>
         <p class="info-owner">Owner: ${game.players[tile.owner - 1]?.name || ('P' + tile.owner)}</p>
         ${govWarmupBlock}
         <div class="info-card-stats">${statRows.join('')}</div>
+        ${govRingHtml}
         ${perk}
         ${supplyLine}${contestLine}${targetLine}${doctrineLine}${hint}
     `;
@@ -1807,9 +2072,17 @@ function maybeShowEndGame() {
                 ? `Allied victory secured with ${names}.`
                 : `The remaining coalition (${names}) holds the theatre.`;
         } else {
-            endSub.textContent = humanWon
-                ? `Commander ${game.players[0].name} dominates the theatre.`
-                : `Forces overrun. ${game.players[game.winner - 1].name} takes the field.`;
+            if (game.campaign?.mission && humanWon) {
+                endSub.textContent = game.campaign.mission.debrief
+                    || `Commander ${game.players[0].name} dominates the theatre.`;
+            } else {
+                endSub.textContent = humanWon
+                    ? `Commander ${game.players[0].name} dominates the theatre.`
+                    : `Forces overrun. ${game.players[game.winner - 1].name} takes the field.`;
+            }
+        }
+        if (game.campaign && humanWon) {
+            markMissionBeaten(game.campaign.missionId);
         }
         renderEndStats();
         endOverlay.classList.remove('hidden');
@@ -1817,7 +2090,7 @@ function maybeShowEndGame() {
         endShown = true;
         endTitle.textContent = 'DEFEAT';
         endTitle.className = 'end-title loss';
-        endSub.textContent = 'Your government has fallen.';
+        endSub.textContent = game.campaign?.mission?.defeat || 'Your government has fallen.';
         renderEndStats();
         endOverlay.classList.remove('hidden');
     }
@@ -1853,7 +2126,16 @@ endRestart.addEventListener('click', () => {
     endShown = false;
     endOutcomeAt = 0;
     appEl.classList.add('hidden');
-    homepageEl.classList.remove('hidden');
+    closeCampaignBriefingInGame();
+    hideCampaignQuestPanel();
+    if (endReturnTarget === 'campaign' && activeCampaign) {
+        homepageEl.classList.add('hidden');
+        openCampaignScreen();
+    } else {
+        activeCampaign = null;
+        endReturnTarget = 'home';
+        homepageEl.classList.remove('hidden');
+    }
 });
 
 // ============================================================================
@@ -1907,7 +2189,12 @@ function refreshMinimapStatsOverlay() {
             break;
         case 2:
             minimapStatsLabelEl.textContent = 'TERRITORY';
-            minimapStatsLine1El.textContent = `${p.tileCount} tiles`;
+            {
+                const s = p.seaTileCount | 0;
+                minimapStatsLine1El.textContent = s > 0
+                    ? `${p.tileCount} + ${s} sea`
+                    : `${p.tileCount} tiles`;
+            }
             minimapStatsLine2El.textContent = `${bld} structures`;
             break;
         case 3:
@@ -1941,7 +2228,11 @@ function refreshScoreboard() {
             }
         }
         const metrics = alive
-            ? `<span class="sb-tiles">${p.tileCount}</span><span class="sb-sep">·</span><span class="sb-gold">$${fmtCompactGold(p.gold)}</span><span class="sb-sep">·</span><span class="sb-miss">M${Math.floor(p.missiles)}</span>`
+            ? (() => {
+                const s = p.seaTileCount | 0;
+                const t = s > 0 ? `${p.tileCount}+${s}` : String(p.tileCount);
+                return `<span class="sb-tiles" title="Land/shore + sea">${t}</span><span class="sb-sep">·</span><span class="sb-gold">$${fmtCompactGold(p.gold)}</span><span class="sb-sep">·</span><span class="sb-miss">M${Math.floor(p.missiles)}</span>`;
+            })()
             : `<span class="sb-tiles">\u2014</span><span class="sb-sep">·</span><span class="sb-gold">\u2014</span><span class="sb-sep">·</span><span class="sb-miss">\u2014</span>`;
         const detail = alive
             ? `+${p.goldRate.toFixed(1)}/s · M +${mp.toFixed(1)}/-${mc.toFixed(1)}/s · DMG ${Math.floor(s.damageDealt)} · INT ${Math.floor(s.missilesIntercepted)} · BLD ${bld}`
@@ -1990,14 +2281,20 @@ function loop(time) {
 
     if (game) {
         game.update(time);
-        updateAI(game, game.gameTime);
+        if (!game.campaign?.freezeEnemyAi) {
+            updateAI(game, game.gameTime);
+        }
         renderer.multiSelected = multiSelected;
         renderer.render(game);
         renderer.renderMinimap(miniCanvas, game);
 
         const p1 = game.players[0];
         goldEl.innerText = Math.floor(p1.gold);
-        tileEl.innerText = p1.tileCount;
+        {
+            const s = p1.seaTileCount | 0;
+            tileEl.innerText = s > 0 ? `${p1.tileCount}+${s}` : String(p1.tileCount);
+            tileEl.title = s > 0 ? 'Land + near-shore (economy) + open-sea hexes' : 'Land + near-shore (economy tiles)';
+        }
         missileEl.innerText = p1.missiles;
         goldRateEl.innerText = `+${(p1.goldRate).toFixed(1)}/s`;
 
@@ -2017,6 +2314,13 @@ function loop(time) {
         } else {
             missileStarvedSince = 0;
             missileEl.parentElement.classList.remove('live');
+        }
+
+        if (game.campaign?.missionId === 1 && game.campaign.mission?.tutorialNags
+            && !game._m1MfNag
+            && p1.missiles === 0 && hasMissileLauncher) {
+            game._m1MfNag = true;
+            showNoti('Missile Factories (key 4) resupply launchers. No missiles = your rockets sit idle.', 'info');
         }
 
         const threat = computeThreat();

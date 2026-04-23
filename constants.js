@@ -43,6 +43,13 @@ export const GAME_CONFIG = {
     UPGRADE_COST_MULT: 0.77,     // upgrades cost ~23% less than next tier list price
     DEMOLISH_REFUND_MULT: 0.20,  // fraction of total gold spent on structure returned on demolish
     GOV_WARMUP_MS: 5000,         // new Govs produce 0 gold for 5s (anti-rush)
+    /**
+     * Menu map sizes (axial "radius" R of the containing hex; total hexes = 1 + 3R(R+1)).
+     *   small R=20  -> 1,261 cells   · medium R=30 -> 2,791   · large R=45 -> 6,211
+     * G1 (starter Government) has influence radius 4 — hex disk under it has at most
+     *   1 + 3×4×5 = 61 buildable land checks (countBuildableInGovDisk) vs full map above.
+     * Nudge with player count via getEffectiveMapRadius (same preset feels tight at 7p, roomy at 2p).
+     */
     MAP_RADII: { small: 20, medium: 30, large: 45 },
     MAX_PARTICLES: 400,
     // Auto-target: reduce overkill on one tile by treating in-flight shots as committed damage.
@@ -117,6 +124,19 @@ export const GAME_CONFIG = {
     MILITIA_PER_EXTRA_GOV: 2,
 };
 
+/**
+ * Nudge the axial map radius from the size preset by player count (centered on 4p):
+ * crowded FFA on small / large lobbies on large.
+ */
+export function getEffectiveMapRadius(mapSize, playerCount) {
+    const presets = GAME_CONFIG.MAP_RADII;
+    const base = presets[mapSize] || presets.medium;
+    const p = Math.max(2, Math.min(7, playerCount | 0));
+    const nudge = Math.round((p - 4) * 1.0);
+    const r = base + nudge;
+    return Math.max(presets.small - 1, Math.min(presets.large + 5, r));
+}
+
 export const VICTORY_MODES = {
     CONQUEST:      { id: 'conquest',      name: 'Conquest',      desc: 'Eliminate every enemy' },
     DOMINATION:    { id: 'domination',    name: 'Domination',    desc: 'Hold X% of land tiles', defaultPct: 0.60, options: [0.50, 0.60, 0.75] },
@@ -132,6 +152,68 @@ export const MAP_STYLES = {
     INLAND_SEA:  { id: 'inland_sea',  name: 'Inland Sea',  desc: 'Ring of land around central water' },
     FRACTAL:     { id: 'fractal',     name: 'Fractal',     desc: 'Noise-based random coasts' },
 };
+
+/** Inclusive hex disk: radius R → 1 + 3R(R+1) cells. */
+export function hexDiskTileCount(radius) {
+    return 1 + 3 * radius * (radius + 1);
+}
+
+/**
+ * Government $/s by axial distance d (hex) from the Gov, tiered by ring.
+ * Calibrated so full-disk *solo* $/s matches the legacy “flat g/tile” model:
+ *   G1: N(4)*0.50, G2: N(6)*0.35, G3: N(9)*0.25
+ * where N(r)=hexDiskTileCount(r).
+ */
+export const GOV_GOLD_INNER_D = 4;
+// Mid / outer annulus rates derived from: G2 outer annulus, G3 outer annulus
+const G2_MID = (127 * 0.35 - 61 * 0.5) / 66;   // 13.95/66
+const G3_OUT = (271 * 0.25 - 44.45) / 144;     // 23.3/144
+export const GOV_GOLD_RING = { inner: 0.5, mid: G2_MID, outer: G3_OUT };
+
+/**
+ * @param {number} structureLevel 0=G1,1=G2,2=G3
+ * @param {number} d axial hex distance Gov → income tile
+ */
+export function govGoldForDistance(structureLevel, d) {
+    if (d < 0) return 0;
+    if (structureLevel === 0) {
+        if (d <= 4) return GOV_GOLD_RING.inner;
+        return 0;
+    }
+    if (structureLevel === 1) {
+        if (d <= 4) return GOV_GOLD_RING.inner;
+        if (d <= 6) return GOV_GOLD_RING.mid;
+        return 0;
+    }
+    if (structureLevel === 2) {
+        if (d <= 4) return GOV_GOLD_RING.inner;
+        if (d <= 6) return GOV_GOLD_RING.mid;
+        if (d <= 9) return GOV_GOLD_RING.outer;
+        return 0;
+    }
+    return 0;
+}
+
+/** Total $/s if this Gov is alone on a full land (or full eligible) sea disk — matches legacy flat model. */
+export function totalSoloGovDiskGoldPerSec(structureLevel) {
+    if (structureLevel < 0 || structureLevel > 2) return 0;
+    const nL = (r0, r1) => hexDiskTileCount(r1) - hexDiskTileCount(r0);
+    if (structureLevel === 0) return hexDiskTileCount(4) * 0.5; // 61 * 0.5
+    if (structureLevel === 1) return 61 * GOV_GOLD_RING.inner + nL(4, 6) * GOV_GOLD_RING.mid;
+    return 61 * GOV_GOLD_RING.inner + 66 * GOV_GOLD_RING.mid + nL(6, 9) * GOV_GOLD_RING.outer;
+}
+
+/** 2–3 line HTML for the selection panel / tooltips. */
+export function govGoldBandLinesHtml(structureLevel) {
+    const inner = `r ≤${GOV_GOLD_INNER_D} · <b>+$${GOV_GOLD_RING.inner}/s</b> per income tile`;
+    if (structureLevel === 0) {
+        return `<p class="info-perk">Gold from owned land &amp; shore (water within 3 of land) in influence: ${inner}.</p>`;
+    }
+    if (structureLevel === 1) {
+        return `<p class="info-perk">Gold by band: ${inner} · r 5–6 · <b>+$${GOV_GOLD_RING.mid.toFixed(2)}/s</b> · (same full-disk $/s as pre-patch G2)</p>`;
+    }
+    return `<p class="info-perk">Gold by band: ${inner} · r 5–6 · <b>+$${GOV_GOLD_RING.mid.toFixed(2)}/s</b> · r 7–9 · <b>+$${GOV_GOLD_RING.outer.toFixed(2)}/s</b> · (same full-disk $/s as pre-patch G3)</p>`;
+}
 
 // UNIT_STATS hp on L2+: each upgrade adds round(upgradeGold * 1.1 * (L1.hp / L1.cost)),
 // upgradeGold = floor(nextTier.cost * GAME_CONFIG.UPGRADE_COST_MULT). L1 hp unchanged (baseline).
@@ -163,7 +245,8 @@ export const UNIT_STATS = {
     },
     G: {
         name: "Government",
-        // List costs vs full-disk income (N=1+3r(r+1), one Gov): (income/cost) ≈ 0.020 / 0.022 / 0.0242 $/s per $.
+        // Banded gold by axial distance; full-disk $/s matches legacy (see govGoldForDistance, totalSoloGovDiskGoldPerSec).
+        // goldPerTile = old disk-average, for labels only — actual $/s uses concentric bands.
         levels: [
             { id: "G1", hp: 375,  radius: 4,  cost: 1525, influence: 2000, vision: 8,  goldPerTile: 0.50 },
             { id: "G2", hp: 1081, radius: 6,  cost: 2019, influence: 3050, vision: 10, goldPerTile: 0.35 },

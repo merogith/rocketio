@@ -1,4 +1,4 @@
-import { UNIT_STATS, COLORS, GAME_CONFIG, DIFFICULTY, DIPLOMACY } from './constants.js?v=balance2026';
+import { UNIT_STATS, COLORS, GAME_CONFIG, DIFFICULTY, DIPLOMACY, govGoldForDistance } from './constants.js?v=balance2026';
 import { Hex } from './hexGrid.js?v=balance2026';
 import { SFX } from './sfx.js?v=balance2026';
 
@@ -16,6 +16,8 @@ function intervalEff(tile) {
 }
 
 const ATTACK_TYPES = new Set(['RL', 'B', 'D', 'M', 'AB']);
+/** Add keys via `registerNavyBuildType('N')` for structures that may be placed on owned sea. */
+const NAVY_BUILD_TYPES = new Set();
 
 function isInfluencer(structure) {
     if (!structure) return false;
@@ -82,6 +84,9 @@ export class Game {
         this.metPlayers = {};          // playerId -> Set<otherId>
         this.coWinners = null;         // array of playerIds on co-victory
         this.diploEvents = [];         // transient events for UI: {kind, a, b, t}
+
+        /** @type {{ missionId: number, mission: object, freezeEnemyAi?: boolean } | null} */
+        this.campaign = null;
     }
 
     _rebuildStructureIndex() {
@@ -122,6 +127,84 @@ export class Game {
             if (Hex.distance(tile, bTile) <= r) return true;
         }
         return false;
+    }
+
+    /** Land or near-shore water (≤3 of land) — count toward economy tileCount, earn Gov/M3 gold. */
+    _incomeTileEligible(tile) {
+        if (!tile) return false;
+        if (tile.buildable) return true;
+        return !!tile.shoreIncome;
+    }
+
+    /** Open sea (no Gov gold) — any non-buildable tile that is not shore-income. */
+    _deepSeaTile(tile) {
+        return tile && !tile.buildable && !tile.shoreIncome;
+    }
+
+    /** True for water hexes (navy will build on these only, not on land). */
+    isSeaTile(tile) {
+        return !!(tile && !tile.buildable);
+    }
+
+    /**
+     * Future navy: place on owned water only (influence-claimed), not contested.
+     * When you add a sea unit, call `registerNavyBuildType('N')` from game.js and use that type in build.
+     */
+    canBuildNavyOn(tile, ownerId) {
+        if (!this.isSeaTile(tile) || !ownerId) return false;
+        if (tile.contested) return false;
+        return tile.owner === ownerId;
+    }
+
+    _buildGovGoldSources() {
+        const out = [];
+        for (const tile of this.grid.tiles.values()) {
+            if (!tile.owner || tile.contested) continue;
+            const s = tile.structure;
+            if (!s) continue;
+            const isGov = s.type === 'G';
+            const isMilitiaHQ = s.type === 'M' && s.stats?.radius && s.stats?.goldPerTile;
+            if (!isGov && !isMilitiaHQ) continue;
+            if (isGov && tile.govWarmupUntil && this.gameTime < tile.govWarmupUntil) continue;
+            const r = s._lockedRadius ?? s.stats.radius;
+            if (isGov) {
+                out.push({ kind: 'G', tile, owner: tile.owner, radius: r, level: s.level });
+            } else {
+                out.push({ kind: 'M', tile, owner: tile.owner, radius: r, mGold: s.stats.goldPerTile || 0 });
+            }
+        }
+        return out;
+    }
+
+    /** $/s the tile owner would earn from Gov/M3 overlap (includes AI income mult + G3 aura if applicable). */
+    previewGoldPerSecOnTile(tile) {
+        if (!this._incomeTileEligible(tile) || tile.contested) return 0;
+        if (!tile.owner) return 0;
+        return this._stackedTileGovIncome(tile, this._buildGovGoldSources());
+    }
+
+    _stackedTileGovIncome(tile, sources) {
+        if (!tile.owner) return 0;
+        if (tile.contested) return 0;
+        const isAi = tile.owner !== this.humanId;
+        const mult = isAi ? (this._difficulty || DIFFICULTY.normal).goldMult : 1;
+        const effs = [];
+        for (const g of sources) {
+            if (g.owner !== tile.owner) continue;
+            const d = Hex.distance(tile, g.tile);
+            if (d > g.radius) continue;
+            const rate = g.kind === 'M' ? g.mGold : govGoldForDistance(g.level, d);
+            if (rate > 0) effs.push(rate);
+        }
+        if (effs.length === 0) return 0;
+        effs.sort((a, b) => b - a);
+        let bonus = 0;
+        for (let i = 0; i < effs.length; i++) bonus += effs[i] / (2 ** i);
+        bonus *= mult;
+        if (bonus > 0 && this._inFriendlyG3GoldAura(tile, tile.owner)) {
+            bonus *= GAME_CONFIG.GOV_L3_GOLD_AURA_MULT;
+        }
+        return bonus;
     }
 
     /** Owned land tile earning gov gold: within a friendly Lv3 Government radius (non-stacking mult in tick). */
@@ -211,6 +294,8 @@ export class Game {
                 missiles: GAME_CONFIG.STARTING_MISSILES,
                 goldRate: 0,
                 tileCount: 0,
+                /** Owned open-sea hexes (excludes shore — those count in tileCount). */
+                seaTileCount: 0,
                 units: { M: 0 },
                 fogVisible: new Set(),
                 fogExplored: new Set(),
@@ -247,13 +332,13 @@ export class Game {
             }
             if (tile) {
                 tile.owner = p.id;
-                this.buildStructure(tile, 'G', p.id, 0, true);
+                this.buildStructure(tile, 'G', p.id, 2, true);
                 const neighbor = new Hex(tile.q, tile.r).getNeighbors()
                     .map(h => this.grid.getTile(h.q, h.r))
                     .find(t => t && t.buildable && !t.structure);
                 if (neighbor) {
                     neighbor.owner = p.id;
-                    this.buildStructure(neighbor, 'MF', p.id, 0, true);
+                    this.buildStructure(neighbor, 'MF', p.id, 0, true, true);
                 }
             }
         });
@@ -334,59 +419,25 @@ export class Game {
 
     tick() {
         const counts = new Array(this.players.length).fill(0);
+        const seaCounts = new Array(this.players.length).fill(0);
         const goldRates = new Array(this.players.length).fill(0);
 
-        const govSources = [];
-        for (const tile of this.grid.tiles.values()) {
-            if (!tile.owner || tile.contested) continue;
-            const s = tile.structure;
-            if (!s) continue;
-            const isGov = s.type === 'G';
-            const isMilitiaHQ = s.type === 'M' && s.stats?.radius && s.stats?.goldPerTile;
-            if (!isGov && !isMilitiaHQ) continue;
-            if (isGov && tile.govWarmupUntil && this.gameTime < tile.govWarmupUntil) continue;
-            const stats = s.stats;
-            const effectiveRadius = s._lockedRadius ?? stats.radius;
-            govSources.push({
-                tile,
-                owner: tile.owner,
-                radius: effectiveRadius,
-                goldPerTile: stats.goldPerTile || 0,
-            });
-        }
+        const govSources = this._buildGovGoldSources();
 
-        const diff = this._difficulty || DIFFICULTY.normal;
         for (const tile of this.grid.tiles.values()) {
-            if (!tile.buildable) continue;
             if (tile.contested) continue;
-            if (tile.owner) {
-                counts[tile.owner - 1]++;
-                const ownerIdx = tile.owner - 1;
-                const isAi = tile.owner !== this.humanId;
-                const mult = isAi ? diff.goldMult : 1;
-
-                const govEffects = [];
-                for (const gov of govSources) {
-                    if (gov.owner !== tile.owner) continue;
-                    const d = Hex.distance(tile, gov.tile);
-                    if (d <= gov.radius && gov.goldPerTile > 0) {
-                        govEffects.push(gov.goldPerTile);
-                    }
+            if (!tile.owner) continue;
+            const oi = tile.owner - 1;
+            if (this._incomeTileEligible(tile)) {
+                counts[oi]++;
+                const bonus = this._stackedTileGovIncome(tile, govSources);
+                if (bonus > 0) {
+                    this.players[oi].gold += bonus;
+                    this.players[oi].stats.goldEarned += bonus;
+                    goldRates[oi] += bonus;
                 }
-                if (govEffects.length > 0) {
-                    govEffects.sort((a, b) => b - a);
-                    let bonus = 0;
-                    for (let i = 0; i < govEffects.length; i++) {
-                        bonus += govEffects[i] / (2 ** i);
-                    }
-                    bonus *= mult;
-                    if (bonus > 0 && this._inFriendlyG3GoldAura(tile, tile.owner)) {
-                        bonus *= GAME_CONFIG.GOV_L3_GOLD_AURA_MULT;
-                    }
-                    this.players[ownerIdx].gold += bonus;
-                    this.players[ownerIdx].stats.goldEarned += bonus;
-                    goldRates[ownerIdx] += bonus;
-                }
+            } else if (this._deepSeaTile(tile)) {
+                seaCounts[oi]++;
             }
         }
 
@@ -401,6 +452,7 @@ export class Game {
 
         this.players.forEach((p, i) => {
             p.tileCount = counts[i];
+            p.seaTileCount = seaCounts[i];
             p.goldRate = goldRates[i];
             if (counts[i] > p.stats.peakTiles) p.stats.peakTiles = counts[i];
         });
@@ -1413,11 +1465,14 @@ export class Game {
     // ========================================================================
     //  BUILD / DESTROY / DEMOLISH
     // ========================================================================
-    buildStructure(tile, type, ownerId, levelIdx = 0, free = false) {
+    buildStructure(tile, type, ownerId, levelIdx = 0, free = false, isStarterMf = false) {
         const p = this.players[ownerId - 1];
         if (!p) return false;
         if (tile.contested) return false;
-        if (!tile.buildable) return false;
+        if (!tile.buildable) {
+            if (!NAVY_BUILD_TYPES.has(type)) return false;
+            if (!this.canBuildNavyOn(tile, ownerId)) return false;
+        }
 
         const def = UNIT_STATS[type];
         const stats = Array.isArray(def?.levels) ? def.levels[levelIdx] : def;
@@ -1462,6 +1517,12 @@ export class Game {
             tile.buildCooldownStart = this.gameTime;
             tile.buildCooldownUntil = this.gameTime + buildCooldown;
         } else {
+            tile.buildCooldownStart = 0;
+            tile.buildCooldownUntil = 0;
+        }
+
+        if (type === 'MF' && isStarterMf) {
+            tile.lastAction = this.gameTime - structInterval - 1;
             tile.buildCooldownStart = 0;
             tile.buildCooldownUntil = 0;
         }
@@ -1634,7 +1695,6 @@ export class Game {
         }
 
         for (const tile of this.grid.tiles.values()) {
-            if (!tile.buildable) continue;
             if (tile.structure) {
                 // Structures can sit on contested tiles — evaluate them too
             }
@@ -1769,4 +1829,8 @@ export class Game {
         }
         return true;
     }
+}
+
+export function registerNavyBuildType(structureType) {
+    NAVY_BUILD_TYPES.add(structureType);
 }

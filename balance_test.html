@@ -62,7 +62,7 @@ th { color: #00e5ff; font-weight: 600; }
 <canvas id="minimap" width="1" height="1" style="display:none"></canvas>
 
 <script type="module">
-import { UNIT_STATS, GAME_CONFIG, DIFFICULTY, AI_DOCTRINES } from './constants.js?v=balance2026';
+import { UNIT_STATS, GAME_CONFIG, getEffectiveMapRadius, DIFFICULTY, AI_DOCTRINES, hexDiskTileCount, totalSoloGovDiskGoldPerSec } from './constants.js?v=balance2026';
 import { HexGrid, Hex } from './hexGrid.js?v=balance2026';
 import { Game } from './game.js?v=balance2026';
 import { updateAI } from './ai.js?v=balance2026';
@@ -219,20 +219,21 @@ window.runGovROI = function() {
     log('');
 
     log(pad('Gov', 5) + pad('Cost', 7) + pad('Radius', 8) + pad('Tiles', 7) +
-        pad('g/tile', 7) + pad('Income/s', 10) + pad('ROI', 7) + pad('+warmup', 9), 'dim');
+        pad('avgG/t', 7) + pad('Income/s', 10) + pad('ROI', 7) + pad('+warmup', 9), 'dim');
     log('─'.repeat(60), 'dim');
 
     const govLevels = UNIT_STATS.G.levels;
     for (let i = 0; i < govLevels.length; i++) {
         const g = govLevels[i];
         const r = g.radius;
-        const tiles = 1 + 3 * r * (r + 1);  // hex disk formula
-        const income = tiles * g.goldPerTile;
+        const tiles = hexDiskTileCount(r);
+        const income = totalSoloGovDiskGoldPerSec(i);
+        const effG = income / tiles;
         const roi = g.cost / income;
         const roiWarmup = roi + warmup;
         const cls = roi < 20 ? 'pass' : (roi < 40 ? '' : 'warn');
         log(pad(g.id, 5) + pad(g.cost, 7) + pad(r, 8) + pad(tiles, 7) +
-            pad(g.goldPerTile.toFixed(2), 7) + pad(income.toFixed(1), 10) +
+            pad(effG.toFixed(2), 7) + pad(income.toFixed(1), 10) +
             pad(roi.toFixed(1) + 's', 7) + pad(roiWarmup.toFixed(1) + 's', 9), cls);
     }
 
@@ -242,10 +243,10 @@ window.runGovROI = function() {
         const cur = govLevels[i];
         const next = govLevels[i + 1];
         const upgCost = Math.floor(next.cost * GAME_CONFIG.UPGRADE_COST_MULT);
-        const curTiles = 1 + 3 * cur.radius * (cur.radius + 1);
-        const nextTiles = 1 + 3 * next.radius * (next.radius + 1);
-        const curIncome = curTiles * cur.goldPerTile;
-        const nextIncome = nextTiles * next.goldPerTile;
+        const curTiles = hexDiskTileCount(cur.radius);
+        const nextTiles = hexDiskTileCount(next.radius);
+        const curIncome = totalSoloGovDiskGoldPerSec(i);
+        const nextIncome = totalSoloGovDiskGoldPerSec(i + 1);
         const delta = nextIncome - curIncome;
         const upgROI = delta > 0 ? (upgCost / delta).toFixed(1) : '∞';
         log(`  G${i+1}→G${i+2}: cost ${upgCost}g, income +${delta.toFixed(1)}g/s, upgrade ROI = ${upgROI}s`,
@@ -254,9 +255,9 @@ window.runGovROI = function() {
 
     log('');
     log('INCOME SCALING:', 'info');
-    const g1Income = (1 + 3 * govLevels[0].radius * (govLevels[0].radius + 1)) * govLevels[0].goldPerTile;
+    const g1Income = totalSoloGovDiskGoldPerSec(0);
     for (let i = 1; i < govLevels.length; i++) {
-        const gIncome = (1 + 3 * govLevels[i].radius * (govLevels[i].radius + 1)) * govLevels[i].goldPerTile;
+        const gIncome = totalSoloGovDiskGoldPerSec(i);
         const ratio = (gIncome / g1Income).toFixed(2);
         log(`  G${i+1}/G1 income ratio: ${ratio}x`, parseFloat(ratio) < 3 ? 'pass' : 'warn');
     }
@@ -290,7 +291,7 @@ window.runAIvsAI = async function() {
         setProgress((run / numRuns) * 100);
         log(`Run ${run + 1}/${numRuns}...`, 'dim');
 
-        const grid = new HexGrid(GAME_CONFIG.MAP_RADII[mapSize] || 20, 30, 'pangaea', playerCount);
+        const grid = new HexGrid(getEffectiveMapRadius(mapSize, playerCount), 30, 'pangaea', playerCount);
         const game = new Game(grid);
         game.humanId = -1; // No human — all AI
         game.aiDifficulty = 'normal';

@@ -1,5 +1,5 @@
 // ============================================================================
-//  ROCKETIO — AI v0.8
+//  ROCKETIO — AI v0.9
 // ----------------------------------------------------------------------------
 //  Strategic loop per AI tick:
 //
@@ -18,7 +18,7 @@
 //    3. PRIORITY-DRIVEN ACTIONS (each tick performs 2-4 actions):
 //         a. Opening build order   — deterministic early-game ramp
 //         b. Emergency defense     — incoming projectile / leaking territory
-//         c. Counter-play          — shape forces to counter enemy composition
+//         c. Counter-play          — role-aware: ground (M/B) vs air (RL/AB/D), B screen, drones vs AAS
 //         d. Focus fire            — reassign attackers to a single high-value target
 //         e. Economy               — MF when missile-starved, Gov when snowballing
 //         f. Strategic build       — pick best STRUCTURE TYPE then best LOCATION
@@ -93,6 +93,98 @@ function playstyleMilitiaExpandMult(doctrine) {
 
 function m0Cost() {
     return (statsAtLevel('M', 0)?.cost) || 135;
+}
+
+function counterAggressionScale(game) {
+    const d = game.aiDifficulty || 'normal';
+    if (d === 'very_hard') return 1.12;
+    if (d === 'hard') return 1.07;
+    if (d === 'easy') return 0.95;
+    return 1.02;
+}
+
+/**
+ * Adjust structure weights from visible enemy composition (see Units.csv roles).
+ * - AAS only intercepts missiles/drones; M/B are ground (bypass AA) — shift off AAS, onto B.
+ * - Heavy RL/AB: need AAS + B screens; heavy AAS: D to saturate, fewer interceptable volleys.
+ */
+function counterCompositionMults(snap, game) {
+    const c = snap.visibleEnemyTypeCounts || {};
+    const get = (t) => c[t] || 0;
+    const eAAS = get('AAS');
+    const eRL = get('RL');
+    const eAB = get('AB');
+    const eShooters = eRL + eAB;
+    const eD = get('D');
+    const eM = get('M');
+    const eB = get('B');
+    const s = counterAggressionScale(game);
+    const mult = { RL: 1, AB: 1, D: 1, B: 1, AAS: 1 };
+
+    const eGround = eM + eB;
+    const eAirThreat = eRL + eAB + eD;
+    if (eGround >= 2 && eGround > eAirThreat) {
+        mult.B *= 1.14 * s;
+        mult.AAS *= 0.88;
+        mult.D *= 0.9;
+    }
+    if (eB >= 2) mult.AAS *= 0.94;
+    if (eM >= 4 && eAirThreat <= 1) { mult.B *= 1.08; mult.AAS *= 0.9; }
+
+    if (eShooters >= 1) { mult.AAS *= 1.1 * s; mult.B *= 1.1 * s; }
+    if (eShooters >= 2) { mult.AAS *= 1.08; mult.B *= 1.06; }
+
+    if (eAAS >= 1) { mult.D *= 1.06; mult.RL *= 0.97; mult.AB *= 0.96; }
+    if (eAAS >= 2) { mult.D *= 1.18 * s; mult.RL *= 0.9; mult.AB *= 0.88; }
+    if (eAAS >= 3) { mult.D *= 1.1; mult.RL *= 0.94; mult.AB *= 0.93; }
+    if (eAAS >= 4) { mult.D *= 1.08; }
+
+    if (eD >= 2) mult.AAS *= 1.12 * s;
+    if (eD >= 4) mult.AAS *= 1.05;
+
+    if (eM >= 3) mult.B *= 1.12 * s;
+    if (eM >= 5) mult.B *= 1.05;
+
+    for (const k of Object.keys(mult)) {
+        mult[k] = clamp(mult[k], 0.62, 1.7);
+    }
+    return mult;
+}
+
+/** Closer to enemy rocket/air than a protected site — so missiles/AA auto aim hits B first. */
+function pickScreenBarracksSpot(game, p, snap) {
+    const threats = snap.visibleEnemies.filter(e =>
+        e.structure.type === 'RL' || e.structure.type === 'AB'
+    );
+    if (threats.length === 0) return null;
+
+    const protect = [
+        ...(snap.ownByType.G || []),
+        ...(snap.ownByType.MF || []),
+        ...(snap.ownByType.RL || []),
+        ...(snap.ownByType.AB || []),
+    ];
+    if (protect.length === 0) return null;
+
+    let best = null;
+    let bestS = 0;
+    for (const v of protect) {
+        const nbrs = new Hex(v.q, v.r).getNeighbors();
+        for (const nh of nbrs) {
+            const t = game.grid.getTile(nh.q, nh.r);
+            if (!t || t.structure || t.contested) continue;
+            if (t.owner !== p.id) continue;
+
+            let s = 0;
+            for (const en of threats) {
+                const dV = Hex.distance(v, en);
+                const dT = Hex.distance(t, en);
+                if (dT < dV) s += (dV - dT) * 2.2;
+            }
+            if (s > bestS) { bestS = s; best = t; }
+        }
+    }
+    return bestS >= 1.2 ? best : null;
 }
 
 /**
@@ -415,6 +507,12 @@ function buildSnapshot(game, p, shared) {
         }
     }
 
+    const visibleEnemyTypeCounts = {};
+    for (const e of visibleEnemies) {
+        const typ = e.structure.type;
+        visibleEnemyTypeCounts[typ] = (visibleEnemyTypeCounts[typ] || 0) + 1;
+    }
+
     return {
         own, structures, emptyOwn, frontier,
         ownByType,
@@ -430,6 +528,7 @@ function buildSnapshot(game, p, shared) {
         attackVectors: recentHits,
         supplyRatio,
         neutralAdjacentToFrontier,
+        visibleEnemyTypeCounts,
     };
 }
 
@@ -855,6 +954,8 @@ function tryEmergencyDefense(game, p, snap, tileLoss) {
 function tryCounterPlay(game, p, snap) {
     if (snap.visibleEnemies.length === 0) return false;
 
+    const ec = snap.visibleEnemyTypeCounts || {};
+    const countNear = (t) => ec[t] || 0;
     const enemyTypeNearMe = {};
     for (const ft of snap.frontier) {
         for (const en of snap.visibleEnemies) {
@@ -864,13 +965,37 @@ function tryCounterPlay(game, p, snap) {
             enemyTypeNearMe[t] = (enemyTypeNearMe[t] || 0) + 1;
         }
     }
+    const nearCnt = (t) => enemyTypeNearMe[t] || 0;
 
     const myAAS = snap.ownByType.AAS?.length || 0;
-    const myRL  = snap.ownByType.RL?.length || 0;
-    const myAB  = snap.ownByType.AB?.length || 0;
+    const myB   = snap.ownByType.B?.length || 0;
+    const myD   = snap.ownByType.D?.length || 0;
+
+    const enemyAASV  = countNear('AAS');
+    const enemyShotV = countNear('RL') + countNear('AB');
+    let enemyShootersN = nearCnt('RL') + nearCnt('AB');
+    if (enemyShootersN === 0) enemyShootersN = enemyShotV;
+
+    // Interceptable volleys: Barracks in front of Gov/MF/launchers (closest-hex targeting)
+    if (enemyShootersN >= 1 && canAffordType(p, 'B')) {
+        const bWant = 1 + (enemyShotV >= 2 ? 1 : 0) + (enemyShotV >= 3 ? 1 : 0);
+        if (myB < bWant) {
+            const sp = pickScreenBarracksSpot(game, p, snap) ||
+                pickDirectionalFrontierSpot(game, p, snap, snap.visibleEnemies.filter(e => e.structure.type === 'RL' || e.structure.type === 'AB'));
+            if (sp) return game.buildStructure(sp, 'B', p.id);
+        }
+    }
+
+    // Ground-dominant (M/B): AAS does not protect vs ground — Barracks (non-intercept. fire + supply) answers militia/ground
+    const eGr = countNear('M') + countNear('B');
+    const eAirK = countNear('RL') + countNear('AB') + countNear('D');
+    if (eGr >= 2 && eGr > eAirK && myB < 2 && canAffordType(p, 'B')) {
+        const sp = pickDirectionalFrontierSpot(game, p, snap, snap.visibleEnemies.filter(e => e.structure.type === 'M' || e.structure.type === 'B'));
+        if (sp) return game.buildStructure(sp, 'B', p.id);
+    }
 
     // Heavy drone presence → AAS (proportional response)
-    const enemyDrones = enemyTypeNearMe.D || 0;
+    const enemyDrones = enemyTypeNearMe.D || countNear('D');
     if (enemyDrones >= 2 && myAAS < Math.ceil(enemyDrones / 2) && canAffordType(p, 'AAS')) {
         const spot = pickDirectionalFrontierSpot(game, p, snap, snap.visibleEnemies.filter(e => e.structure.type === 'D'));
         if (spot) return game.buildStructure(spot, 'AAS', p.id);
@@ -885,19 +1010,20 @@ function tryCounterPlay(game, p, snap) {
         }
     }
 
+    // Heavy enemy AAS (visible count): drones to force charges, exhaust intercept, L3 debuff
+    if (enemyAASV >= 1 && canAffordType(p, 'D')) {
+        const wantD = 1 + Math.max(0, Math.min(3, Math.floor((enemyAASV - 1) / 2) + (enemyAASV >= 3 ? 1 : 0) + (enemyAASV >= 4 ? 1 : 0)));
+        if (myD < wantD) {
+            const spot = pickDirectionalFrontierSpot(game, p, snap, snap.visibleEnemies.filter(e => e.structure.type === 'AAS')) ||
+                pickDirectionalFrontierSpot(game, p, snap, snap.visibleEnemies);
+            if (spot) return game.buildStructure(spot, 'D', p.id);
+        }
+    }
+
     // Militia swarm → Barracks (great area denial + DPS vs cheap units)
     if ((enemyTypeNearMe.M || 0) >= 3 && canAffordType(p, 'B')) {
         const spot = pickDirectionalFrontierSpot(game, p, snap, snap.visibleEnemies.filter(e => e.structure.type === 'M'));
         if (spot) return game.buildStructure(spot, 'B', p.id);
-    }
-
-    // Enemy heavy AAS presence + we have shooters → switch to ground/drones to saturate
-    const enemyAAS = enemyTypeNearMe.AAS || 0;
-    if (enemyAAS >= 2 && (myRL + myAB) >= 2 && (snap.ownByType.D?.length || 0) < 2) {
-        if (canAffordType(p, 'D')) {
-            const spot = pickDirectionalFrontierSpot(game, p, snap, snap.visibleEnemies.filter(e => e.structure.type === 'AAS'));
-            if (spot) return game.buildStructure(spot, 'D', p.id);
-        }
     }
 
     const enemyGovNearFrontier = snap.visibleEnemies.filter(e =>
@@ -1183,6 +1309,11 @@ function tryStrategicBuild(game, p, snap, shared, phase, doctrine) {
             w.RL *= 1.06; w.AB *= 1.04; w.D *= 1.05; w.AAS *= 0.95;
         }
 
+        const cMult = counterCompositionMults(snap, game);
+        for (const k of Object.keys(cMult)) {
+            if (w[k] != null) w[k] *= cMult[k];
+        }
+
         // Suppress missile consumers if we can't fuel them — but suggest MF instead
         if (snap.missileProd < snap.missileCons * 0.7 || p.missiles < 3) {
             w.RL *= 0.2; w.AB *= 0.15;
@@ -1381,19 +1512,48 @@ function tryUpgrade(game, p, snap, doctrine, shared) {
         const next = def.levels[tile.structure.level + 1];
         if (!next) continue;
 
-        let value = UPGRADE_VALUE[tile.structure.type] || 1;
+        const typ = tile.structure.type;
+        const st = tile.structure.stats;
+        const curLv = tile.structure.level;
+        const nextMps = next.missilesPerShot;
+        const curMps = st.missilesPerShot;
+
+        let value = UPGRADE_VALUE[typ] || 1;
         const isFront = frontierKeys.has(tileKey(tile));
         if (!isFront) value *= 1.4;
-        value += (3 - tile.structure.level);
+        value += (3 - curLv);
 
-        if (tile.structure.type === 'MF' && snap.missileProd > snap.missileCons * 1.4) value *= 0.4;
+        if (typ === 'MF' && snap.missileProd > snap.missileCons * 1.4) value *= 0.4;
+        if (typ === 'MF' && snap.missileProd < snap.missileCons * 1.1) value *= 1.35;
+        if (typ === 'MF' && p.missiles < 3 && snap.missileCons > 0) value *= 1.15;
+
+        // RL/AB: higher levels burn more missiles per volley (Units.csv RL3×2, AB2+ heavy) — do not roll into that while starved
+        if ((typ === 'RL' || typ === 'AB') && nextMps != null && curMps != null && nextMps > curMps) {
+            if (snap.missileProd < snap.missileCons * 1.15 || p.missiles < 5) value *= 0.42;
+            else if (p.missiles < 8) value *= 0.72;
+        }
+
+        // AAS: more valuable per level when enemy is drone-heavy (many interceptable projectiles)
+        if (typ === 'AAS') {
+            const ed = snap.visibleEnemyTypeCounts?.D || 0;
+            if (ed >= 2) value *= 1.1 + 0.04 * Math.min(4, ed);
+        }
+
+        // B: L3 command aura; frontline B supports the whole line (Units.csv)
+        if (typ === 'B' && isFront && curLv >= 0 && next.radius != null) value *= 1.2;
+
+        // D: D3 applies jamming — prioritize when many enemy AAS need debuff
+        if (typ === 'D' && curLv < 2) {
+            const aasE = snap.visibleEnemyTypeCounts?.AAS || 0;
+            if (aasE >= 2) value *= 1.1 + 0.05 * Math.min(3, aasE);
+        }
 
         // Prefer upgrading structures in supply
         if (supplySet?.has(tileKey(tile))) value *= 1.2;
 
         // Prefer upgrading structures that are actively contributing (have targets in range)
-        if (ATTACKER_TYPES.has(tile.structure.type) && tile.structure.stats.range) {
-            const hasTarget = snap.visibleEnemies.some(e => Hex.distance(tile, e) <= tile.structure.stats.range);
+        if (ATTACKER_TYPES.has(typ) && st.range) {
+            const hasTarget = snap.visibleEnemies.some(e => Hex.distance(tile, e) <= st.range);
             if (hasTarget) value *= 1.5;
         }
 
@@ -1584,13 +1744,22 @@ function pickPlacementForType(game, p, snap, type, valuableEnemies) {
             for (const d of snap.ownByType.D || []) {
                 if (Hex.distance(t, d) <= 3) droneCluster++;
             }
-            const score = inRange * 3 + droneCluster * 1.5 + Math.random();
+            // Prefer hexes in range of enemy AAS (saturate intercept, apply debuffs)
+            let aasInRange = 0;
+            for (const en of snap.visibleEnemies) {
+                if (en.structure.type === 'AAS' && Hex.distance(t, en) <= range) aasInRange++;
+            }
+            const score = inRange * 3 + droneCluster * 1.5 + aasInRange * 2.5 + Math.random();
             if (score > bestScore) { bestScore = score; bestSpot = t; }
         }
         return bestSpot || pickDirectionalFrontierSpot(game, p, snap, snap.visibleEnemies);
     }
 
     if (type === 'B') {
+        if ((snap.visibleEnemyTypeCounts?.RL || 0) + (snap.visibleEnemyTypeCounts?.AB || 0) >= 1) {
+            const sc = pickScreenBarracksSpot(game, p, snap);
+            if (sc) return sc;
+        }
         return pickDirectionalFrontierSpot(game, p, snap, snap.visibleEnemies);
     }
 

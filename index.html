@@ -81,17 +81,41 @@
                     <div id="victory-sub-picker" class="option-row sub-picker hidden"></div>
                 </div>
 
-                <button id="play-btn" class="play-button">
+                <button type="button" id="play-btn" class="play-button">
                     <span class="play-icon">&#9654;</span> LAUNCH GAME
                 </button>
 
+                <button type="button" id="campaign-btn" class="play-button campaign-entry-btn" title="Single-player campaign (linear ops, local progress)"
+                    onclick="return rocketioCampaignEntry(event)">
+                    <span class="play-icon" aria-hidden="true">◈</span> SENTINEL CAMPAIGN
+                </button>
+
                 <div class="menu-bottom-row">
-                    <button id="tutorial-btn" class="tutorial-button">HOW TO PLAY</button>
-                    <button id="settings-btn-home" class="tutorial-button">SETTINGS</button>
+                    <button type="button" id="tutorial-btn" class="tutorial-button">HOW TO PLAY</button>
+                    <button type="button" id="settings-btn-home" class="tutorial-button">SETTINGS</button>
                 </div>
             </div>
 
             <div class="version-tag">v0.3 &mdash; Land Control · Air Base · Map Styles · Victory Modes</div>
+        </div>
+    </div>
+
+    <!-- ==================== CAMPAIGN (mission list) ==================== -->
+    <div id="campaign-screen" class="hidden">
+        <div class="stars"></div>
+        <div class="scanline-overlay"></div>
+        <div class="homepage-content">
+            <div class="logo-section">
+                <h1 class="game-title">SENTINEL <span class="accent">OPS</span></h1>
+                <p class="tagline" id="campaign-tagline">Linear campaign · same-PC progress</p>
+            </div>
+            <div class="menu-card campaign-mission-card">
+                <h3 class="campaign-mission-h3">SELECT OPERATION</h3>
+                <div id="campaign-mission-list" class="campaign-mission-list"></div>
+            </div>
+            <div class="menu-bottom-row" style="margin-top:12px">
+                <button type="button" id="campaign-back" class="tutorial-button">BACK</button>
+            </div>
         </div>
     </div>
 
@@ -211,6 +235,12 @@
                 <button id="gear-btn" class="gear-button" title="Menu">⚙</button>
             </div>
 
+            <div id="campaign-quest" class="campaign-quest glass hidden">
+                <div class="cq-label">OBJECTIVE</div>
+                <div id="campaign-quest-primary" class="cq-text cq-primary"></div>
+                <div id="campaign-quest-hint" class="cq-text cq-hint"></div>
+            </div>
+
             <!-- BUILD PANEL -->
             <div id="side-panel" class="glass hud-panel">
                 <h3>CONSTRUCTION</h3>
@@ -328,6 +358,18 @@
             <div class="pause-text">PAUSED</div>
             <p class="pause-sub">Press P to resume</p>
         </div>
+
+        <!-- CAMPAIGN BRIEFING (in-game) -->
+        <div id="campaign-briefing-overlay" class="hidden">
+            <div class="tutorial-backdrop"></div>
+            <div class="tutorial-container glass campaign-briefing-box">
+                <h2 id="campaign-briefing-title" class="campaign-briefing-h2">BRIEFING</h2>
+                <div id="campaign-briefing-body" class="campaign-briefing-body"></div>
+                <button type="button" id="campaign-briefing-begin" class="play-button" style="margin-top:16px">
+                    <span class="play-icon">&#9654;</span> BEGIN OP
+                </button>
+            </div>
+        </div>
     </div>
 
     <!-- ==================== GAME MENU ==================== -->
@@ -369,6 +411,21 @@
         </div>
     </div>
 
+    <!-- Synchronous: works even if main.js (module) fails to load; main.js replaces window.rocketioOpenCampaign when ready. -->
+    <script>
+    function rocketioCampaignEntry(e) {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        if (typeof window.rocketioOpenCampaign === 'function') {
+            try { window.rocketioOpenCampaign(e); } catch (err) { console.error('Campaign:', err); }
+        } else {
+            var h = document.getElementById('homepage');
+            var c = document.getElementById('campaign-screen');
+            if (h) h.classList.add('hidden');
+            if (c) c.classList.remove('hidden');
+        }
+        return false;
+    }
+    </script>
     <script type="module" src="main.js?v=balance2026"></script>
 </body>
 </html>

@@ -135,6 +135,23 @@ export class Renderer {
             this.hexPath(x, y, size);
             ctx.fillStyle = `rgba(30, 100, 180, ${wave.toFixed(3)})`;
             ctx.fill();
+
+            if (fog.explored) {
+                let ro = tile.owner, rc = tile.contested;
+                if (!fog.visible && fog.human) {
+                    const mem = fog.human.memory.get(`${tile.q},${tile.r}`);
+                    if (mem) { ro = mem.owner; rc = mem.contested; }
+                }
+                const ownerColor = rc ? COLORS.CONTESTED
+                    : (ro ? (COLORS[`PLAYER${ro}`] || null) : null);
+                if (ownerColor) {
+                    this.hexPath(x, y, size);
+                    ctx.fillStyle = ownerColor;
+                    ctx.globalAlpha = ro ? (fog.visible ? 0.38 : 0.2) : 0.2;
+                    ctx.fill();
+                }
+            }
+            ctx.globalAlpha = 1;
             return;
         }
 
