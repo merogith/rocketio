@@ -137,7 +137,7 @@ function syncCampaignBuildQuestPanel() {
     if (!game?.campaign || !campaignQuestPrimary) return;
     const c = game.campaign;
     const bt = c.buildTutorial;
-    if (c.missionId === 1 && bt?.active) {
+    if (bt?.active) {
         const st = bt.steps[bt.step];
         if (st) {
             campaignQuestPrimary.innerHTML = campaignLineToHtml(st.questPrimary);

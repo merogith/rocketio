@@ -194,6 +194,117 @@ function applyMission1(game, grid) {
     game.recomputeFog();
 }
 
+function applyMission2(game, grid) {
+    const enemyId = 2;
+    const pEnemy = game.players[enemyId - 1];
+    if (pEnemy) pEnemy.name = 'IRON COMPACT';
+
+    const pHuman = game.players[0];
+    if (pHuman) {
+        pHuman.gold = Math.max(pHuman.gold, 2000);
+        pHuman.missiles = Math.max(pHuman.missiles, 6);
+    }
+
+    const humanGov = findGovTile(game, 1);
+    const enemyGov = findGovTile(game, enemyId);
+    if (!humanGov || !enemyGov) {
+        game._markStructuresDirty();
+        game.updateBorders();
+        game.recomputeSupply();
+        game.recomputeFog();
+        return;
+    }
+
+    // Pick a defensive tile next to the player's Government for the AAS step.
+    const aasNeighbors = humanGov.getNeighbors()
+        .map(h => grid.getTile(h.q, h.r))
+        .filter(t => t && t.owner === 1 && t.buildable && !t.structure);
+    aasNeighbors.sort((a, b) => Hex.distance(a, enemyGov) - Hex.distance(b, enemyGov));
+    const aasTile = aasNeighbors[0] || null;
+
+    // Pick a forward Barracks tile: own land, closest to enemy gov, not the AAS tile.
+    const ownTiles = allOwnedTiles(grid, 1)
+        .filter(t => t.buildable && !t.structure && t !== aasTile);
+    ownTiles.sort((a, b) => Hex.distance(a, enemyGov) - Hex.distance(b, enemyGov));
+    const barracksTile = ownTiles[0] || null;
+
+    if (aasTile && barracksTile && game.campaign) {
+        const steps = [
+            {
+                type: 'AAS',
+                level: 0,
+                q: aasTile.q,
+                r: aasTile.r,
+                key: 3,
+                label: 'Anti-Air System (Lv1)',
+                questPrimary: 'TRAINING — **1/2** · Build an **Anti-Air System (Lv1)** on the **pulsing hex** next to your Government.',
+                questHint: 'Press **[3]**, then click the highlighted tile. AAS auto-intercepts incoming missiles in range.',
+            },
+            {
+                type: 'B',
+                level: 0,
+                q: barracksTile.q,
+                r: barracksTile.r,
+                key: 5,
+                label: 'Barracks (Lv1)',
+                questPrimary: 'TRAINING — **2/2** · Build a **Barracks (Lv1)** on the **forward pulsing hex**.',
+                questHint: 'Press **[5]**, then click the highlight. Barracks are tanky, project influence, and anchor your push.',
+            },
+        ];
+        game.campaign.buildTutorial = {
+            active: true,
+            step: 0,
+            steps,
+            prematureFogReveal: true,
+            revealRadius: 7,
+        };
+        reseedM1BuildTutorial(game.campaign.buildTutorial);
+    }
+
+    // Strip enemy starter Missile Factory — we replace it with forward pressure RLs.
+    for (const t of grid.tiles.values()) {
+        if (t.owner === enemyId && t.structure?.type === 'MF') {
+            game.destroyStructure(t, null, true);
+            break;
+        }
+    }
+
+    const rl0 = UNIT_STATS.RL.levels[0];
+    const rlRange = rl0.range || 7;
+
+    // Forward enemy RL #1: in range of the player's gov.
+    const cand1 = [];
+    for (const t of grid.tiles.values()) {
+        if (t.owner !== enemyId || !t.buildable || t.structure) continue;
+        if (Hex.distance(t, humanGov) <= rlRange) cand1.push(t);
+    }
+    cand1.sort((a, b) => Hex.distance(a, humanGov) - Hex.distance(b, humanGov));
+    const rl1 = cand1[0] || null;
+    if (rl1) game.buildStructure(rl1, 'RL', enemyId, 0, true);
+
+    // Forward enemy RL #2: also in range, but a different tile, biased away from the first RL.
+    const cand2 = [];
+    for (const t of grid.tiles.values()) {
+        if (t.owner !== enemyId || !t.buildable || t.structure) continue;
+        if (Hex.distance(t, humanGov) <= rlRange) cand2.push(t);
+    }
+    cand2.sort((a, b) => {
+        const da = Hex.distance(a, humanGov) - (rl1 ? Math.min(Hex.distance(a, rl1), 3) : 0);
+        const db = Hex.distance(b, humanGov) - (rl1 ? Math.min(Hex.distance(b, rl1), 3) : 0);
+        return da - db;
+    });
+    const rl2 = cand2[0] || null;
+    if (rl2) game.buildStructure(rl2, 'RL', enemyId, 0, true);
+
+    // Give the AI a small missile reserve so its RLs actually fire during the puzzle.
+    if (pEnemy) pEnemy.missiles = Math.max(pEnemy.missiles, 8);
+
+    game._markStructuresDirty();
+    game.updateBorders();
+    game.recomputeSupply();
+    game.recomputeFog();
+}
+
 /**
  * @param {import('./game.js').Game} game
  * @param {import('./hexGrid.js').HexGrid} grid
@@ -202,6 +313,10 @@ function applyMission1(game, grid) {
 export function applyCampaignScenario(game, grid, missionId) {
     if (missionId === 1) {
         applyMission1(game, grid);
+        return;
+    }
+    if (missionId === 2) {
+        applyMission2(game, grid);
         return;
     }
 }
