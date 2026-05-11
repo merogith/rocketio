@@ -2,7 +2,7 @@
 //  Same-PC campaign progress (localStorage)
 // ============================================================================
 
-import { CAMPAIGN_MISSIONS } from './campaignData.js?v=campaign2';
+import { CAMPAIGN_MISSIONS } from './campaignData.js?v=cmpn3';
 
 const STORAGE_KEY = 'rocketio_campaign_v1';
 const MAX_ID = 10;

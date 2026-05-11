@@ -2,8 +2,8 @@
 //  Hand-tuned map changes after base Game.start (mission-specific)
 // ============================================================================
 
-import { Hex } from './hexGrid.js?v=campaign2';
-import { UNIT_STATS } from './constants.js?v=campaign2';
+import { Hex } from './hexGrid.js?v=cmpn3';
+import { UNIT_STATS } from './constants.js?v=cmpn3';
 
 function findGovTile(game, ownerId) {
     for (const t of game.grid.tiles.values()) {
@@ -328,6 +328,7 @@ function applyMission2(game, grid) {
  * @param {number} missionId
  */
 export function applyCampaignScenario(game, grid, missionId) {
+    console.info('[RocketIO] campaignScenarios build: cmpn3 / mission', missionId);
     if (missionId === 1) {
         applyMission1(game, grid);
         return;

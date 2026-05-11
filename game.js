@@ -1,7 +1,7 @@
-import { UNIT_STATS, COLORS, GAME_CONFIG, DIFFICULTY, DIPLOMACY, govGoldForDistance } from './constants.js?v=campaign2';
-import { getPlayerMods, getSpecialUnitLabelForPlayer } from './factions.js?v=campaign2';
-import { Hex } from './hexGrid.js?v=campaign2';
-import { SFX } from './sfx.js?v=campaign2';
+import { UNIT_STATS, COLORS, GAME_CONFIG, DIFFICULTY, DIPLOMACY, govGoldForDistance } from './constants.js?v=cmpn3';
+import { getPlayerMods, getSpecialUnitLabelForPlayer } from './factions.js?v=cmpn3';
+import { Hex } from './hexGrid.js?v=cmpn3';
+import { SFX } from './sfx.js?v=cmpn3';
 
 function relKey(a, b) {
     const x = Math.min(a, b), y = Math.max(a, b);

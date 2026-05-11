@@ -1,16 +1,16 @@
-import { Hex, HexGrid, Camera } from './hexGrid.js?v=campaign2';
-import { Game } from './game.js?v=campaign2';
-import { Renderer } from './renderer.js?v=campaign2';
-import { UNIT_STATS, GAME_CONFIG, getEffectiveMapRadius, VICTORY_MODES, COLORS, DIPLOMACY, govGoldBandLinesHtml } from './constants.js?v=campaign2';
-import { TUTORIAL_PAGES } from './tutorial.js?v=campaign2';
-import { getMissionById, CAMPAIGN_MISSIONS } from './campaignData.js?v=campaign2';
-import { loadCampaignProgress, canStartMission, markMissionBeaten } from './campaignProgress.js?v=campaign2';
-import { applyCampaignScenario, m1BuildTutorialCheckPlace, m1OnBuildPlaced } from './campaignScenarios.js?v=campaign2';
-import { Input } from './input.js?v=campaign2';
-import { updateAI } from './ai.js?v=campaign2';
-import { SFX } from './sfx.js?v=campaign2';
-import { FACTIONS, getFaction, describeModsList, getPlayerMods } from './factions.js?v=campaign2';
-import { FACTION_BANNERS, PLACEHOLDER_LEADER_PORTRAIT, getSpecialUnitBlurb, getLeaderPerkText } from './factionsDisplay.js?v=campaign2';
+import { Hex, HexGrid, Camera } from './hexGrid.js?v=cmpn3';
+import { Game } from './game.js?v=cmpn3';
+import { Renderer } from './renderer.js?v=cmpn3';
+import { UNIT_STATS, GAME_CONFIG, getEffectiveMapRadius, VICTORY_MODES, COLORS, DIPLOMACY, govGoldBandLinesHtml } from './constants.js?v=cmpn3';
+import { TUTORIAL_PAGES } from './tutorial.js?v=cmpn3';
+import { getMissionById, CAMPAIGN_MISSIONS } from './campaignData.js?v=cmpn3';
+import { loadCampaignProgress, canStartMission, markMissionBeaten } from './campaignProgress.js?v=cmpn3';
+import { applyCampaignScenario, m1BuildTutorialCheckPlace, m1OnBuildPlaced } from './campaignScenarios.js?v=cmpn3';
+import { Input } from './input.js?v=cmpn3';
+import { updateAI } from './ai.js?v=cmpn3';
+import { SFX } from './sfx.js?v=cmpn3';
+import { FACTIONS, getFaction, describeModsList, getPlayerMods } from './factions.js?v=cmpn3';
+import { FACTION_BANNERS, PLACEHOLDER_LEADER_PORTRAIT, getSpecialUnitBlurb, getLeaderPerkText } from './factionsDisplay.js?v=cmpn3';
 
 // ============================================================================
 //  DOM
@@ -360,6 +360,35 @@ function initWorld(mapSize, mapStyle, playerCount, playerName, victoryConfig, di
                 _objectiveHint: m.objectiveHint
             };
             applyCampaignScenario(game, grid, m.id);
+
+            // Defensive guard: if the scenario somehow left the human player without a Government
+            // (e.g. an old/buggy scenario script destroyed the starter without rebuilding),
+            // restore a Gov L3 + adjacent MF L1 so we can't get instant-defeated by checkVictory.
+            const humanHasGov = Array.from(grid.tiles.values())
+                .some(t => t.owner === 1 && t.structure?.type === 'G');
+            if (!humanHasGov) {
+                console.warn('[RocketIO] Scenario left the human without a Government — restoring starter.');
+                const rebuildAt = Array.from(grid.tiles.values())
+                    .find(t => t.buildable && !t.structure
+                        && (t.owner === 1 || t.owner == null));
+                if (rebuildAt) {
+                    rebuildAt.owner = 1;
+                    rebuildAt.contested = false;
+                    game.buildStructure(rebuildAt, 'G', 1, 2, true);
+                    const neighbor = new Hex(rebuildAt.q, rebuildAt.r).getNeighbors()
+                        .map(h => grid.getTile(h.q, h.r))
+                        .find(t => t && t.buildable && !t.structure);
+                    if (neighbor) {
+                        neighbor.owner = 1;
+                        game.buildStructure(neighbor, 'MF', 1, 0, true, true);
+                    }
+                    if (game.campaign) game.campaign.buildTutorial = null;
+                    game._markStructuresDirty();
+                    game.updateBorders();
+                    game.recomputeSupply();
+                    game.recomputeFog();
+                }
+            }
         }
     }
 
