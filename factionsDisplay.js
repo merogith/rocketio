@@ -48,91 +48,92 @@ export function getSpecialUnitBlurb(faction) {
     return `${s.specialName} — build with Sig (F10). Glass cannon chip damage, higher DPS/$ than the Drone line. Lv3: area jam in range (weaker than Drone L3). Distinct ${icon} map icon.`;
 }
 
-/** 3 short lines per faction, parallel to `leaders[]` */
+/** 3 short flavor lines per faction, parallel to `leaders[]`. UI lists the
+ *  numerical mods separately; these are *vibe* lines, not stat sheets. */
 const LEADER_FLAVOR = {
     // 1. USA — Biden, Trump, Obama
     USA: [
-        'Build-Back-Better economics — a touch more $ from territory.',
-        'Maximum pressure — your volleys hit a hair harder.',
-        'Drone-era doctrine — structures cycle a hair faster.',
+        'Bidenomics — broad tax base widens your gold pipeline.',
+        'Maximum Pressure — volleys land harder, but the response invites blowback.',
+        'Drone-Era Doctrine — your shooters cycle visibly faster.',
     ],
     // 2. Russia — Putin, Medvedev, Shoigu
     RUS: [
-        'Massed fires — a hair more volley impact.',
-        'Defense plants on overtime — factory output nudged up.',
-        'Cold logistics — out-of-supply pain reduced.',
+        'Vertical of Power — opens the game with extra missiles in the tube.',
+        'Mobilization Decree — factories surge into overproduction.',
+        'General Winter — out-of-supply penalties barely sting.',
     ],
     // 3. China — Xi, Li, Wang
     CHN: [
-        'Centralized command — a hair more damage dealt.',
-        'Belt & road economics — a touch more $ from territory.',
-        'Diplomatic supply lanes — softer out-of-supply penalty.',
+        'Centralized Command — volleys land cleaner under unified fire control.',
+        'State Capitalism — clears the austerity drag and then some.',
+        'Belt & Road — softens out-of-supply slowdowns across the map.',
     ],
     // 4. Japan — Kishida, Abe, Ishiba
     JPN: [
-        '"New capitalism" — a touch more $ from territory.',
-        'Rearmament push — a hair more volley impact.',
-        'Self-defense reform — a hair faster cycles.',
+        '"New Capitalism" — government rings pay out more reliably.',
+        'Abenomics & Rearm — punchier volleys to back up the shield.',
+        'SDF Reform — even thicker armor on every structure.',
     ],
     // 5. Türkiye — Erdoğan, Kılıçdaroğlu, Akar
     TUR: [
-        'Forward doctrine — a hair more damage dealt.',
-        'Civic economy — a touch more $ from territory.',
-        'Combined arms drill — a hair faster cycles.',
+        '"Sultan\'s Push" — sharper damage cancels the swarm\'s chip-shot weakness.',
+        'Civic Economy — strong gold for a war of drones and dollars.',
+        'Combined Arms — cycle times tighten even further.',
     ],
     // 6. Iran — Khamenei, Pezeshkian, Salami
     IRN: [
-        'Revolutionary doctrine — a hair more volley oomph.',
-        'Reformist package — a touch more $ from territory.',
-        'IRGC asymmetric play — softer out-of-supply penalty.',
+        'Supreme Leader — revolutionary doctrine gives volleys real bite.',
+        'Reformist Wing — eases the embargo and unfreezes your economy.',
+        'Quds Force — out-of-supply is barely a problem; raid anywhere.',
     ],
     // 7. Finland — Stubb, Marin, Niinistö
     FIN: [
-        'NATO integration — a hair more volley impact.',
-        'Social-democrat spending — a touch more $.',
-        'Defense modernization — a hair faster cycles.',
+        'NATO Integration — sharper volleys for the new alliance era.',
+        'Social-Democrat Budget — civic spending lifts gold income.',
+        'Cold Doctrine — drilled crews cycle perceptibly faster.',
     ],
     // 8. Indonesia — Prabowo, Jokowi, SBY
     IDN: [
-        'Force buildup — +1 starting missile.',
-        'Infrastructure drive — factory output nudged up.',
-        'Naval doctrine — a hair more volley impact.',
+        'Force Buildup — opens the game with +2 missiles on the rack.',
+        'Infrastructure Drive — factories pump out a markedly bigger stream.',
+        'Naval Doctrine — fixes the chip-damage problem with real punch.',
     ],
     // 9. Switzerland — Amherd, Cassis, Berset
     SUI: [
-        'Defense reform — a hair faster cycles.',
-        'Neutral diplomacy — softer out-of-supply penalty.',
-        'Private banking — a touch more $ from territory.',
+        'Defense Reform — clears the bureaucratic sluggishness completely.',
+        'Neutral Diplomacy — out-of-supply turns into a minor inconvenience.',
+        'Private Banking — gold piles up faster than anyone else\'s.',
     ],
     // 10. Saudi Arabia — Salman, MBS, Faisal
     KSA: [
-        'Royal coordination — a hair more damage dealt.',
-        'Vision 2030 — a hair more volley impact.',
-        'Oil economy — a touch more $ from territory.',
+        'Royal Coordination — measured fires for measured damage.',
+        'Vision 2030 — sharp pivot, cycles snap into a real tempo.',
+        'Oil Diplomacy — out-of-supply pain greatly reduced.',
     ],
     // 11. Poland — Duda, Tusk, Morawiecki
     POL: [
-        'Alliance posture — a touch more $ from territory.',
-        'EU integration — factory output nudged up.',
-        'Defense industry — a hair more volley impact.',
+        'NATO Anchor — alliance dollars boost your gold income.',
+        'EU Integration — defense industry rolls out missiles in bulk.',
+        'Defense Industry — sharper volleys on top of the opening salvo.',
     ],
     // 12. Vietnam — Tô Lâm, Phạm Minh Chính, Nguyễn Phú Trọng
     VNM: [
-        'Doctrinal modernization — a hair faster cycles.',
-        'Industrial drive — a touch more $ from territory.',
-        'People\'s war — a hair more volley impact.',
+        'Doi Moi Military — modernization speeds up every cycle.',
+        'Industrial Drive — clears the poverty trap and lifts gold income.',
+        'People\'s War — ambushes hit with real ferocity.',
     ],
     // 13. UK — Starmer, Sunak, Johnson
     GBR: [
-        'Civilian planning — a hair faster cycles.',
-        'Treasury surge — +1 starting missile.',
-        'Aggressive posture — a hair less damage taken.',
+        'Treasury First — civilian planning lifts gold income further.',
+        'Defense Spend — Treasury surge loads +2 missiles at start.',
+        '"Get It Done" — harder hits and a tougher hide.',
     ],
     // 14. Italy — Meloni, Mattarella, Draghi
     ITA: [
-        'Assertive doctrine — a hair more volley impact.',
-        'Institutional stability — factory output nudged up.',
-        '"Whatever it takes" — a touch more $ from territory.',
+        'Assertive Doctrine — Aster batteries put real teeth in your shots.',
+        'Institutional Stability — factories hum on uninterrupted schedules.',
+        '"Whatever It Takes" — Draghi opens the spigot on your treasury.',
     ],
 };
 
