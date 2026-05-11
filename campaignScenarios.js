@@ -82,6 +82,52 @@ function allOwnedTiles(grid, ownerId) {
     return a;
 }
 
+/**
+ * Pick `count` buildable land tiles that are within `rlRange` of the enemy Government and
+ * as close to the human Government as possible (i.e., on the forward edge of friendly land).
+ * Tiles are also forced into player ownership via seedHexes so the build is legal.
+ */
+function pickForwardRlSlots(grid, humanGov, enemyGov, count, rlRange) {
+    const seen = new Set();
+    const out = [];
+    const candidates = [];
+    for (const t of grid.getTilesInRadius(enemyGov, rlRange)) {
+        if (!t.buildable || t.structure) continue;
+        if (t === enemyGov || t === humanGov) continue;
+        candidates.push(t);
+    }
+    candidates.sort((a, b) => Hex.distance(a, humanGov) - Hex.distance(b, humanGov));
+    for (const t of candidates) {
+        const k = `${t.q},${t.r}`;
+        if (seen.has(k)) continue;
+        // Spread the slots a little so they don't stack on one tile cluster.
+        if (out.some(o => Hex.distance(o, t) < 2)) continue;
+        out.push(t);
+        seen.add(k);
+        if (out.length >= count) break;
+    }
+    return out;
+}
+
+function downgradeEnemyGovToLv1(game, enemyId) {
+    const enemyGov = findGovTile(game, enemyId);
+    if (!enemyGov) return null;
+    const tile = enemyGov;
+    game.destroyStructure(tile, null, true);
+    game.buildStructure(tile, 'G', enemyId, 0, true);
+    return tile;
+}
+
+function clearEnemyStructure(game, enemyId, type) {
+    for (const t of game.grid.tiles.values()) {
+        if (t.owner === enemyId && t.structure?.type === type) {
+            game.destroyStructure(t, null, true);
+            return t;
+        }
+    }
+    return null;
+}
+
 function applyMission1(game, grid) {
     const enemyId = 2;
     const pEnemy = game.players[enemyId - 1];
@@ -89,70 +135,15 @@ function applyMission1(game, grid) {
 
     const pHuman = game.players[0];
     if (pHuman) {
-        pHuman.gold = Math.max(pHuman.gold, 2500);
-        pHuman.missiles = Math.max(pHuman.missiles, 10);
+        pHuman.gold = Math.max(pHuman.gold, 1800);
+        pHuman.missiles = Math.max(pHuman.missiles, 12);
     }
 
-    // Hands-on start: no free Government/Factory — the player must place L1 Gov then MF on the marked hexes.
-    const hGov = findGovTile(game, 1);
-    const hMf = findMfTile(game, 1);
-    if (hGov && hMf && game.campaign) {
-        const gQ = hGov.q;
-        const gR = hGov.r;
-        const mfQ = hMf.q;
-        const mfR = hMf.r;
-        // MF first, then Government — keeps a brief influence anchor so borders don't spuriously flip mid-teardown in odd maps.
-        game.destroyStructure(hMf, null, false);
-        game.destroyStructure(hGov, null, false);
-        const steps = [
-            {
-                type: 'G',
-                level: 0,
-                q: gQ,
-                r: gR,
-                key: 1,
-                label: 'Government (Lv1)',
-                questPrimary: 'TRAINING — **1/2** · Build a **Government (Lv1)** on the **pulsing hex**.',
-                questHint: 'Press **[1]**, then click the highlighted tile (starter tier — you earn this income core back).',
-            },
-            {
-                type: 'MF',
-                level: 0,
-                q: mfQ,
-                r: mfR,
-                key: 4,
-                label: 'Missile Factory (Lv1)',
-                questPrimary: 'TRAINING — **2/2** · Build a **Missile Factory (Lv1)** on the next **pulsing** hex.',
-                questHint: 'Press **[4]**, then click the adjacent highlight — factories refill **missiles** for your launchers.',
-            },
-        ];
-        game.campaign.buildTutorial = {
-            active: true,
-            step: 0,
-            steps,
-            prematureFogReveal: true,
-            revealRadius: 7,
-        };
-        reseedM1BuildTutorial(game.campaign.buildTutorial);
-    }
-
-    // Remove AI's starter Missile Factory — we replace the forward slot with a pressure RL.
-    let mfTile = null;
-    for (const t of grid.tiles.values()) {
-        if (t.owner === enemyId && t.structure?.type === 'MF') {
-            mfTile = t;
-            break;
-        }
-    }
-    if (mfTile) {
-        game.destroyStructure(mfTile, null, true);
-    }
-
-    const rl0 = UNIT_STATS.RL.levels[0];
-    const rlRange = rl0.range || 7;
-
-    const p1Tiles = allOwnedTiles(grid, 1);
-    if (p1Tiles.length === 0) {
+    // Keep the player's full starter (Gov L3 + MF L1). Mission 1 is a clean live-fire intro:
+    // place two Rocket Launchers on the pulsing forward hexes and watch them dismantle the enemy node.
+    const humanGov = findGovTile(game, 1);
+    let enemyGov = findGovTile(game, enemyId);
+    if (!humanGov || !enemyGov) {
         game._markStructuresDirty();
         game.updateBorders();
         game.recomputeSupply();
@@ -160,33 +151,56 @@ function applyMission1(game, grid) {
         return;
     }
 
-    const candidates = [];
-    for (const t of grid.tiles.values()) {
-        if (t.owner !== enemyId || !t.buildable || t.structure) continue;
-        const inRange = p1Tiles.some(u => Hex.distance(t, u) <= rlRange);
-        if (inRange) candidates.push(t);
+    // Strip every enemy combat / production structure so the target is a defenceless L1 Government.
+    clearEnemyStructure(game, enemyId, 'MF');
+    clearEnemyStructure(game, enemyId, 'RL');
+    clearEnemyStructure(game, enemyId, 'AAS');
+    clearEnemyStructure(game, enemyId, 'B');
+    enemyGov = downgradeEnemyGovToLv1(game, enemyId) || enemyGov;
+    if (pEnemy) pEnemy.missiles = 0;
+
+    const rl0 = UNIT_STATS.RL.levels[0];
+    // Pick within the launcher's own vision (smaller of range / vision) so it sees the target instantly on placement.
+    const rlReach = Math.min(rl0.range || 7, rl0.vision || 6);
+    const slots = pickForwardRlSlots(grid, humanGov, enemyGov, 2, rlReach);
+    if (slots.length < 2 || !game.campaign) {
+        game._markStructuresDirty();
+        game.updateBorders();
+        game.recomputeSupply();
+        game.recomputeFog();
+        return;
     }
 
-    const humanGovForRl = findGovTile(game, 1);
-    let best = null;
-    let bestD = -1;
-    for (const t of candidates) {
-        const d = humanGovForRl ? Hex.distance(t, humanGovForRl) : 0;
-        if (d > bestD) {
-            bestD = d;
-            best = t;
-        }
-    }
-
-    if (best) {
-        game.buildStructure(best, 'RL', enemyId, 0, true);
-    } else {
-        for (const t of grid.tiles.values()) {
-            if (t.owner === enemyId && t.buildable && !t.structure) {
-                if (game.buildStructure(t, 'RL', enemyId, 0, true)) break;
-            }
-        }
-    }
+    const steps = [
+        {
+            type: 'RL',
+            level: 0,
+            q: slots[0].q,
+            r: slots[0].r,
+            key: 2,
+            label: 'Rocket Launcher (Lv1)',
+            questPrimary: 'TRAINING — **1/2** · Press **[2]** then click the **pulsing cyan hex** to drop a Rocket Launcher.',
+            questHint: 'Rocket Launchers spend a missile per shot. The pulsing tile is **already in range** of the enemy Government.',
+        },
+        {
+            type: 'RL',
+            level: 0,
+            q: slots[1].q,
+            r: slots[1].r,
+            key: 2,
+            label: 'Rocket Launcher (Lv1)',
+            questPrimary: 'TRAINING — **2/2** · Drop a **second Rocket Launcher** on the next pulsing hex — saturate the target.',
+            questHint: 'Two launchers fire alternately and your Missile Factory keeps them fed. Then wait — they auto-target the enemy **Government**.',
+        },
+    ];
+    game.campaign.buildTutorial = {
+        active: true,
+        step: 0,
+        steps,
+        prematureFogReveal: true,
+        revealRadius: 7,
+    };
+    reseedM1BuildTutorial(game.campaign.buildTutorial);
 
     game._markStructuresDirty();
     game.updateBorders();
@@ -201,12 +215,12 @@ function applyMission2(game, grid) {
 
     const pHuman = game.players[0];
     if (pHuman) {
-        pHuman.gold = Math.max(pHuman.gold, 2000);
-        pHuman.missiles = Math.max(pHuman.missiles, 6);
+        pHuman.gold = Math.max(pHuman.gold, 2200);
+        pHuman.missiles = Math.max(pHuman.missiles, 10);
     }
 
     const humanGov = findGovTile(game, 1);
-    const enemyGov = findGovTile(game, enemyId);
+    let enemyGov = findGovTile(game, enemyId);
     if (!humanGov || !enemyGov) {
         game._markStructuresDirty();
         game.updateBorders();
@@ -215,18 +229,20 @@ function applyMission2(game, grid) {
         return;
     }
 
-    // Pick a defensive tile next to the player's Government for the AAS step.
-    const aasNeighbors = humanGov.getNeighbors()
-        .map(h => grid.getTile(h.q, h.r))
-        .filter(t => t && t.owner === 1 && t.buildable && !t.structure);
-    aasNeighbors.sort((a, b) => Hex.distance(a, enemyGov) - Hex.distance(b, enemyGov));
-    const aasTile = aasNeighbors[0] || null;
+    // Downgrade enemy Gov to L1 so the post-tutorial counter-attack is winnable in a few volleys.
+    clearEnemyStructure(game, enemyId, 'MF');
+    enemyGov = downgradeEnemyGovToLv1(game, enemyId) || enemyGov;
 
-    // Pick a forward Barracks tile: own land, closest to enemy gov, not the AAS tile.
-    const ownTiles = allOwnedTiles(grid, 1)
-        .filter(t => t.buildable && !t.structure && t !== aasTile);
-    ownTiles.sort((a, b) => Hex.distance(a, enemyGov) - Hex.distance(b, enemyGov));
-    const barracksTile = ownTiles[0] || null;
+    // AAS tile: adjacent to player's Government, on the side facing the enemy.
+    const aasTile = humanGov.getNeighbors()
+        .map(h => grid.getTile(h.q, h.r))
+        .filter(t => t && t.owner === 1 && t.buildable && !t.structure)
+        .sort((a, b) => Hex.distance(a, enemyGov) - Hex.distance(b, enemyGov))[0] || null;
+
+    // Barracks tile: forward player land, distinct from AAS tile.
+    const barracksTile = allOwnedTiles(grid, 1)
+        .filter(t => t.buildable && !t.structure && t !== aasTile)
+        .sort((a, b) => Hex.distance(a, enemyGov) - Hex.distance(b, enemyGov))[0] || null;
 
     if (aasTile && barracksTile && game.campaign) {
         const steps = [
@@ -237,8 +253,8 @@ function applyMission2(game, grid) {
                 r: aasTile.r,
                 key: 3,
                 label: 'Anti-Air System (Lv1)',
-                questPrimary: 'TRAINING — **1/2** · Build an **Anti-Air System (Lv1)** on the **pulsing hex** next to your Government.',
-                questHint: 'Press **[3]**, then click the highlighted tile. AAS auto-intercepts incoming missiles in range.',
+                questPrimary: 'TRAINING — **1/2** · Press **[3]** then click the **pulsing hex** next to your Government to drop an AAS.',
+                questHint: 'AAS auto-intercepts incoming missiles in range. Build this first or you eat the enemy salvo.',
             },
             {
                 type: 'B',
@@ -247,8 +263,8 @@ function applyMission2(game, grid) {
                 r: barracksTile.r,
                 key: 5,
                 label: 'Barracks (Lv1)',
-                questPrimary: 'TRAINING — **2/2** · Build a **Barracks (Lv1)** on the **forward pulsing hex**.',
-                questHint: 'Press **[5]**, then click the highlight. Barracks are tanky, project influence, and anchor your push.',
+                questPrimary: 'TRAINING — **2/2** · Press **[5]** then click the **forward pulsing hex** for a Barracks.',
+                questHint: 'Barracks are tanky and push your border forward — they anchor your Rocket Launchers for the counter-attack.',
             },
         ];
         game.campaign.buildTutorial = {
@@ -261,43 +277,26 @@ function applyMission2(game, grid) {
         reseedM1BuildTutorial(game.campaign.buildTutorial);
     }
 
-    // Strip enemy starter Missile Factory — we replace it with forward pressure RLs.
-    for (const t of grid.tiles.values()) {
-        if (t.owner === enemyId && t.structure?.type === 'MF') {
-            game.destroyStructure(t, null, true);
-            break;
-        }
-    }
-
     const rl0 = UNIT_STATS.RL.levels[0];
     const rlRange = rl0.range || 7;
 
-    // Forward enemy RL #1: in range of the player's gov.
-    const cand1 = [];
+    // Two forward enemy Rocket Launchers, both in range of the player's Gov, spaced apart.
+    const cand = [];
     for (const t of grid.tiles.values()) {
         if (t.owner !== enemyId || !t.buildable || t.structure) continue;
-        if (Hex.distance(t, humanGov) <= rlRange) cand1.push(t);
+        if (Hex.distance(t, humanGov) <= rlRange) cand.push(t);
     }
-    cand1.sort((a, b) => Hex.distance(a, humanGov) - Hex.distance(b, humanGov));
-    const rl1 = cand1[0] || null;
-    if (rl1) game.buildStructure(rl1, 'RL', enemyId, 0, true);
-
-    // Forward enemy RL #2: also in range, but a different tile, biased away from the first RL.
-    const cand2 = [];
-    for (const t of grid.tiles.values()) {
-        if (t.owner !== enemyId || !t.buildable || t.structure) continue;
-        if (Hex.distance(t, humanGov) <= rlRange) cand2.push(t);
+    cand.sort((a, b) => Hex.distance(a, humanGov) - Hex.distance(b, humanGov));
+    const placed = [];
+    for (const t of cand) {
+        if (placed.length >= 2) break;
+        if (placed.some(p => Hex.distance(p, t) < 2)) continue;
+        if (game.buildStructure(t, 'RL', enemyId, 0, true)) placed.push(t);
     }
-    cand2.sort((a, b) => {
-        const da = Hex.distance(a, humanGov) - (rl1 ? Math.min(Hex.distance(a, rl1), 3) : 0);
-        const db = Hex.distance(b, humanGov) - (rl1 ? Math.min(Hex.distance(b, rl1), 3) : 0);
-        return da - db;
-    });
-    const rl2 = cand2[0] || null;
-    if (rl2) game.buildStructure(rl2, 'RL', enemyId, 0, true);
 
-    // Give the AI a small missile reserve so its RLs actually fire during the puzzle.
-    if (pEnemy) pEnemy.missiles = Math.max(pEnemy.missiles, 8);
+    // Give the AI a bounded missile reserve so its RLs fire during the puzzle but eventually starve
+    // (player can outlast the salvo and counter-attack).
+    if (pEnemy) pEnemy.missiles = 8;
 
     game._markStructuresDirty();
     game.updateBorders();
