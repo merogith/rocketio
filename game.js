@@ -1,7 +1,7 @@
-import { UNIT_STATS, COLORS, GAME_CONFIG, DIFFICULTY, DIPLOMACY, govGoldForDistance } from './constants.js?v=balance2026';
-import { getPlayerMods, getSpecialUnitLabelForPlayer } from './factions.js?v=balance2026';
-import { Hex } from './hexGrid.js?v=balance2026';
-import { SFX } from './sfx.js?v=balance2026';
+import { UNIT_STATS, COLORS, GAME_CONFIG, DIFFICULTY, DIPLOMACY, govGoldForDistance } from './constants.js?v=naval2027';
+import { getPlayerMods, getSpecialUnitLabelForPlayer } from './factions.js?v=naval2027';
+import { Hex } from './hexGrid.js?v=naval2027';
+import { SFX } from './sfx.js?v=naval2027';
 
 function relKey(a, b) {
     const x = Math.min(a, b), y = Math.max(a, b);
@@ -25,6 +25,7 @@ function isInfluencer(structure) {
     if (!structure) return false;
     if (structure.type === 'G') return true;
     if (structure.type === 'B') return true;
+    if (structure.type === 'PT') return true;
     // M3 Militia HQ acts as a mini-influencer (has radius & influence stats)
     if (structure.type === 'M' && structure.stats?.radius) return true;
     return false;
@@ -98,6 +99,8 @@ export class Game {
         this._l3BarracksTiles.length = 0;
         this._l3GovTiles.length = 0;
         this._d3JamTiles.length = 0;
+        if (!this._l3PortTiles) this._l3PortTiles = [];
+        this._l3PortTiles.length = 0;
         this._govCount = new Array(this.players.length).fill(0);
         for (const tile of this.grid.tiles.values()) {
             if (!tile.structure) continue;
@@ -107,6 +110,7 @@ export class Game {
             if (tile.structure.type === 'G' && tile.structure.level === 2 && tile.owner) this._l3GovTiles.push(tile);
             if (tile.structure.type === 'D' && tile.structure.level === 2 && tile.structure.stats?.jamming) this._d3JamTiles.push(tile);
             if (tile.structure.type === 'SU' && tile.structure.level === 2 && tile.structure.stats?.signatureJam) this._d3JamTiles.push(tile);
+            if (tile.structure.type === 'PT' && tile.structure.level === 2 && tile.structure.stats?.navyAura) this._l3PortTiles.push(tile);
             if (tile.structure.type === 'G' && tile.owner) {
                 this._govTiles.push(tile);
                 this._govCount[tile.owner - 1] = (this._govCount[tile.owner - 1] || 0) + 1;
@@ -149,6 +153,26 @@ export class Game {
         return !!(tile && !tile.buildable);
     }
 
+    /** Coastal land — buildable tile with at least one neighboring water tile. Ports build only on these. */
+    isCoastalLand(tile) {
+        if (!tile || !tile.buildable) return false;
+        const h = new Hex(tile.q, tile.r);
+        for (const n of h.getNeighbors()) {
+            const nt = this.grid.getTile(n.q, n.r);
+            if (nt && !nt.buildable) return true;
+        }
+        return false;
+    }
+
+    /** Place restriction for a Port: coastal land you own (or claim during build) and not contested. */
+    canBuildPortOn(tile, ownerId) {
+        if (!tile || !ownerId) return false;
+        if (!this.isCoastalLand(tile)) return false;
+        if (tile.contested) return false;
+        if (tile.structure) return false;
+        return tile.owner === ownerId;
+    }
+
     /**
      * Future navy: place on owned water only (influence-claimed), not contested.
      * When you add a sea unit, call `registerNavyBuildType('N')` from game.js and use that type in build.
@@ -179,11 +203,61 @@ export class Game {
         return out;
     }
 
-    /** $/s the tile owner would earn from Gov/M3 overlap (includes AI income mult + G3 aura if applicable). */
+    /** Port income sources — Ports project trade gold onto owned shore + open-sea tiles in radius. */
+    _buildPortGoldSources() {
+        const out = [];
+        for (const tile of this.grid.tiles.values()) {
+            if (!tile.owner || tile.contested) continue;
+            const s = tile.structure;
+            if (!s || s.type !== 'PT') continue;
+            const rate = s.stats?.seaGoldPerTile || 0;
+            if (rate <= 0) continue;
+            const r = s._lockedRadius ?? s.stats.radius ?? 0;
+            out.push({ tile, owner: tile.owner, radius: r, rate });
+        }
+        return out;
+    }
+
+    /** Extra $/s a sea (shore or deep) tile earns from overlapping friendly Ports. Diminishing across Ports. */
+    _stackedPortSeaIncome(tile, portSources) {
+        if (!tile || !tile.owner || tile.contested) return 0;
+        if (tile.buildable) return 0; // Ports only boost water tiles
+        const effs = [];
+        for (const p of portSources) {
+            if (p.owner !== tile.owner) continue;
+            if (Hex.distance(tile, p.tile) > p.radius) continue;
+            effs.push(p.rate);
+        }
+        if (effs.length === 0) return 0;
+        effs.sort((a, b) => b - a);
+        let bonus = 0;
+        for (let i = 0; i < effs.length; i++) bonus += effs[i] / (2 ** i);
+        const isAi = tile.owner !== this.humanId;
+        const diffMult = isAi ? (this._difficulty || DIFFICULTY.normal).goldMult : 1;
+        const gm = this.getPlayerModsForOwner(tile.owner).goldMult;
+        return bonus * diffMult * gm;
+    }
+
+    /** $/s the tile owner would earn from Gov/M3/Port overlap (includes AI income mult). */
     previewGoldPerSecOnTile(tile) {
-        if (!this._incomeTileEligible(tile) || tile.contested) return 0;
-        if (!tile.owner) return 0;
-        return this._stackedTileGovIncome(tile, this._buildGovGoldSources());
+        if (!tile || !tile.owner || tile.contested) return 0;
+        if (this._incomeTileEligible(tile)) {
+            // Land or shore-water — Gov/M3 income (Ports also boost shore here).
+            const govGold = this._stackedTileGovIncome(tile, this._buildGovGoldSources());
+            const portGold = this._stackedPortSeaIncome(tile, this._buildPortGoldSources());
+            return govGold + portGold;
+        }
+        if (this._deepSeaTile(tile)) {
+            // Open sea — flat sea-trade base + port boost.
+            const base = GAME_CONFIG.SEA_TRADE_GOLD_PER_TILE_TICK;
+            const isAi = tile.owner !== this.humanId;
+            const diffMult = isAi ? (this._difficulty || DIFFICULTY.normal).goldMult : 1;
+            const gm = this.getPlayerModsForOwner(tile.owner).goldMult;
+            const baseGold = base * diffMult * gm;
+            const portGold = this._stackedPortSeaIncome(tile, this._buildPortGoldSources());
+            return baseGold + portGold;
+        }
+        return 0;
     }
 
     _stackedTileGovIncome(tile, sources) {
@@ -209,6 +283,20 @@ export class Game {
         }
         const gm = this.getPlayerModsForOwner(tile.owner).goldMult;
         return bonus * gm;
+    }
+
+    /** Navy structure tile within a friendly Lv3 Port radius (non-stacking — used for navy damage/fire-rate buff). */
+    _inFriendlyL3PortAura(tile, ownerId) {
+        if (!tile || !ownerId) return false;
+        this._ensureIndex();
+        const ports = this._l3PortTiles || [];
+        for (const pTile of ports) {
+            if (pTile.owner !== ownerId) continue;
+            const s = pTile.structure;
+            const r = s._lockedRadius ?? s.stats.radius ?? 0;
+            if (Hex.distance(tile, pTile) <= r) return true;
+        }
+        return false;
     }
 
     /** Owned land tile earning gov gold: within a friendly Lv3 Government radius (non-stacking mult in tick). */
@@ -458,6 +546,7 @@ export class Game {
         const goldRates = new Array(this.players.length).fill(0);
 
         const govSources = this._buildGovGoldSources();
+        const portSources = this._buildPortGoldSources();
 
         for (const tile of this.grid.tiles.values()) {
             if (tile.contested) continue;
@@ -465,7 +554,9 @@ export class Game {
             const oi = tile.owner - 1;
             if (this._incomeTileEligible(tile)) {
                 counts[oi]++;
-                const bonus = this._stackedTileGovIncome(tile, govSources);
+                let bonus = this._stackedTileGovIncome(tile, govSources);
+                // Port also pays on owned shore-water tiles (not on pure-land tiles).
+                if (!tile.buildable) bonus += this._stackedPortSeaIncome(tile, portSources);
                 if (bonus > 0) {
                     this.players[oi].gold += bonus;
                     this.players[oi].stats.goldEarned += bonus;
@@ -473,12 +564,16 @@ export class Game {
                 }
             } else if (this._deepSeaTile(tile)) {
                 seaCounts[oi]++;
+                let income = 0;
                 const stRate = GAME_CONFIG.SEA_TRADE_GOLD_PER_TILE_TICK;
                 if (stRate > 0) {
                     const isAi = tile.owner !== this.humanId;
                     const diffMult = isAi ? (this._difficulty || DIFFICULTY.normal).goldMult : 1;
                     const gm = this.getPlayerModsForOwner(tile.owner).goldMult;
-                    const income = stRate * gm * diffMult;
+                    income += stRate * gm * diffMult;
+                }
+                income += this._stackedPortSeaIncome(tile, portSources);
+                if (income > 0) {
                     this.players[oi].gold += income;
                     this.players[oi].stats.goldEarned += income;
                     goldRates[oi] += income;
@@ -778,6 +873,11 @@ export class Game {
         const jamM = this._enemyJamRechargeMult(tile);
         if (jamM > 1) mul *= jamM;
         mul *= this.getPlayerModsForOwner(tile.owner).effMult ?? 1;
+        // L3 Port: friendly navy in radius fires faster (lower mult = faster).
+        const t = tile.structure?.type;
+        if ((t === 'DDG' || t === 'AF' || t === 'SSG') && this._inFriendlyL3PortAura(tile, tile.owner)) {
+            mul *= GAME_CONFIG.PORT_L3_NAVY_INTERVAL_MULT;
+        }
         return mul;
     }
 
@@ -1012,6 +1112,8 @@ export class Game {
             score = 100_000;
         } else if (t === 'G') {
             score = 500_000;
+        } else if (t === 'PT') {
+            score = 350_000;
         } else if (t === 'RL' || t === 'AB' || t === 'D' || t === 'SU' || t === 'B' || (t === 'M' && st?.damage) || t === 'DDG' || t === 'SSG') {
             score = 2_000_000 + dps * 1000;
         } else {
@@ -1387,10 +1489,17 @@ export class Game {
         if (!target) return false;
         if (p.missiles < stats.missilesPerShot) return false;
         let dmg = stats.damage;
+        // DDG is an anti-ship platform — base bonus damage vs enemy navy.
+        if (this._enemyNavyOnSeaForOwner(target, tile.owner)) {
+            dmg *= GAME_CONFIG.DDG_ANTISHIP_DMG_MULT;
+        }
         if (s.type === 'DDG' && tile.structure.level === 2 && stats.cec
             && this._enemyNavyOnSeaForOwner(target, tile.owner)
             && this._otherFriendlyNavyInRangeExcl(tile, 3, tile.owner) > 0) {
             dmg *= GAME_CONFIG.DDG3_CEC_DMG_MULT;
+        }
+        if (this._inFriendlyL3PortAura(tile, tile.owner)) {
+            dmg *= GAME_CONFIG.PORT_L3_NAVY_DAMAGE_MULT;
         }
         p.missiles -= stats.missilesPerShot;
         s.lastFiredAt = this.gameTime;
@@ -1427,6 +1536,9 @@ export class Game {
             && this._enemyNavyOnSeaForOwner(target, tile.owner)
             && this._otherFriendlyNavyInRangeExcl(tile, 1, tile.owner) > 0) {
             dmg *= GAME_CONFIG.SSG3_BASTION_DMG_MULT;
+        }
+        if (this._inFriendlyL3PortAura(tile, tile.owner)) {
+            dmg *= GAME_CONFIG.PORT_L3_NAVY_DAMAGE_MULT;
         }
         p.missiles -= stats.missilesPerShot;
         s.lastFiredAt = this.gameTime;
@@ -1797,6 +1909,8 @@ export class Game {
             if (!NAVY_BUILD_TYPES.has(type)) return false;
             if (!this.canBuildNavyOn(tile, ownerId)) return false;
         }
+        // Port: only on coastal land (buildable land with a water neighbor).
+        if (type === 'PT' && !this.isCoastalLand(tile)) return false;
 
         const def = UNIT_STATS[type];
         const stats = Array.isArray(def?.levels) ? def.levels[levelIdx] : def;
@@ -2019,7 +2133,9 @@ export class Game {
                 tile,
                 owner: tile.owner,
                 influence: stats.influence || 0,
-                radius: effectiveRadius
+                radius: effectiveRadius,
+                /** Port projects only on water — keeps Ports as a clean "sea control" tool, not a back-door land claim. */
+                seaOnly: tile.structure.type === 'PT',
             });
         }
 
@@ -2030,7 +2146,9 @@ export class Game {
 
             let best = null, bestScore = 0, secondScore = 0;
             const scoresByPlayer = {};
+            const tileIsWater = !tile.buildable;
             for (const src of sources) {
+                if (src.seaOnly && !tileIsWater) continue;
                 const d = Hex.distance(tile, src.tile);
                 if (d > src.radius) continue;
                 const falloff = Math.max(0, 1 - d / (src.radius + 1));

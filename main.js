@@ -1,16 +1,16 @@
-import { Hex, HexGrid, Camera } from './hexGrid.js?v=balance2026';
-import { Game } from './game.js?v=balance2026';
-import { Renderer } from './renderer.js?v=balance2026';
-import { UNIT_STATS, GAME_CONFIG, getEffectiveMapRadius, VICTORY_MODES, COLORS, DIPLOMACY, govGoldBandLinesHtml } from './constants.js?v=balance2026';
-import { TUTORIAL_PAGES } from './tutorial.js?v=balance2026';
-import { getMissionById, CAMPAIGN_MISSIONS } from './campaignData.js?v=balance2026';
-import { loadCampaignProgress, canStartMission, markMissionBeaten } from './campaignProgress.js?v=balance2026';
-import { applyCampaignScenario, m1BuildTutorialCheckPlace, m1OnBuildPlaced } from './campaignScenarios.js?v=balance2026';
-import { Input } from './input.js?v=balance2026';
-import { updateAI } from './ai.js?v=balance2026';
-import { SFX } from './sfx.js?v=balance2026';
-import { FACTIONS, getFaction, describeModsList, getPlayerMods } from './factions.js?v=balance2026';
-import { FACTION_BANNERS, PLACEHOLDER_LEADER_PORTRAIT, getSpecialUnitBlurb, getLeaderPerkText } from './factionsDisplay.js?v=balance2026';
+import { Hex, HexGrid, Camera } from './hexGrid.js?v=naval2027';
+import { Game } from './game.js?v=naval2027';
+import { Renderer } from './renderer.js?v=naval2027';
+import { UNIT_STATS, GAME_CONFIG, getEffectiveMapRadius, VICTORY_MODES, COLORS, DIPLOMACY, govGoldBandLinesHtml } from './constants.js?v=naval2027';
+import { TUTORIAL_PAGES } from './tutorial.js?v=naval2027';
+import { getMissionById, CAMPAIGN_MISSIONS } from './campaignData.js?v=naval2027';
+import { loadCampaignProgress, canStartMission, markMissionBeaten } from './campaignProgress.js?v=naval2027';
+import { applyCampaignScenario, m1BuildTutorialCheckPlace, m1OnBuildPlaced } from './campaignScenarios.js?v=naval2027';
+import { Input } from './input.js?v=naval2027';
+import { updateAI } from './ai.js?v=naval2027';
+import { SFX } from './sfx.js?v=naval2027';
+import { FACTIONS, getFaction, describeModsList, getPlayerMods } from './factions.js?v=naval2027';
+import { FACTION_BANNERS, PLACEHOLDER_LEADER_PORTRAIT, getSpecialUnitBlurb, getLeaderPerkText } from './factionsDisplay.js?v=naval2027';
 
 // ============================================================================
 //  DOM
@@ -781,17 +781,34 @@ canvas.addEventListener('mousedown', (e) => {
                             const nDef = UNIT_STATS[selectedBuildType];
                             const nCost = nDef?.levels?.[0]?.cost ?? 0;
                             if (tile.buildable) {
-                                showNoti("Navy: not on land — only on your owned, uncontested water (claim with Government or M3 influence)", "error");
+                                showNoti("Navy: not on land — only on your owned, uncontested water (claim with Government, M3, or Port influence)", "error");
                             } else if (tile.contested) {
                                 showNoti("Navy: that water is contested", "error");
                             } else if (tile.owner !== 1) {
-                                showNoti("Navy: need water you control (yours, uncontested). Push Government or M3 influence over that sea", "error");
+                                showNoti("Navy: need water you control. Build a Port on the coast or push Government/M3 influence over it", "error");
                             } else if (tile.structure) {
                                 showNoti("That hex already has a structure", "error");
                             } else if (game.players[0].gold < nCost) {
                                 showNoti("Insufficient gold", "error");
                             } else {
                                 showNoti("Cannot place navy here", "error");
+                            }
+                        } else if (selectedBuildType === 'PT') {
+                            const ptCost = UNIT_STATS.PT?.levels?.[0]?.cost ?? 0;
+                            if (!tile.buildable) {
+                                showNoti("Port: must build on coastal land (next to water)", "error");
+                            } else if (!game.isCoastalLand(tile)) {
+                                showNoti("Port: not coastal — pick land that touches the sea", "error");
+                            } else if (tile.contested) {
+                                showNoti("Port: tile is contested", "error");
+                            } else if (tile.structure) {
+                                showNoti("That hex already has a structure", "error");
+                            } else if (tile.owner !== 1) {
+                                showNoti("Port: must build on your own coastal land", "error");
+                            } else if (game.players[0].gold < ptCost) {
+                                showNoti("Insufficient gold", "error");
+                            } else {
+                                showNoti("Cannot place port here", "error");
                             }
                         } else if (!tile.buildable) {
                             showNoti("Can't build on water", "error");
@@ -1148,7 +1165,7 @@ function handleInput() {
     if (Input.consumePress('settings')) openSettings();
 
     // Build hotkeys
-    const buildTypes = ['G', 'RL', 'AAS', 'MF', 'B', 'M', 'D', 'SU', 'AB', 'DDG', 'AF', 'SSG'];
+    const buildTypes = ['G', 'RL', 'AAS', 'MF', 'B', 'M', 'D', 'SU', 'AB', 'PT', 'DDG', 'AF', 'SSG'];
     buildTypes.forEach((type, i) => {
         if (Input.consumePress(`build_${type}`)) {
             if (game.campaign?.buildTutorial?.active) {
@@ -1325,7 +1342,9 @@ buildBtns.forEach(btn => {
         const costStr = `$${lvl.cost}`;
         const hint = type === 'M'
             ? 'PLACE on a VISIBLE tile you own or neutral land'
-            : (NAVY_BUILD_TYPES_UI.has(type) ? 'PLACE on your owned, uncontested water' : 'PLACE on your own territory (land)');
+            : (NAVY_BUILD_TYPES_UI.has(type) ? 'PLACE on your owned, uncontested water'
+            : (type === 'PT' ? 'PLACE on your coastal land (touching water)'
+            : 'PLACE on your own territory (land)'));
         buildModeBanner.innerHTML = `<b>${label}</b> — ${costStr} <span class="dim">· ${hint} · ESC to cancel</span>`;
         buildModeBanner.classList.remove('hidden');
     });
@@ -1377,6 +1396,8 @@ function structureL3PerkHtml(type, levelIdx) {
             return `<p class="info-perk"><b>Lv3 — Illumination BMD</b> · +${GAME_CONFIG.AF3_NAVY_ORIGIN_RANGE} intercept range vs shots fired from <b>enemy naval</b> tiles. Intercepts briefly <b>spot</b> the shooter for your DDG/SSG.</p>`;
         case 'SSG':
             return `<p class="info-perk"><b>Lv3 — SAG</b> · +${Math.round((GAME_CONFIG.SSG3_BASTION_DMG_MULT - 1) * 100)}% cruise damage vs <b>enemy ships</b> with another friendly <b>navy</b> in an adjacent hex.</p>`;
+        case 'PT':
+            return `<p class="info-perk"><b>Lv3 — Fleet Command</b> · Friendly navy in influence: +${Math.round((GAME_CONFIG.PORT_L3_NAVY_DAMAGE_MULT - 1) * 100)}% damage, −${Math.round((1 - GAME_CONFIG.PORT_L3_NAVY_INTERVAL_MULT) * 100)}% fire interval (non-stacking).</p>`;
         default:
             return '';
     }
@@ -1390,6 +1411,7 @@ function summarizeLevelForTooltip(type, lv) {
     if (lv.radius != null && type === 'B') parts.push(`cmd ${lv.radius}`);
     if (lv.radius != null && type === 'G') parts.push(`inf rng ${lv.radius}`);
     if (lv.radius != null && type === 'M') parts.push(`inf rng ${lv.radius}`);
+    if (lv.radius != null && type === 'PT') parts.push(`sea rng ${lv.radius}`);
     if (lv.damage != null) parts.push(`dmg ${lv.damage}`);
     if (lv.interval != null) parts.push(`${(lv.interval / 1000).toFixed(1)}s`);
     if (lv.rechargeInterval != null) {
@@ -1400,8 +1422,10 @@ function summarizeLevelForTooltip(type, lv) {
     if (lv.produceInterval != null && lv.missilesProduced != null) {
         parts.push(`${(lv.produceInterval / 1000).toFixed(1)}s +${lv.missilesProduced} msl`);
     }
-    if (lv.influence != null && (type === 'G' || type === 'B')) parts.push(`inf ${lv.influence}`);
+    if (lv.influence != null && (type === 'G' || type === 'B' || type === 'PT')) parts.push(`inf ${lv.influence}`);
     if (lv.goldPerTile != null) parts.push(type === 'G' ? 'gold: banded rings' : `+${lv.goldPerTile}/tile`);
+    if (lv.seaGoldPerTile != null) parts.push(`+${lv.seaGoldPerTile}/sea-tile`);
+    if (lv.navyAura) parts.push('navy aura');
     if (lv.chargeCap) parts.push(`cap ${lv.chargeCap}`);
     if (lv.missilesPerShot != null && lv.missilesPerShot > 1) parts.push(`×${lv.missilesPerShot} msl`);
     if (lv.projectiles != null && lv.projectiles > 1) parts.push(`×${lv.projectiles} proj`);
@@ -1672,12 +1696,16 @@ function selectTile(tile) {
         statRows.push(infoStatRow('Missiles / shot', String(stats.missilesPerShot)));
     }
     if (stats.projectiles > 1) statRows.push(infoStatRow('Projectiles / volley', String(stats.projectiles)));
-    if (effectiveRadius != null && (stype === 'G' || stype === 'B' || (stype === 'M' && stats.radius))) {
+    if (effectiveRadius != null && (stype === 'G' || stype === 'B' || stype === 'PT' || (stype === 'M' && stats.radius))) {
         const rv = String(effectiveRadius);
-        const label = stype === 'G' ? 'Inf. range' : stype === 'M' ? 'Inf. radius' : 'Cmd radius';
+        const label = stype === 'G' ? 'Inf. range'
+            : stype === 'PT' ? 'Sea inf. range'
+            : stype === 'M' ? 'Inf. radius'
+            : 'Cmd radius';
         statRows.push(infoStatRow(label, rv));
     }
     if (stats.influence) statRows.push(infoStatRow('Influence', String(stats.influence)));
+    if (stats.seaGoldPerTile) statRows.push(infoStatRow('Gold / sea-tile', `+$${stats.seaGoldPerTile}/s`));
     if (stats.vision) statRows.push(infoStatRow('Vision', String(stats.vision)));
     if (stats.interval) statRows.push(infoStatRow('Fire interval', `${(stats.interval / 1000).toFixed(1)}s`));
     else if (stats.rechargeInterval) {

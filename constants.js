@@ -80,6 +80,8 @@ export const GAME_CONFIG = {
         MF: 85,
         AB: 45,
         RL: 40,
+        /** Port — economy + sea influence, juicy mid-priority target on shore. */
+        PT: 70,
         /** Navy — for tie-break; fleet combat uses targeting logic in game.js */
         SSG: 25,
         DDG: 24,
@@ -173,22 +175,31 @@ export const GAME_CONFIG = {
     MF_GLOBAL_PRODUCTION_MULT: 1.0,
     /** Non–MF3 factory adjacent (hex 1) to a friendly MF3: production × this; MF3 does not buff itself. Non-stack. */
     MF_L3_NEIGHBOR_PRODUCTION_MULT: 1.3,
-    // --- Navy (slightly undertuned) ---
+    // --- Navy ---
     /** In missileTargetPriority: DDG/SSG add this when target is an enemy **naval** (sea) unit. */
     NAVY_FIRST_TARGET_BONUS: 310_000,
     /** In missileTargetPriority: land-based RL/AB with missile-smart de-prioritize “deep” enemy navy. */
     NAVY_LAND_DEPRIOR_PENALTY: 620_000,
     /** If enemy navy is within this (hex) of your **buildable** land, no deprioritization. */
     NAVY_COASTAL_LAND_EXCEPT_HEX: 2,
-    /** DDG3: with another friendly **navy** (DDG/AF/SSG) in 3 hexes, +damage vs **enemy** ships only. */
-    DDG3_CEC_DMG_MULT: 1.04,
+    /** All Destroyers: base damage multiplier vs enemy naval targets — gives DDG a clear "anti-ship" identity. */
+    DDG_ANTISHIP_DMG_MULT: 1.25,
+    /** DDG3: with another friendly **navy** (DDG/AF/SSG) in 3 hexes, additional damage vs **enemy** ships only. */
+    DDG3_CEC_DMG_MULT: 1.20,
     /** SSG3: with another friendly navy adjacent (1 hex), +damage vs enemy **naval** only. */
-    SSG3_BASTION_DMG_MULT: 1.05,
+    SSG3_BASTION_DMG_MULT: 1.25,
     /** AF3: +intercept range (hex) vs interceptable shots **from** enemy **naval** structure tiles. */
-    AF3_NAVY_ORIGIN_RANGE: 1,
+    AF3_NAVY_ORIGIN_RANGE: 2,
     /** On intercept: mark shooter tile; navy strikers prefer that hex briefly. */
-    NAVY_ILLUM_MS: 3_200,
+    NAVY_ILLUM_MS: 4_000,
     NAVY_ILLUM_TIE_BONUS: 8,
+    // --- Port ---
+    /** Owned shore-water + open-sea tiles within a friendly Port's radius earn this $/s per Port level slot (see UNIT_STATS.PT). Stacks like Gov gold (highest first, then halving). */
+    PORT_GOLD_DIMINISH: true,
+    /** L3 Port: friendly navy structures within radius get this damage multiplier (non-stacking across L3 Ports). */
+    PORT_L3_NAVY_DAMAGE_MULT: 1.10,
+    /** L3 Port: friendly navy structures within radius get this interval multiplier (lower = faster fire; non-stacking). */
+    PORT_L3_NAVY_INTERVAL_MULT: 0.92,
     /** Max militia with one Government; +MILITIA_PER_EXTRA_GOV for each additional Gov. */
     MILITIA_BASE_CAP: 5,
     MILITIA_PER_EXTRA_GOV: 2,
@@ -397,6 +408,19 @@ export const UNIT_STATS = {
             { id: "SSG2", hp: 350, range: 6,  damage: 178, cost: 900,  interval: 12_200, missilesPerShot: 2, projectiles: 1, interceptable: true,  projectileSpeed: 4.2, vision: 7 },
             { id: "SSG3", hp: 900, range: 7,  damage: 430, cost: 1_580, interval: 10_200, missilesPerShot: 2, projectiles: 1, interceptable: true,  projectileSpeed: 4.6, vision: 9, bastion: true }
         ]
+    },
+    /**
+     * Port — coastal land structure. Projects influence (claims water), earns trade gold from owned
+     * shore + open-sea tiles in radius, supplies friendly navy. L3 buffs friendly navy in range.
+     * Build on land adjacent to water (shore-land only).
+     */
+    PT: {
+        name: "Port",
+        levels: [
+            { id: "PT1", hp: 220,  radius: 4, cost: 600,  influence: 1100, vision: 6,  seaGoldPerTile: 0.18 },
+            { id: "PT2", hp: 580,  radius: 6, cost: 1050, influence: 1700, vision: 9,  seaGoldPerTile: 0.28 },
+            { id: "PT3", hp: 1450, radius: 8, cost: 1600, influence: 2400, vision: 12, seaGoldPerTile: 0.38, navyAura: true }
+        ]
     }
 };
 
@@ -457,6 +481,7 @@ export const DEFAULT_KEYBINDS = {
     build_DDG:  'F7',
     build_AF:   'F8',
     build_SSG:  'F9',
+    build_PT:   'F6',
     upgrade:    'Space',
     cancel:     'Escape',
     pan_up:     'KeyW',

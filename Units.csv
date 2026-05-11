@@ -23,6 +23,18 @@ Air Base,AB3,3,1250,13,-,600,1400 (upg 1078),8.8s,-,13,Yes,"Closest→Lowest HP�
 Barracks,B1,1,250,4,3,45,425,7.2s,1450,8,No,"Closest→Lowest HP→Random",Own tiles,"Ground troops. Atk range 4. Supply hub. 1450 influence inf. range 3."
 Barracks,B2,2,680,5,4,68,900 (upg 693),5.2s,1850,10,No,"Closest→Lowest HP→Random",Own tiles,"Motorized. Atk range 5. 1850 influence inf. range 4."
 Barracks,B3,3,1780,6,5,100,1700 (upg 1309),3.4s,2400,12,No,"Closest→Lowest HP→Random",Own tiles,"Mechanized. Atk range 6. 2400 influence inf. range 5. Command aura: +10% dmg / -10% dmg taken in radius."
+Destroyer,DDG1,1,92,6,-,45,270,11.2s,-,5,Yes,"Closest→Lowest HP→Random","Owned water","Anti-ship missile boat. +25% dmg vs enemy ships."
+Destroyer,DDG2,2,200,7,-,65,380 (upg 293),7.9s,-,7,Yes,"Closest→Lowest HP→Random","Owned water","Extended range, anti-ship bonus carries."
+Destroyer,DDG3,3,338,8,-,84,480 (upg 370),5.9s,-,8,Yes,"Closest→Lowest HP→Random","Owned water","CEC: with another friendly navy in 3 hex, +20% extra vs enemy ships."
+Aegis,AF1,1,86,3,-,-,250,11.6s (recharge x1),-,4,-,Auto-intercept (sea AA),"Owned water","Sea SAM. Cap 3. Intercepts rockets/airstrikes/drones."
+Aegis,AF2,2,198,4,-,-,355 (upg 273),8.2s (recharge x1),-,5,-,Auto-intercept (sea AA),"Owned water","Extended range. Cap 4."
+Aegis,AF3,3,345,5,-,-,455 (upg 350),6.0s (recharge x2),-,6,-,Auto-intercept (sea AA),"Owned water","Illumination BMD: +2 intercept range vs naval shots; intercepts spot enemy navy for friendly DDG/SSG."
+Cruise Sub,SSG1,1,128,5,-,108,430,17.5s,-,5,Yes,"Closest→Lowest HP→Random","Owned water","Heavy cruise. Slow projectile, big alpha."
+Cruise Sub,SSG2,2,350,6,-,178,900 (upg 693),12.2s,-,7,Yes,"Closest→Lowest HP→Random","Owned water","Salvo of 2 cruise missiles."
+Cruise Sub,SSG3,3,900,7,-,430,1580 (upg 1217),10.2s,-,9,Yes,"Closest→Lowest HP→Random","Owned water","SAG: +25% dmg vs enemy ships with another friendly navy adjacent."
+Port,PT1,1,220,-,4,-,600,-,1100,6,-,Sea influence + trade,"Coastal land","Mini-Gov for the sea. +$0.18/s per owned shore/sea tile in range."
+Port,PT2,2,580,-,6,-,1050 (upg 808),-,1700,9,-,Sea influence + trade,"Coastal land","Expanded sea control. +$0.28/s per owned shore/sea tile in range."
+Port,PT3,3,1450,-,8,-,1600 (upg 1232),-,2400,12,-,Sea influence + trade,"Coastal land","Fleet Command. +$0.38/s per owned shore/sea tile. Friendly navy in range: +10% dmg, −8% fire interval."
 ---,,,,,,,,,,,,,,
 MECHANIC,,,,,,,,,,,,,,
 Damage Efficiency,,,,,,,,,,,,,,,"HP 100%: 1.00x. HP 50-99%: 0.80x. HP <50%: 0.50x."
