@@ -2205,6 +2205,11 @@ export class Game {
         const mode = this.victoryConfig.mode;
         this._ensureIndex();
 
+        // Campaign safety: while a build-tutorial is active the human is mid-setup, possibly
+        // between a forced teardown and the rebuild click. Don't let any victory condition fire
+        // during that window — it can hand the enemy an instant regime-change win.
+        if (this.campaign?.buildTutorial?.active) return;
+
         for (const p of this.players) {
             if (this.defeated.has(p.id)) continue;
             const hasGov = (this._govCount[p.id - 1] || 0) > 0;
