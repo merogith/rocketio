@@ -1,4 +1,4 @@
-import { DEFAULT_KEYBINDS, DEFAULT_SETTINGS } from './constants.js?v=naval2027';
+import { DEFAULT_KEYBINDS, DEFAULT_SETTINGS } from './constants.js?v=campaign2';
 
 const keybinds = {};
 const settings = {};

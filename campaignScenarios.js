@@ -2,8 +2,8 @@
 //  Hand-tuned map changes after base Game.start (mission-specific)
 // ============================================================================
 
-import { Hex } from './hexGrid.js?v=naval2027';
-import { UNIT_STATS } from './constants.js?v=naval2027';
+import { Hex } from './hexGrid.js?v=campaign2';
+import { UNIT_STATS } from './constants.js?v=campaign2';
 
 function findGovTile(game, ownerId) {
     for (const t of game.grid.tiles.values()) {
@@ -113,8 +113,26 @@ function downgradeEnemyGovToLv1(game, enemyId) {
     const enemyGov = findGovTile(game, enemyId);
     if (!enemyGov) return null;
     const tile = enemyGov;
+    // If it's already L1, leave it alone.
+    if (tile.structure?.level === 0) return tile;
     game.destroyStructure(tile, null, true);
-    game.buildStructure(tile, 'G', enemyId, 0, true);
+    // After destroy, the tile reverts to no owner; force ownership back so the rebuild is legal.
+    tile.owner = enemyId;
+    tile.contested = false;
+    const ok = game.buildStructure(tile, 'G', enemyId, 0, true);
+    if (!ok) {
+        // Last-ditch: build directly (bypasses owner check) — keeps a Government on the field.
+        tile.structure = {
+            type: 'G',
+            level: 0,
+            stats: UNIT_STATS.G.levels[0],
+            hp: UNIT_STATS.G.levels[0].hp,
+            lastAction: 0,
+            lastFiredAt: 0,
+        };
+        tile.hp = UNIT_STATS.G.levels[0].hp;
+        game._markStructuresDirty();
+    }
     return tile;
 }
 

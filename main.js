@@ -1,16 +1,16 @@
-import { Hex, HexGrid, Camera } from './hexGrid.js?v=naval2027';
-import { Game } from './game.js?v=naval2027';
-import { Renderer } from './renderer.js?v=naval2027';
-import { UNIT_STATS, GAME_CONFIG, getEffectiveMapRadius, VICTORY_MODES, COLORS, DIPLOMACY, govGoldBandLinesHtml } from './constants.js?v=naval2027';
-import { TUTORIAL_PAGES } from './tutorial.js?v=naval2027';
-import { getMissionById, CAMPAIGN_MISSIONS } from './campaignData.js?v=naval2027';
-import { loadCampaignProgress, canStartMission, markMissionBeaten } from './campaignProgress.js?v=naval2027';
-import { applyCampaignScenario, m1BuildTutorialCheckPlace, m1OnBuildPlaced } from './campaignScenarios.js?v=naval2027';
-import { Input } from './input.js?v=naval2027';
-import { updateAI } from './ai.js?v=naval2027';
-import { SFX } from './sfx.js?v=naval2027';
-import { FACTIONS, getFaction, describeModsList, getPlayerMods } from './factions.js?v=naval2027';
-import { FACTION_BANNERS, PLACEHOLDER_LEADER_PORTRAIT, getSpecialUnitBlurb, getLeaderPerkText } from './factionsDisplay.js?v=naval2027';
+import { Hex, HexGrid, Camera } from './hexGrid.js?v=campaign2';
+import { Game } from './game.js?v=campaign2';
+import { Renderer } from './renderer.js?v=campaign2';
+import { UNIT_STATS, GAME_CONFIG, getEffectiveMapRadius, VICTORY_MODES, COLORS, DIPLOMACY, govGoldBandLinesHtml } from './constants.js?v=campaign2';
+import { TUTORIAL_PAGES } from './tutorial.js?v=campaign2';
+import { getMissionById, CAMPAIGN_MISSIONS } from './campaignData.js?v=campaign2';
+import { loadCampaignProgress, canStartMission, markMissionBeaten } from './campaignProgress.js?v=campaign2';
+import { applyCampaignScenario, m1BuildTutorialCheckPlace, m1OnBuildPlaced } from './campaignScenarios.js?v=campaign2';
+import { Input } from './input.js?v=campaign2';
+import { updateAI } from './ai.js?v=campaign2';
+import { SFX } from './sfx.js?v=campaign2';
+import { FACTIONS, getFaction, describeModsList, getPlayerMods } from './factions.js?v=campaign2';
+import { FACTION_BANNERS, PLACEHOLDER_LEADER_PORTRAIT, getSpecialUnitBlurb, getLeaderPerkText } from './factionsDisplay.js?v=campaign2';
 
 // ============================================================================
 //  DOM

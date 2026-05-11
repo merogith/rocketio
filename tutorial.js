@@ -1,4 +1,4 @@
-import { UNIT_STATS as US, GAME_CONFIG as GC } from './constants.js?v=naval2027';
+import { UNIT_STATS as US, GAME_CONFIG as GC } from './constants.js?v=campaign2';
 
 /** Keep tutorial copy aligned with simulation constants. */
 const L1 = {
