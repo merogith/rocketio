@@ -79,8 +79,9 @@ const MAX_TARGET_GOV = 12;
 function maxMissileFactoriesForPlayer(game, p, snap) {
     const cons = snap.missileCons || 0;
     const tc = Math.max(1, p.tileCount);
-    const fromDemand = 1 + Math.min(3, Math.ceil(cons * 0.6));
-    const fromLand = Math.min(6, 1 + Math.floor(tc / 20));
+    // One MF2-equivalent produces ~0.22 missiles/s in supply; need ~1.4x headroom over consumption.
+    const fromDemand = 1 + Math.min(5, Math.ceil(cons / 0.18));
+    const fromLand = Math.min(7, 1 + Math.floor(tc / 16));
     return clamp(Math.max(fromDemand, fromLand), 1, 8);
 }
 
@@ -272,7 +273,8 @@ function computeTargetGovCount(game, p, snap, shared) {
     const landScale = Math.max(1, (shared.totalLandTiles || 400) / 400);
     const tc = p.tileCount;
     const difficulty = game.aiDifficulty || 'normal';
-    let n = 2 + Math.floor((tc * landScale) / 40);
+    // Govs compound: each extra Gov harvests already-owned tiles. Scale faster than before.
+    let n = 2 + Math.floor((tc * landScale) / 26);
     if (difficulty === 'very_hard') n += 3;
     else if (difficulty === 'hard') n += 2;
     else if (difficulty === 'easy') n += 0;
@@ -288,9 +290,9 @@ function effectiveTargetGovCount(game, p, snap, shared, doctrine) {
 }
 
 function phasedGovNeed(targetG, phase) {
-    if (phase === PHASES.EXPAND) return Math.min(targetG, Math.max(2, Math.ceil(targetG * 0.52)));
-    if (phase === PHASES.FORTIFY) return Math.min(targetG, Math.max(2, Math.ceil(targetG * 0.68)));
-    if (phase === PHASES.PRESSURE) return Math.min(targetG, Math.max(3, Math.ceil(targetG * 0.82)));
+    if (phase === PHASES.EXPAND) return Math.min(targetG, Math.max(2, Math.ceil(targetG * 0.66)));
+    if (phase === PHASES.FORTIFY) return Math.min(targetG, Math.max(3, Math.ceil(targetG * 0.78)));
+    if (phase === PHASES.PRESSURE) return Math.min(targetG, Math.max(3, Math.ceil(targetG * 0.9)));
     return targetG;
 }
 
@@ -767,7 +769,7 @@ function runAITick(game, p, time) {
     // ── PRIORITY 1: GRAB FREE LAND ──
     // Always try to expand with militia FIRST. Free tiles = free gold = everything.
     // This runs every tick regardless of phase or doctrine.
-    if (tryExpandWithMilitia(game, p, snap, phase)) {
+    if (tryExpandWithMilitia(game, p, snap, phase, shared)) {
         // Also try to do something else this tick (multi-action)
     }
 
@@ -1233,9 +1235,21 @@ function tryEconomy(game, p, snap, phase, shared, doctrine) {
     }
 
     const wantG = effectiveTargetGovCount(game, p, snap, shared, doctrine);
-    let goldThreshold = snap.govCount < wantG * 0.45 ? 340 : 600;
+    const allG = snap.ownByType.G || [];
+
+    // Snowball play: upgrade G1 → G2 when behind on Govs but already have 1-2 Govs.
+    // +radius captures already-claimed tiles + boosts $/tile across them.
+    if (allG.length >= 1 && allG.length <= 2 && snap.govCount < wantG && phase <= PHASES.FORTIFY) {
+        const upgradeCandidate = allG
+            .filter(g => !g.contested && g.structure.level < 2 && canAffordUpgrade(p, g))
+            .sort((a, b) => a.structure.level - b.structure.level)[0];
+        if (upgradeCandidate) {
+            return game.upgradeStructure(upgradeCandidate);
+        }
+    }
+
+    let goldThreshold = snap.govCount < wantG * 0.5 ? 0 : 120;
     goldThreshold *= pr.economyGoldMult;
-    if (p.tileCount >= 14 && snap.govCount < wantG) goldThreshold *= 0.92;
     if (p.gold > goldThreshold && snap.govCount < wantG) {
         if (canAffordType(p, 'G')) {
             const spot = findGovSpot(game, p.id, snap);
@@ -1336,7 +1350,7 @@ function tryStrategicBuild(game, p, snap, shared, phase, doctrine) {
             if (!canAffordType(p, t)) delete w[t];
         }
         if (Object.keys(w).length === 0) {
-            return tryExpandWithMilitia(game, p, snap, phase);
+            return tryExpandWithMilitia(game, p, snap, phase, shared);
         }
 
         const type = weightedPick(w);
@@ -1351,15 +1365,15 @@ function tryStrategicBuild(game, p, snap, shared, phase, doctrine) {
         if (spot) return game.buildStructure(spot, type, p.id);
     }
 
-    // Militia push — doctrines / playstyle tune how much we still flood after expand phase
+    // Militia push — doctrines / playstyle tune how much we still flood after expand phase.
+    // Route through tryExpandWithMilitia so the Gov save-up gate applies here too.
     const dM = (doctrine.M || 2) / 2.2;
     const psBoost = (doctrine.playstyle === 'raid') ? 1.2 : (doctrine.playstyle === 'defend' ? 0.75 : 1);
     const landBoost = 1 + Math.min(0.5, (snap.neutralAdjacentToFrontier || 0) * 0.06);
     const militiaWeight = (phase === PHASES.EXPAND ? 1 : pr.strategicMilitiaPhaseMult * dM * psBoost * landBoost)
         * (snap.visibleEnemies.length ? 0.8 : 1.05);
-    if (Math.random() < militiaWeight && p.units.M < game.militiaCap(p) && canAffordType(p, 'M')) {
-        const mSpot = findMilitiaSpot(game, p.id, snap);
-        if (mSpot) return game.buildStructure(mSpot, 'M', p.id);
+    if (Math.random() < militiaWeight) {
+        if (tryExpandWithMilitia(game, p, snap, phase, shared)) return true;
     }
 
     return false;
@@ -1392,7 +1406,7 @@ function tryMissileEconomyGate(game, p, snap) {
     const missiles = p.missiles;
     const mfCount = snap.mfCount;
     const cap = maxMissileFactoriesForPlayer(game, p, snap);
-    const wantBuf = 2 + Math.min(5, (cons || 0) * 1.2);
+    const wantBuf = 3 + Math.min(8, (cons || 0) * 2.0);
 
     // No missile users yet — stay light on factories until the stockpile is low
     if (cons === 0) {
@@ -1400,8 +1414,8 @@ function tryMissileEconomyGate(game, p, snap) {
     }
 
     // Comfortable buffer: enough production, stockpile, and not over factory cap
-    if (cons > 0 && prod >= cons * 0.91 && missiles >= wantBuf) return false;
-    if (mfCount >= cap && prod >= (cons || 0.01) * 0.8 && missiles >= 2 + Math.min(3, (cons || 0))) return false;
+    if (cons > 0 && prod >= cons * 1.05 && missiles >= wantBuf) return false;
+    if (mfCount >= cap && prod >= (cons || 0.01) * 0.85 && missiles >= 3 + Math.min(4, (cons || 0))) return false;
     if (mfCount > cap && prod > cons * 1.12 && missiles >= 3) return false;
 
     // Missile-starved — build or upgrade MF, respect cap
@@ -1829,8 +1843,9 @@ function pickSupplyAwareRearSpot(game, p, snap) {
         if (minFrontDist === Infinity) minFrontDist = 5;
 
         const inSupply = supplySet?.has(tileKey(t));
-        // Strongly prefer rear AND in-supply; still ok if rear but out of supply
-        const score = minFrontDist * 2 + (inSupply ? 8 : 0) + Math.random() * 0.5;
+        // In-supply dominates: out-of-supply structures run ~1.6x slower (game.js SUPPLY_OUT_MULT).
+        // Rear is a tiebreaker, not an alternative.
+        const score = (inSupply ? 60 : 0) + Math.min(minFrontDist, 6) * 1.5 + Math.random() * 0.5;
         if (score > bestScore) { bestScore = score; best = t; }
     }
     return best;
@@ -1944,7 +1959,7 @@ function findMilitiaSpot(game, playerId, snap) {
     return candidates[Math.floor(Math.random() * topN)];
 }
 
-function tryExpandWithMilitia(game, p, snap, phase) {
+function tryExpandWithMilitia(game, p, snap, phase, shared) {
     if (p.units.M >= game.militiaCap(p)) return false;
     if (!canAffordType(p, 'M')) return false;
 
@@ -1957,7 +1972,44 @@ function tryExpandWithMilitia(game, p, snap, phase) {
     // Tighter reserve when there is a lot of free land (tiles > doctrine — always scale the map)
     const landUrgency = neutralNearby >= 8 ? 0.55 : neutralNearby >= 4 ? 0.72 : neutralNearby >= 1 ? 0.9 : 1;
     const baseRes = phase >= PHASES.DOMINATE ? 90 : (phase >= PHASES.PRESSURE ? 150 : 95);
-    const reserveGold = baseRes * landUrgency / expandW;
+    let reserveGold = baseRes * landUrgency / expandW;
+
+    // ── GOV SAVE-UP GATE ──
+    // Captured tiles only pay out under a Gov's influence. If we still need Govs, refuse
+    // to drain gold below a save-up floor — otherwise we'd hit militia cap with 1 Gov
+    // and never accumulate the 1525+ gold for a second/third one.
+    const wantG = (shared && doctrine)
+        ? effectiveTargetGovCount(game, p, snap, shared, doctrine)
+        : 2;
+    const govCost = statsAtLevel('G', 0)?.cost || 1525;
+    const needGov = snap.govCount < wantG;
+    const allG = snap.ownByType.G || [];
+    const upgradableG = allG.find(g => !g.contested && g.structure.level < 2);
+    const wantGovUpgrade = !!upgradableG && allG.length <= 2 && phase <= PHASES.FORTIFY;
+
+    if (needGov || wantGovUpgrade) {
+        // Cheaper of (new Gov) vs (next-tier upgrade on an existing Gov).
+        let target = needGov ? govCost : Infinity;
+        if (wantGovUpgrade) {
+            const def = UNIT_STATS.G;
+            const next = def?.levels?.[upgradableG.structure.level + 1];
+            if (next) {
+                const upCost = Math.floor(next.cost * GAME_CONFIG.UPGRADE_COST_MULT);
+                if (upCost < target) target = upCost;
+            }
+        }
+        // Only enforce save while still saving (target > current gold). Once affordable,
+        // tryEconomy/tryUpgrade will pull the trigger and the floor releases.
+        if (Number.isFinite(target) && target > p.gold) {
+            const aggressiveLand = neutralNearby >= 7;
+            // Reserve a sizeable fraction of the target so each militia purchase doesn't
+            // strand the bot far from its next Gov. Lots of free land softens the floor.
+            const saveupFloor = aggressiveLand
+                ? Math.min(target * 0.42, 520)
+                : Math.min(target * 0.62, 980);
+            reserveGold = Math.max(reserveGold, saveupFloor);
+        }
+    }
 
     // AGGRESSIVE: grab neutrals with militia first — cheap permanent income
     if (neutralNearby > 0) {
@@ -1969,7 +2021,8 @@ function tryExpandWithMilitia(game, p, snap, phase) {
 
     // No neutrals: still push a militia to pressure / steal with surplus (raid > defend)
     const pushGold = 280 + (doctrine?.playstyle === 'defend' ? 140 : 0);
-    if (p.gold > pushGold * (1.15 / expandW) && snap.frontier.length > 0) {
+    const pushFloor = Math.max(reserveGold + mCost * 0.72, pushGold * (1.15 / expandW));
+    if (p.gold > pushFloor && snap.frontier.length > 0) {
         const spot = findMilitiaSpot(game, p.id, snap);
         if (spot) return game.buildStructure(spot, 'M', p.id);
     }
