@@ -1,6 +1,9 @@
 // ============================================================================
-//  FACTIONS — nation perks, 3 leaders each, special unit display name
-//  Mods are multiplicative (1 = no change), undertuned. Applied in game.js.
+//  NATIONS — real countries, real leaders, real signature weapon systems.
+//  Mods are multiplicative (1 = no change) and undertuned. Applied in game.js.
+//  Each nation has a clear flavor (artillery, drones, navy, supply, economy…)
+//  but the absolute swing stays in the same ±0.5–1.0% range as before, so no
+//  pick should feel oppressive in PvP.
 // ============================================================================
 
 const M = (a, b) => (a ?? 1) * (b ?? 1);
@@ -103,107 +106,149 @@ export function getSpecialUnitLabelForPlayer(game, ownerId) {
  *   name: string,
  *   code: string,
  *   specialName: string,
+ *   specialIcon: string,
  *   nation: FactionMods,
  *   leaders: Array<{ name: string, mods: FactionMods }>
  * }>} */
 export const FACTIONS = [
-    { id: 'FAR', code: 'FAR', name: 'Federated Atlas', specialName: 'Orbital Cue',    specialIcon: '🛰️',
-      nation: { goldMult: 1.01, effMult: 0.998 },
+    // 1. USA — networked precision; satellites guide volleys, drone-era doctrine.
+    //    Real signature: M142 HIMARS — guided rocket artillery, NATO workhorse.
+    { id: 'USA', code: 'USA', name: 'United States', specialName: 'HIMARS', specialIcon: '🚀',
+      nation: { effMult: 0.998, dealtMult: 1.003 },
       leaders: [
-        { name: 'Idris Veylen',   mods: { effMult: 0.9995 } },
-        { name: 'Corin Aldred',   mods: { goldMult: 1.005 } },
-        { name: 'Harrow, Chart',  mods: { dealtMult: 1.006 } },
+        { name: 'Joe Biden',     mods: { goldMult: 1.005 } },
+        { name: 'Donald Trump',  mods: { dealtMult: 1.007 } },
+        { name: 'Barack Obama',  mods: { effMult: 0.9985 } },
       ] },
-    { id: 'IPC', code: 'IPC', name: 'Iron Pact', specialName: 'Burrow Breacher',       specialIcon: '⛏️',
-      nation: { dealtMult: 1.008, takenMult: 0.992 },
+
+    // 2. Russia — massed fires, deep mag, cold-weather doctrine.
+    //    Real signature: 9K720 Iskander short-range ballistic missile.
+    { id: 'RUS', code: 'RUS', name: 'Russian Federation', specialName: 'Iskander', specialIcon: '⚙️',
+      nation: { dealtMult: 1.008, takenMult: 0.994 },
       leaders: [
-        { name: 'Soren Drazek',   mods: { effMult: 0.999 } },
-        { name: 'Yeva Morrin',    mods: { mfMult: 1.006 } },
-        { name: 'Terek Ulun',     mods: { outSupplyMult: 0.97 } },
+        { name: 'Vladimir Putin',   mods: { dealtMult: 1.005 } },
+        { name: 'Dmitry Medvedev',  mods: { mfMult: 1.006 } },
+        { name: 'Sergei Shoigu',    mods: { outSupplyMult: 0.95 } },
       ] },
-    { id: 'CMD', code: 'CMD', name: 'Celestial Meridian', specialName: 'Ghost Relay',  specialIcon: '👁️',
-      nation: { effMult: 0.997, dealtMult: 1.005 },
+
+    // 3. China — state-coordinated war industry, missile-heavy.
+    //    Real signature: DF-26 "carrier killer" intermediate-range ballistic missile.
+    { id: 'CHN', code: 'CHN', name: 'People’s Republic of China', specialName: 'DF-26', specialIcon: '🐉',
+      nation: { effMult: 0.997, mfMult: 1.008 },
       leaders: [
-        { name: 'Mira Sollenne',  mods: { takenMult: 0.995 } },
-        { name: 'Fen Kawa',       mods: { goldMult: 1.004 } },
-        { name: 'Aike Renmaru',   mods: { mfMult: 1.005 } },
+        { name: 'Xi Jinping',  mods: { dealtMult: 1.006 } },
+        { name: 'Li Qiang',    mods: { goldMult: 1.005 } },
+        { name: 'Wang Yi',     mods: { outSupplyMult: 0.97 } },
       ] },
-    { id: 'ESP', code: 'ESP', name: 'Eastern Sentry', specialName: 'Sky-Lock',         specialIcon: '🔒',
+
+    // 4. Japan — anti-access doctrine, hardened C4ISR, anti-ship strike.
+    //    Real signature: Type 12 Surface-to-Ship Missile (extended-range variant).
+    { id: 'JPN', code: 'JPN', name: 'Japan', specialName: 'Type 12 SSM', specialIcon: '🌊',
       nation: { effMult: 0.9985, takenMult: 0.994 },
       leaders: [
-        { name: 'Han Taelor',     mods: { dealtMult: 1.006 } },
-        { name: 'Sora Ishi',      mods: { goldMult: 1.003 } },
-        { name: 'Kael Vosh',      mods: { outSupplyMult: 0.96 } },
+        { name: 'Fumio Kishida',  mods: { goldMult: 1.005 } },
+        { name: 'Shinzo Abe',     mods: { dealtMult: 1.006 } },
+        { name: 'Shigeru Ishiba', mods: { effMult: 0.9985 } },
       ] },
-    { id: 'ABC', code: 'ABC', name: 'Anatolian Bridge', specialName: 'Akvavit Skimmer', specialIcon: '⛵',
-      nation: { goldMult: 1.006, mfMult: 1.01 },
+
+    // 5. Türkiye — drone-industrial complex on a continental crossroads.
+    //    Real signature: Bayraktar TB2/Akıncı wing — combat-proven UCAVs.
+    { id: 'TUR', code: 'TUR', name: 'Türkiye', specialName: 'Bayraktar Wing', specialIcon: '🛸',
+      nation: { goldMult: 1.005, mfMult: 1.008 },
       leaders: [
-        { name: 'Selim Koren',    mods: { effMult: 0.999 } },
-        { name: 'Ayla Teresh',    mods: { startMissiles: 1 } },
-        { name: 'Oruk Nav',       mods: { dealtMult: 1.005 } },
+        { name: 'Recep Tayyip Erdoğan', mods: { dealtMult: 1.006 } },
+        { name: 'Kemal Kılıçdaroğlu', mods: { goldMult: 1.005 } },
+        { name: 'Hulusi Akar',                mods: { effMult: 0.999 } },
       ] },
-    { id: 'ZSL', code: 'ZSL', name: 'Zagros Saffron', specialName: 'Loiter Cutter',    specialIcon: '🦂',
-      nation: { takenMult: 0.991, effMult: 0.999 },
+
+    // 6. Iran — asymmetric, sanctions-hard, loitering munitions.
+    //    Real signature: Shahed-136 loitering drone (used at scale in real wars).
+    { id: 'IRN', code: 'IRN', name: 'Islamic Republic of Iran', specialName: 'Shahed Swarm', specialIcon: '🦂',
+      nation: { takenMult: 0.992, mfMult: 1.005 },
       leaders: [
-        { name: 'Darius Parviz',  mods: { dealtMult: 1.007 } },
-        { name: 'Mira Sarshar',   mods: { goldMult: 1.005 } },
-        { name: 'Cyr-esh',        mods: { mfMult: 1.004 } },
+        { name: 'Ali Khamenei',      mods: { dealtMult: 1.006 } },
+        { name: 'Masoud Pezeshkian', mods: { goldMult: 1.005 } },
+        { name: 'Hossein Salami',    mods: { outSupplyMult: 0.96 } },
       ] },
-    { id: 'PBU', code: 'PBU', name: 'Polar Bastion', specialName: 'Glacis Hammer',     specialIcon: '🧊',
+
+    // 7. Finland — forest-belt total defense; "sisu" grit, deep cold-weather logistics.
+    //    Real signature: K9 "Moukari" 155mm SPH (Finnish nickname for the K9 Thunder).
+    { id: 'FIN', code: 'FIN', name: 'Finland', specialName: 'K9 Moukari', specialIcon: '🔨',
       nation: { effMult: 0.999, outSupplyMult: 0.95 },
       leaders: [
-        { name: 'Brina Volhard',  mods: { dealtMult: 1.006 } },
-        { name: 'Torval Ennis',   mods: { takenMult: 0.996 } },
-        { name: 'Ivo Renn',       mods: { goldMult: 1.003 } },
+        { name: 'Alexander Stubb', mods: { dealtMult: 1.005 } },
+        { name: 'Sanna Marin',     mods: { goldMult: 1.004 } },
+        { name: 'Sauli Niinistö', mods: { effMult: 0.999 } },
       ] },
-    { id: 'SRC', code: 'SRC', name: 'Southern Reach', specialName: 'Mangrove Team',    specialIcon: '🌿',
+
+    // 8. Indonesia — archipelago power; littoral, anti-ship, garuda doctrine.
+    //    Real signature: Yakhont (P-800 Onyx) coastal anti-ship missile.
+    { id: 'IDN', code: 'IDN', name: 'Indonesia', specialName: 'Yakhont', specialIcon: '🐅',
       nation: { effMult: 0.998, goldMult: 1.006 },
       leaders: [
-        { name: 'Cael Marros',    mods: { startMissiles: 1 } },
-        { name: 'Tessa Varn',     mods: { mfMult: 1.006 } },
-        { name: 'Rana',           mods: { dealtMult: 1.005 } },
+        { name: 'Prabowo Subianto',          mods: { startMissiles: 1 } },
+        { name: 'Joko Widodo',               mods: { mfMult: 1.006 } },
+        { name: 'Susilo Bambang Yudhoyono',  mods: { dealtMult: 1.005 } },
       ] },
-    { id: 'HHD', code: 'HHD', name: 'Helvetic Highland', specialName: 'Sensor Alphorn', specialIcon: '📻',
+
+    // 9. Switzerland — neutral fortress; alpine redoubt + private banking.
+    //    Real signature: the "Réduit" — the WWII-era National Redoubt fortress doctrine.
+    { id: 'SUI', code: 'SUI', name: 'Swiss Confederation', specialName: 'Réduit Cell', specialIcon: '🛡️',
       nation: { takenMult: 0.992, goldMult: 1.005 },
       leaders: [
-        { name: 'Maren Hythe',    mods: { effMult: 0.9995 } },
-        { name: 'Sigrid Alvar',   mods: { outSupplyMult: 0.95 } },
-        { name: 'Linus Hart',     mods: { goldMult: 1.003 } },
+        { name: 'Viola Amherd',  mods: { effMult: 0.9995 } },
+        { name: 'Ignazio Cassis', mods: { outSupplyMult: 0.95 } },
+        { name: 'Alain Berset',   mods: { goldMult: 1.003 } },
       ] },
-    { id: 'CDA', code: 'CDA', name: 'Crimson Dunes', specialName: 'Scorpion Overwatch', specialIcon: '🔱',
+
+    // 10. Saudi Arabia — petro-funded missile arsenal, desert depth.
+    //     Real signature: the Saqr ("Falcon") family of Royal Saudi strike systems.
+    { id: 'KSA', code: 'KSA', name: 'Saudi Arabia', specialName: 'Saqr Battery', specialIcon: '🏜️',
       nation: { effMult: 0.999, mfMult: 1.008 },
       leaders: [
-        { name: 'Zarin Faro',     mods: { dealtMult: 1.006 } },
-        { name: 'Nema Caro',      mods: { goldMult: 1.005 } },
-        { name: 'Halim the Calm', mods: { takenMult: 0.995 } },
+        { name: 'King Salman',           mods: { dealtMult: 1.005 } },
+        { name: 'Mohammed bin Salman',   mods: { dealtMult: 1.006 } },
+        { name: 'Faisal bin Farhan',     mods: { goldMult: 1.005 } },
       ] },
-    { id: 'ASC', code: 'ASC', name: 'Amber Shield', specialName: 'Sky-Bridge',          specialIcon: '🦅',
+
+    // 11. Poland — NATO frontline, eagle banner, modern artillery surge.
+    //     Real signature: AHS Krab 155mm self-propelled howitzer (Polish-built).
+    { id: 'POL', code: 'POL', name: 'Poland', specialName: 'Krab Battery', specialIcon: '🦀',
       nation: { startMissiles: 1, effMult: 0.999 },
       leaders: [
-        { name: 'Rhea Constance', mods: { goldMult: 1.006 } },
-        { name: 'Ilan Morrow',    mods: { mfMult: 1.006 } },
-        { name: 'Syl Vey',        mods: { dealtMult: 1.004 } },
+        { name: 'Andrzej Duda',        mods: { goldMult: 1.006 } },
+        { name: 'Donald Tusk',         mods: { mfMult: 1.006 } },
+        { name: 'Mateusz Morawiecki',  mods: { dealtMult: 1.005 } },
       ] },
-    { id: 'VPL', code: 'VPL', name: 'Verdant Pillar', specialName: 'Root Line',         specialIcon: '🌱',
+
+    // 12. Vietnam — people's-war doctrine, deep cover, anti-access coast.
+    //     Real signature: K-300P Bastion-P mobile coastal defense system.
+    { id: 'VNM', code: 'VNM', name: 'Vietnam', specialName: 'Bastion-P', specialIcon: '🌿',
       nation: { takenMult: 0.99, outSupplyMult: 0.94 },
       leaders: [
-        { name: 'Cato Mirel',     mods: { effMult: 0.999 } },
-        { name: 'Emil Yarden',    mods: { goldMult: 1.004 } },
-        { name: 'Tova Ren',       mods: { dealtMult: 1.005 } },
+        { name: 'Tô Lâm',           mods: { effMult: 0.999 } },
+        { name: 'Phạm Minh Chính',  mods: { goldMult: 1.004 } },
+        { name: 'Nguyễn Phú Trọng', mods: { dealtMult: 1.005 } },
       ] },
-    { id: 'BVC', code: 'BVC', name: 'Boreal Vanguard', specialName: 'Black-Tide',       specialIcon: '🐺',
+
+    // 13. United Kingdom — naval/expeditionary, intelligence, long-range strike.
+    //     Real signature: Storm Shadow / SCALP-EG air-launched cruise missile.
+    { id: 'GBR', code: 'GBR', name: 'United Kingdom', specialName: 'Storm Shadow', specialIcon: '⚡',
       nation: { goldMult: 1.005, mfMult: 1.006 },
       leaders: [
-        { name: 'Kira Manes',     mods: { effMult: 0.999 } },
-        { name: 'Rurik Sol',      mods: { startMissiles: 1 } },
-        { name: 'Senni Talo',     mods: { takenMult: 0.996 } },
+        { name: 'Keir Starmer',   mods: { effMult: 0.999 } },
+        { name: 'Rishi Sunak',    mods: { startMissiles: 1 } },
+        { name: 'Boris Johnson',  mods: { takenMult: 0.996 } },
       ] },
-    { id: 'ACH', code: 'ACH', name: 'Auric Concord', specialName: 'Auric Condotieri',   specialIcon: '⚔️',
+
+    // 14. Italy — composite armor, Renaissance gold, air-defense pedigree.
+    //     Real signature: Aster 30 surface-to-air missile (Eurosam, Italian-French).
+    { id: 'ITA', code: 'ITA', name: 'Italy', specialName: 'Aster Battery', specialIcon: '✨',
       nation: { goldMult: 1.008, effMult: 0.9995 },
       leaders: [
-        { name: 'Vesper Anka',    mods: { dealtMult: 1.006 } },
-        { name: 'Lucan Frei',     mods: { mfMult: 1.005 } },
-        { name: 'Idris Varn',     mods: { goldMult: 1.004 } },
+        { name: 'Giorgia Meloni',     mods: { dealtMult: 1.006 } },
+        { name: 'Sergio Mattarella',  mods: { mfMult: 1.005 } },
+        { name: 'Mario Draghi',       mods: { goldMult: 1.004 } },
       ] },
 ];
 
