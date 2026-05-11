@@ -2,7 +2,7 @@
 //  Same-PC campaign progress (localStorage)
 // ============================================================================
 
-import { CAMPAIGN_MISSIONS } from './campaignData.js?v=balance2026';
+import { CAMPAIGN_MISSIONS } from './campaignData.js?v=naval2027';
 
 const STORAGE_KEY = 'rocketio_campaign_v1';
 const MAX_ID = 10;

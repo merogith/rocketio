@@ -2,8 +2,8 @@
 //  Hand-tuned map changes after base Game.start (mission-specific)
 // ============================================================================
 
-import { Hex } from './hexGrid.js?v=balance2026';
-import { UNIT_STATS } from './constants.js?v=balance2026';
+import { Hex } from './hexGrid.js?v=naval2027';
+import { UNIT_STATS } from './constants.js?v=naval2027';
 
 function findGovTile(game, ownerId) {
     for (const t of game.grid.tiles.values()) {

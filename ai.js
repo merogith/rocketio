@@ -28,8 +28,8 @@
 //         j. Demolish              — reclaim gold from trapped/redundant structures
 // ============================================================================
 
-import { UNIT_STATS, AI_DOCTRINES, GAME_CONFIG, DIPLOMACY } from './constants.js?v=balance2026';
-import { Hex } from './hexGrid.js?v=balance2026';
+import { UNIT_STATS, AI_DOCTRINES, GAME_CONFIG, DIPLOMACY } from './constants.js?v=naval2027';
+import { Hex } from './hexGrid.js?v=naval2027';
 
 const PHASES = { EXPAND: 0, FORTIFY: 1, PRESSURE: 2, DOMINATE: 3 };
 
@@ -1366,10 +1366,21 @@ function tryStrategicBuild(game, p, snap, shared, phase, doctrine) {
 }
 
 function tryNavyOpportunism(game, p, snap) {
-    if (p.missiles < 4 || p.gold < 300) return false;
-    if (Math.random() > 0.032) return false;
-    const n = (snap.ownByType.DDG?.length || 0) + (snap.ownByType.AF?.length || 0) + (snap.ownByType.SSG?.length || 0);
-    if (n >= 3) return false;
+    if (p.gold < 300) return false;
+    if (Math.random() > 0.034) return false;
+
+    // First: try to build a Port if none yet and a good coastal spot exists. Ports are infrastructure
+    // (sea influence + trade gold + supply for fleets) and pay for themselves quickly.
+    const portCount = snap.ownByType.PT?.length || 0;
+    if (portCount === 0 && canAffordType(p, 'PT')) {
+        const portRadius = UNIT_STATS.PT?.levels?.[0]?.radius ?? 4;
+        const portSpot = findBestPortSpot(game, p.id, portRadius);
+        if (portSpot && game.buildStructure(portSpot, 'PT', p.id)) return true;
+    }
+
+    if (p.missiles < 3) return false;
+    const navyCount = (snap.ownByType.DDG?.length || 0) + (snap.ownByType.AF?.length || 0) + (snap.ownByType.SSG?.length || 0);
+    if (navyCount >= 4) return false;
     if ((snap.missileProd || 0) < (snap.missileCons || 0) * 0.8) return false;
     const spot = findFirstNavyWater(game, p.id);
     if (!spot) return false;
@@ -1712,6 +1723,34 @@ function findFirstNavyWater(game, ownerId) {
     return null;
 }
 
+/**
+ * Score a coastal-land tile for a Port — count owned shore/sea tiles within `radius`.
+ * Higher = more sea/shore coverage = more sea-trade gold for that Port.
+ */
+function findBestPortSpot(game, ownerId, radius = 4) {
+    let best = null;
+    let bestScore = -1;
+    for (const t of game.grid.tiles.values()) {
+        if (t.structure) continue;
+        if (!game.canBuildPortOn(t, ownerId)) continue;
+        let cov = 0;
+        for (let dq = -radius; dq <= radius; dq++) {
+            for (let dr = Math.max(-radius, -dq - radius); dr <= Math.min(radius, -dq + radius); dr++) {
+                const nt = game.grid.getTile(t.q + dq, t.r + dr);
+                if (!nt || nt.buildable) continue;
+                if (nt.owner === ownerId && !nt.contested) cov++;
+                else if (!nt.owner && !nt.contested) cov += 0.4; // unclaimed sea — Port will pull it in via influence
+            }
+        }
+        if (cov > bestScore) { bestScore = cov; best = t; }
+    }
+    return bestScore >= 4 ? best : null;
+}
+
+function ownerHasPort(snap) {
+    return (snap.ownByType.PT?.length || 0) > 0;
+}
+
 // ============================================================================
 //  PLACEMENT — TYPE-AWARE spot picking
 // ============================================================================
@@ -1737,6 +1776,11 @@ function pickPlacementForType(game, p, snap, type, valuableEnemies) {
     if (type === 'DDG' || type === 'AF' || type === 'SSG') {
         return findFirstNavyWater(game, p.id) ||
             null;
+    }
+
+    if (type === 'PT') {
+        const portRadius = statsAtLevel('PT', 0)?.radius ?? 4;
+        return findBestPortSpot(game, p.id, portRadius);
     }
 
     if (type === 'RL' || type === 'AB') {

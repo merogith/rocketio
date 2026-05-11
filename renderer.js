@@ -1,5 +1,5 @@
-import { COLORS, UNIT_STATS, PROJECTILE_VISUAL_PRESETS } from './constants.js?v=balance2026';
-import { getSpecialUnitIcon } from './factions.js?v=balance2026';
+import { COLORS, UNIT_STATS, PROJECTILE_VISUAL_PRESETS } from './constants.js?v=naval2027';
+import { getSpecialUnitIcon } from './factions.js?v=naval2027';
 
 const TARGETABLE_TYPES = new Set(['RL', 'B', 'D', 'SU', 'M', 'AB', 'DDG', 'SSG']);
 const NAVY_BUILD_GHOST = new Set(['DDG', 'AF', 'SSG']);
@@ -325,6 +325,7 @@ export class Renderer {
                     break;
                 }
                 case 'AB':  icon = "✈️"; break;
+                case 'PT':  icon = "⚓"; break;
                 case 'DDG': icon = "🛳️"; break;
                 case 'AF':  icon = "📡"; break;
                 case 'SSG': icon = "🫧"; break;
@@ -633,6 +634,11 @@ export class Renderer {
             const cost = def?.levels?.[li]?.cost ?? 0;
             valid = !!gameState.canBuildNavyOn(tile, humanId) && !tile.structure
                 && p && p.gold >= cost;
+        } else if (this.buildGhostType === 'PT') {
+            const def = UNIT_STATS.PT;
+            const li = this.buildGhostLevel ?? 0;
+            const cost = def?.levels?.[li]?.cost ?? 0;
+            valid = !!gameState.canBuildPortOn(tile, humanId) && p && p.gold >= cost;
         } else if (!tile.buildable) {
             valid = false;
         } else {
@@ -655,7 +661,7 @@ export class Renderer {
         ctx.stroke();
         ctx.setLineDash([]);
 
-        if (valid && (this.buildGhostType === 'G' || this.buildGhostType === 'B')) {
+        if (valid && (this.buildGhostType === 'G' || this.buildGhostType === 'B' || this.buildGhostType === 'PT')) {
             const ghostDef = UNIT_STATS[this.buildGhostType];
             const r = ghostDef?.levels?.[this.buildGhostLevel ?? 0]?.radius;
             if (r) {

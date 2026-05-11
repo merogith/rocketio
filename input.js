@@ -1,4 +1,4 @@
-import { DEFAULT_KEYBINDS, DEFAULT_SETTINGS } from './constants.js?v=balance2026';
+import { DEFAULT_KEYBINDS, DEFAULT_SETTINGS } from './constants.js?v=naval2027';
 
 const keybinds = {};
 const settings = {};
