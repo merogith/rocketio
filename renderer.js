@@ -139,11 +139,19 @@ export class Renderer {
             ctx.fillStyle = `rgba(30, 100, 180, ${wave.toFixed(3)})`;
             ctx.fill();
 
+            let waterStructure = tile.structure;
+            let waterHp = tile.hp, waterMax = tile.maxHp;
             if (fog.explored) {
                 let ro = tile.owner, rc = tile.contested;
                 if (!fog.visible && fog.human) {
                     const mem = fog.human.memory.get(`${tile.q},${tile.r}`);
-                    if (mem) { ro = mem.owner; rc = mem.contested; }
+                    if (mem) {
+                        ro = mem.owner; rc = mem.contested;
+                        waterStructure = mem.type ? { type: mem.type, level: mem.level, stats: {} } : null;
+                        waterHp = mem.hp; waterMax = mem.maxHp;
+                    } else {
+                        waterStructure = null;
+                    }
                 }
                 const ownerColor = rc ? COLORS.CONTESTED
                     : (ro ? (COLORS[`PLAYER${ro}`] || null) : null);
@@ -153,8 +161,13 @@ export class Renderer {
                     ctx.globalAlpha = ro ? (fog.visible ? 0.38 : 0.2) : 0.2;
                     ctx.fill();
                 }
+            } else {
+                waterStructure = null;
             }
             ctx.globalAlpha = 1;
+            if (waterStructure) {
+                this.drawStructure(x, y, size, tile, waterStructure, waterHp, waterMax, fog.visible, gameState);
+            }
             return;
         }
 
