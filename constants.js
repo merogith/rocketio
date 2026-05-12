@@ -92,6 +92,7 @@ export const GAME_CONFIG = {
         SU: 21,
         M: 18,
         BUNK: 8,
+        RC: 12,
     },
     /**
      * Optional per-**source** structure type weights: `bySource[RL|AB][G|MF|…]`.
@@ -461,6 +462,20 @@ export const UNIT_STATS = {
             { id: "BUNK2", hp: 2800, cost: 500, vision: 4 },
             { id: "BUNK3", hp: 6500, cost: 900, vision: 5, hardened: true }
         ]
+    },
+    /**
+     * Recon Outpost — fog breaker. Cheap, fragile, huge vision radius. No attack, no influence.
+     * Counter-play to AB3 stealth strikes and ambushes — the player who scouts wins target priority.
+     * Lv3 "Aerial Surveillance": +50% extra vision and exposes targets in its vision for the player
+     * (used by missile-smart targeting to prefer scouted enemies).
+     */
+    RC: {
+        name: "Recon Outpost",
+        levels: [
+            { id: "RC1", hp: 70,  cost: 175, vision: 9 },
+            { id: "RC2", hp: 140, cost: 275, vision: 12 },
+            { id: "RC3", hp: 260, cost: 400, vision: 16, scouting: true }
+        ]
     }
 };
 
@@ -523,6 +538,7 @@ export const DEFAULT_KEYBINDS = {
     build_SSG:  'F9',
     build_PT:   'F6',
     build_BUNK: 'Digit9',
+    build_RC:   'Digit0',
     upgrade:    'Space',
     cancel:     'Escape',
     pan_up:     'KeyW',

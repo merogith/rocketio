@@ -33,7 +33,7 @@ import { Hex } from './hexGrid.js?v=naval2027';
 
 const PHASES = { EXPAND: 0, FORTIFY: 1, PRESSURE: 2, DOMINATE: 3 };
 
-const KILL_VALUE = { G: 100, AB: 60, SSG: 34, MF: 55, AAS: 45, AF: 42, RL: 40, DDG: 30, B: 35, D: 25, SU: 24, M: 8, BUNK: 5 };
+const KILL_VALUE = { G: 100, AB: 60, SSG: 34, MF: 55, AAS: 45, AF: 42, RL: 40, DDG: 30, B: 35, D: 25, SU: 24, M: 8, BUNK: 5, RC: 14 };
 
 const ATTACKER_TYPES = new Set(['RL', 'B', 'D', 'SU', 'AB', 'M', 'DDG', 'SSG']);
 const COMBAT_TYPES   = new Set(['RL', 'B', 'D', 'SU', 'AB', 'M', 'DDG', 'SSG']);
