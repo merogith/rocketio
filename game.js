@@ -1,5 +1,6 @@
 import { UNIT_STATS, COLORS, GAME_CONFIG, DIFFICULTY, DIPLOMACY, govGoldForDistance } from './constants.js?v=units3';
 import { getPlayerMods, getSpecialUnitLabelForPlayer, getFactionSignatureL3 } from './factions.js?v=units3';
+import { FACTION_UNIT_STATS, FACTION_UNITS_BY_CODE, isFactionUnit, factionUnitCategory } from './factionUnits.js?v=fu1';
 import { Hex } from './hexGrid.js?v=units3';
 import { SFX } from './sfx.js?v=units3';
 
@@ -17,9 +18,24 @@ function intervalEff(tile) {
 }
 
 const ATTACK_TYPES = new Set(['RL', 'B', 'D', 'SU', 'M', 'AB', 'DDG', 'SSG']);
+// Faction-unique units that attack — register the NAV/OFF/GND/DEF ones that fire.
+for (const [tid, def] of Object.entries(FACTION_UNIT_STATS)) {
+    const cat = def.category;
+    if (cat === 'off' || cat === 'gnd' || cat === 'nav') ATTACK_TYPES.add(tid);
+    // DEF faction units with rechargeInterval are intercept-class (handled like AAS); not attackers.
+}
 /** Structures that may be placed on owned water only (see `canBuildNavyOn`). */
 const NAVY_BUILD_TYPES = new Set();
 ['DDG', 'AF', 'SSG', 'CV'].forEach(t => NAVY_BUILD_TYPES.add(t));
+// Add faction NAV units to the water-only set.
+for (const [tid, def] of Object.entries(FACTION_UNIT_STATS)) {
+    if (def.category === 'nav') NAVY_BUILD_TYPES.add(tid);
+}
+/** Faction-unique intercept structures (treated like AAS/AF for index + intercept hooks). */
+const FACTION_INTERCEPT_TYPES = new Set();
+for (const [tid, def] of Object.entries(FACTION_UNIT_STATS)) {
+    if (def.category === 'def' && def.levels?.[0]?.rechargeInterval) FACTION_INTERCEPT_TYPES.add(tid);
+}
 
 function isInfluencer(structure) {
     if (!structure) return false;
@@ -109,7 +125,7 @@ export class Game {
         for (const tile of this.grid.tiles.values()) {
             if (!tile.structure) continue;
             this._structureTiles.push(tile);
-            if (tile.structure.type === 'AAS' || tile.structure.type === 'AF') this._aasTiles.push(tile);
+            if (tile.structure.type === 'AAS' || tile.structure.type === 'AF' || FACTION_INTERCEPT_TYPES.has(tile.structure.type)) this._aasTiles.push(tile);
             if (tile.structure.type === 'B' && tile.structure.level === 2) this._l3BarracksTiles.push(tile);
             if (tile.structure.type === 'G' && tile.structure.level === 2 && tile.owner) this._l3GovTiles.push(tile);
             if (tile.structure.type === 'D' && tile.structure.level === 2 && tile.structure.stats?.jamming) this._d3JamTiles.push(tile);
@@ -174,6 +190,24 @@ export class Game {
             if (Hex.distance(defTile, t) <= 3) return true;
         }
         return false;
+    }
+
+    /**
+     * Best (smallest) DR multiplier from any friendly faction structure with `drAura` whose
+     * `drAuraRange` covers `defTile`. Non-stacking — only the strongest source applies.
+     */
+    _friendlyDrAuraMult(defTile, ownerId) {
+        if (!defTile || !ownerId) return 1;
+        this._ensureIndex();
+        let best = 1;
+        for (const t of this._structureTiles) {
+            if (t.owner !== ownerId || !t.structure) continue;
+            const stats = t.structure.stats;
+            if (!stats?.drAura || !stats?.drAuraRange) continue;
+            if (Hex.distance(defTile, t) > stats.drAuraRange) continue;
+            if (stats.drAura < best) best = stats.drAura;
+        }
+        return best;
     }
 
     /** True if `targetTile` lies within ANY friendly Gov / Barracks / Port / M3 influence radius (own territory test). */
@@ -752,6 +786,98 @@ export class Game {
             }
         }
 
+        // ── Faction-unique ECO income ─────────────────────────────────────
+        // Iterates structures once; per-flag income added to the owner.
+        const tickSec = this.tickRate / 1000;
+        for (const tile of this.grid.tiles.values()) {
+            if (!tile.owner || tile.contested || !tile.structure) continue;
+            if (!isFactionUnit(tile.structure.type)) continue;
+            const stats = tile.structure.stats;
+            const owner = tile.owner;
+            const oi = owner - 1;
+            const isAi = owner !== this.humanId;
+            const diffMult = isAi ? (this._difficulty || DIFFICULTY.normal).goldMult : 1;
+            const gm = this.getPlayerModsForOwner(owner).goldMult ?? 1;
+            let added = 0;
+            // Flat gold/s.
+            if (stats.flatGoldPerSec) {
+                added += stats.flatGoldPerSec * tickSec * gm * diffMult;
+            }
+            // Treasury %/s (USA Wall Street).
+            if (stats.treasuryGoldPctPerSec) {
+                const cap = stats.treasuryGoldCap ?? Infinity;
+                const raw = (this.players[oi].gold || 0) * stats.treasuryGoldPctPerSec;
+                added += Math.min(cap * tickSec, raw * tickSec) * gm * diffMult;
+            }
+            // Time-scaled gold (Finland Sisu Reserve Depot).
+            if (stats.timeScaledGoldBase != null) {
+                const mins = Math.max(0, this.gameTime / 60000);
+                const rate = stats.timeScaledGoldBase + stats.timeScaledGoldPerMin * mins;
+                const capped = Math.min(stats.timeScaledGoldCap || rate, rate);
+                added += capped * tickSec * gm * diffMult;
+            }
+            // Sea-tile income (Indonesia Garuda Spice Wharf).
+            if (stats.seaTileGoldRate && stats.seaTileGoldRadius) {
+                let seaTiles = 0;
+                for (const t2 of this.grid.tiles.values()) {
+                    if (t2.buildable) continue;
+                    if (Hex.distance(tile, t2) <= stats.seaTileGoldRadius) seaTiles++;
+                }
+                const rate = Math.min(stats.seaTileGoldCap || Infinity, seaTiles * stats.seaTileGoldRate);
+                added += rate * tickSec * gm * diffMult;
+            }
+            // Kill-bonus gold (Poland Husaria) — drained from a queue maintained on kill.
+            if (stats.killBonusGold && tile.structure._pendingKillGold) {
+                added += tile.structure._pendingKillGold;
+                tile.structure._pendingKillGold = 0;
+            }
+            if (added > 0) {
+                // SUI Alpine Vault: 60% of this structure's income is stored in a per-vault pool, capped at vaultCap.
+                if (stats.vaultCap) {
+                    const cur = tile.structure._vaultStored || 0;
+                    const toVault = Math.min(stats.vaultCap - cur, added * 0.6);
+                    if (toVault > 0) {
+                        tile.structure._vaultStored = cur + toVault;
+                        added -= toVault;
+                    }
+                }
+                this.players[oi].gold += added;
+                this.players[oi].stats.goldEarned += added;
+                goldRates[oi] += added / tickSec;
+            }
+            // Sanctions Bazaar martyrdom: at <50% HP, generate 1 missile per stats.martyrMissileMs.
+            if (stats.martyrMissileMs && tile.maxHp > 0 && tile.hp / tile.maxHp < 0.5) {
+                const last = tile.structure._lastMartyrMs || 0;
+                if (this.gameTime - last >= stats.martyrMissileMs) {
+                    this.players[oi].missiles = (this.players[oi].missiles || 0) + 1;
+                    tile.structure._lastMartyrMs = this.gameTime;
+                }
+            }
+        }
+
+        // ── Faction repair-aura (Japan Logistics, Vietnam Tunnel Node, Indonesia Island Fort L3) ──
+        for (const tile of this.grid.tiles.values()) {
+            if (!tile.structure || !tile.owner || tile.contested) continue;
+            const stats = tile.structure.stats;
+            if (!stats.repairAura || !stats.repairAuraRange) continue;
+            const heal = stats.repairAura * tickSec;
+            if (heal <= 0) continue;
+            const h = new Hex(tile.q, tile.r);
+            for (let dq = -stats.repairAuraRange; dq <= stats.repairAuraRange; dq++) {
+                for (let dr = -stats.repairAuraRange; dr <= stats.repairAuraRange; dr++) {
+                    const target = this.grid.getTile(h.q + dq, h.r + dr);
+                    if (!target || target.owner !== tile.owner || !target.structure) continue;
+                    if (Hex.distance(tile, target) > stats.repairAuraRange) continue;
+                    if (target.hp >= target.maxHp) continue;
+                    target.hp = Math.min(target.maxHp, target.hp + heal);
+                }
+            }
+            // Self-regen (Indonesia Garuda Island Fort).
+            if (stats.regenSelf && tile.hp < tile.maxHp) {
+                tile.hp = Math.min(tile.maxHp, tile.hp + stats.regenSelf * tickSec);
+            }
+        }
+
         // HP regen — base 0.8%/s, with G3 "Capitol" 2× aura, FIN sisu 2× self, and M3 "Insurgency" allowing regen while contested.
         const now = this.gameTime;
         for (const tile of this.grid.tiles.values()) {
@@ -1117,7 +1243,46 @@ export class Game {
         if ((t === 'DDG' || t === 'AF' || t === 'SSG') && this._inFriendlyL3PortAura(tile, tile.owner)) {
             mul *= GAME_CONFIG.PORT_L3_NAVY_INTERVAL_MULT;
         }
+        // China HQ-9 Magazine Park: adjacent friendly launchers (RL/AB/SU/CV/SSG/B) fire faster.
+        const rofMult = this._launcherRofBoostFor(tile, tile.owner);
+        if (rofMult > 1) mul *= (1 / rofMult);
+        // FIN NASAMS Sisu Bastion — its own recharge accelerates with match time (1 / (1 + cap * minutes)).
+        const tsr = tile.structure?.stats?.timeScaleHpRange;
+        if (tsr) {
+            const mins = this.gameTime / 60000;
+            const acc = 1 + Math.min(tsr.cap || 0.6, mins * (tsr.rangePerMin || 0));
+            mul *= 1 / acc;
+        }
+        // ITA Bersaglieri "Concord" L3 — adjacent friendlies fire 10% faster.
+        if (this._adjBersaglieriHasteAura(tile, tile.owner)) mul *= 0.90;
+        // JPN Mogami stealthIntervalBonus — while no enemy is within reveal range, fire faster.
+        const stats0 = tile.structure?.stats;
+        if (stats0?.stealthIntervalBonus && stats0?.lowProfile) {
+            const reveal = stats0.lowProfileRevealRange ?? 2;
+            const exposed = this._enemyWithinHexes(tile, tile.owner, reveal);
+            if (!exposed) mul *= (1 - stats0.stealthIntervalBonus);
+        }
         return mul;
+    }
+    /** True if any non-allied enemy structure sits within `r` hexes of `tile`. */
+    _enemyWithinHexes(tile, ownerId, r) {
+        for (const t of this._structureTiles || []) {
+            if (!t.owner || t.owner === ownerId) continue;
+            if (this.areAllied(t.owner, ownerId)) continue;
+            if (Hex.distance(tile, t) <= r) return true;
+        }
+        return false;
+    }
+    /** True if any L3 friendly Bersaglieri Concord is adjacent and confers haste. */
+    _adjBersaglieriHasteAura(tile, ownerId) {
+        if (!ownerId) return false;
+        const h = new Hex(tile.q, tile.r);
+        for (const ne of h.getNeighbors()) {
+            const t = this.grid.getTile(ne.q, ne.r);
+            if (!t?.structure || t.owner !== ownerId) continue;
+            if (t.structure.stats?.adjAllyHaste) return true;
+        }
+        return false;
     }
 
     // ========================================================================
@@ -1162,6 +1327,10 @@ export class Game {
                         prodMult *= 1 + bonus;
                     }
                     prodMult *= this.getPlayerModsForOwner(tile.owner).mfMult ?? 1;
+                    // Russia Iskander Bunker Depot / China HQ-9 Magazine Park — adjacency rate boost.
+                    prodMult *= this._mfRateBoostMultFor(tile, tile.owner);
+                    // GBR PJHQ flagship MF output bonus.
+                    if (tile.structure._flagshipOutput) prodMult *= tile.structure._flagshipOutput;
                     p.missiles += Math.floor(stats.missilesProduced * prodMult);
                     tile.lastAction = time;
                 }
@@ -1173,7 +1342,10 @@ export class Game {
                     if (s.type === 'AAS' && tile.structure.level === 2 && Math.random() < GAME_CONFIG.AAS_L3_BONUS_RECHARGE_CHANCE) {
                         add += 1;
                     }
-                    s.charge = Math.min(stats.chargeCap || 10, (s.charge || 0) + add);
+                    // USA Patriot Targeting Cell — bonus charge cap (and range) on adjacent AAS.
+                    const bonus = this._patriotAasBonus(tile, tile.owner);
+                    const cap = (stats.chargeCap || 10) + (bonus.capBonus || 0);
+                    s.charge = Math.min(cap, (s.charge || 0) + add);
                     tile.lastAction = time;
                 }
                 continue;
@@ -1197,6 +1369,43 @@ export class Game {
                 }
                 continue;
             }
+            // ---- Faction-unique structures ----------------------------------
+            if (isFactionUnit(s.type)) {
+                const cat = factionUnitCategory(s.type);
+                // DEF: AAS-style intercept charging.
+                if (cat === 'def' && stats.rechargeInterval) {
+                    if (time - tile.lastAction > stats.rechargeInterval * eff) {
+                        const lifetime = stats.lifetimeShots;
+                        if (lifetime != null) {
+                            // Bavar-style: built with charge already loaded, never recharges.
+                            tile.lastAction = time;
+                            continue;
+                        }
+                        s.charge = Math.min(stats.chargeCap || 10, (s.charge || 0) + (stats.missilesRecharged || 0));
+                        tile.lastAction = time;
+                    }
+                    continue;
+                }
+                // ECO with intercept (Italy Belltower): recharge like AAS.
+                if (cat === 'eco' && stats.rechargeInterval) {
+                    if (time - tile.lastAction > stats.rechargeInterval * eff) {
+                        s.charge = Math.min(stats.chargeCap || 10, (s.charge || 0) + (stats.missilesRecharged || 1));
+                        tile.lastAction = time;
+                    }
+                    // Falls through — ECO income still ticks elsewhere.
+                    continue;
+                }
+                // OFF/GND/NAV: fire on interval. NAV/OFF that need missiles handled below.
+                if (cat === 'off' || cat === 'gnd' || cat === 'nav') {
+                    // GND has no missile cost; OFF/NAV are routed through the missile-ready queue below.
+                    if (cat === 'gnd') {
+                        if (time - tile.lastAction > stats.interval * eff) {
+                            if (this.fireFactionUnit(tile)) tile.lastAction = time;
+                        }
+                    }
+                }
+                continue;
+            }
         }
 
         const missileReadyByPlayer = new Map();
@@ -1204,15 +1413,20 @@ export class Game {
             if (!tile.structure) continue;
             if (tile.contested) continue;
             const s = tile.structure;
-            if (s.type !== 'RL' && s.type !== 'AB' && s.type !== 'DDG' && s.type !== 'SSG' && s.type !== 'CV' && s.type !== 'ICBM') continue;
+            const isFactionOffOrNav = isFactionUnit(s.type)
+                && (factionUnitCategory(s.type) === 'off' || factionUnitCategory(s.type) === 'nav');
+            if (s.type !== 'RL' && s.type !== 'AB' && s.type !== 'DDG' && s.type !== 'SSG' && s.type !== 'CV' && s.type !== 'ICBM' && !isFactionOffOrNav) continue;
             const stats = s.stats;
             const p = this.players[tile.owner - 1];
             const eff = this.effFor(tile);
             if (time - tile.lastAction <= stats.interval * eff) continue;
+            // Pre-stocked silos (Iran Fateh) carry their own ammo and don't consume player missiles.
+            const usesPreStock = stats.preStock != null;
             const minMissiles = (s.type === 'AB' && tile.structure.level === 2)
                 ? Math.min(GAME_CONFIG.AB_L3_STEALTH_MISSILES, stats.missilesPerShot)
-                : stats.missilesPerShot;
-            if (p.missiles < minMissiles) continue;
+                : (isFactionOffOrNav ? (stats.missilesPerShot ?? 1) : stats.missilesPerShot);
+            if (!usesPreStock && !isFactionOffOrNav && p.missiles < minMissiles) continue;
+            if (!usesPreStock && isFactionOffOrNav && p.missiles < minMissiles) continue;
             const pid = tile.owner;
             if (!missileReadyByPlayer.has(pid)) missileReadyByPlayer.set(pid, []);
             missileReadyByPlayer.get(pid).push({ tile, eff });
@@ -1263,6 +1477,8 @@ export class Game {
                     if (this.fireNavyCV(tile)) tile.lastAction = time;
                 } else if (s.type === 'ICBM') {
                     if (this.fireIcbm(tile)) tile.lastAction = time;
+                } else if (isFactionUnit(s.type)) {
+                    if (this.fireFactionUnit(tile)) tile.lastAction = time;
                 }
             }
             this._autoTargetAllocMap = null;
@@ -1545,12 +1761,25 @@ export class Game {
     autoTarget(source, range, opts = {}) {
         this._ensureIndex();
         const candidates = [];
+        const lowProfileCandidates = [];
         for (const tile of this._structureTiles) {
             if (!tile.owner || tile.owner === source.owner) continue;
             if (this.areAllied(tile.owner, source.owner)) continue;
             const d = Hex.distance(source, tile);
             if (d > range) continue;
+            // Low-profile structures (Vietnam Pechora/Kilo/Tunnel, Japan Mogami): only
+            // attackable when within `lowProfileRevealRange` hexes. Outside that they're
+            // deprioritized — only chosen if there are no normal candidates.
+            const lpr = tile.structure?.stats?.lowProfileRevealRange;
+            if (tile.structure?.stats?.lowProfile && lpr != null && d > lpr) {
+                lowProfileCandidates.push({ tile, d, hp: tile.hp });
+                continue;
+            }
             candidates.push({ tile, d, hp: tile.hp });
+        }
+        if (candidates.length === 0 && lowProfileCandidates.length > 0) {
+            // No visible targets — fall through to low-profile.
+            candidates.push(...lowProfileCandidates);
         }
         if (!candidates.length) return null;
 
@@ -1905,11 +2134,19 @@ export class Game {
         if (!target) return false;
 
         tile.structure.lastFiredAt = this.gameTime;
+        let dmg = stats.damage;
+        // USA Stryker BCT paint aura: bonus damage + faster cadence on the painted tile.
+        const paint = this._strykerPaintMultsFor(tile, tile.owner, target);
+        if (paint.dmgBonus) dmg *= (1 + paint.dmgBonus);
+        if (paint.rateBonus) {
+            // Shrink time-until-next-fire: pretend last action happened slightly later.
+            tile.lastAction = this.gameTime + Math.floor((stats.interval || 0) * paint.rateBonus);
+        }
         const count = stats.projectiles || 1;
         for (let i = 0; i < count; i++) {
             this.spawnProjectile(tile, target, {
                 type: projType || 'ground',
-                damage: stats.damage,
+                damage: dmg,
                 speed: 3.5,
                 interceptable: !!stats.interceptable,
                 trail: false
@@ -1985,6 +2222,269 @@ export class Game {
         return true;
     }
 
+    /**
+     * Generic firing path for faction-unique OFF / GND / NAV units. Drives the
+     * common stat-flag mechanics: pctHpDmg, vsFort/Navy/Sub multipliers,
+     * pierceTargets (line attack), preStock magazines, lifetime shots,
+     * goldPerShot, treasuryDmgPer500, buildingScaleDmg, firstShotBonusPct,
+     * dugInBonus, adjacency buff, ambushDmgBonus, autoSpread (multi-target burst),
+     * chargeUpMs (long warm-up between shots).
+     */
+    fireFactionUnit(tile) {
+        const p = this.players[tile.owner - 1];
+        if (!p) return false;
+        const s = tile.structure;
+        const stats = s.stats;
+        const cat = factionUnitCategory(s.type);
+        if (cat === 'def' || cat === 'eco') return false; // these don't fire here
+
+        // Charge-up enforced via initial cooldown set in buildStructure — no per-fire check needed here.
+
+        // Lifetime shots (Iran Bavar) — once exhausted, the structure is inert.
+        if (stats.lifetimeShots != null) {
+            const used = s._lifeShotsUsed || 0;
+            if (used >= stats.lifetimeShots) return false;
+        }
+
+        // Gold-per-shot (Saudi Royal Guard) — bankrupt = no fire.
+        if (stats.goldPerShot && p.gold < stats.goldPerShot) return false;
+
+        // Utility/support units with no damage and no projectiles (USA Joint Targeting Cell, USA Stryker BCT)
+        // tick for aura upkeep but never spawn projectiles. Their effects (paint/surveillance/range buff)
+        // are applied passively from helper queries elsewhere; we just refresh `lastFiredAt`.
+        if ((stats.damage || 0) === 0 && (stats.projectiles || 0) === 0) {
+            // For paint aura (Stryker), set the painted tile to the current resolveTarget if any.
+            if (stats.paintAura) {
+                const tgt = this.resolveTarget(tile, stats);
+                if (tgt) s._paintedTile = { q: tgt.q, r: tgt.r };
+            }
+            s.lastFiredAt = this.gameTime;
+            return true;
+        }
+
+        // Resolve target.
+        const target = this.resolveTarget(tile, stats);
+        if (!target) return false;
+
+        // Compute final damage.
+        let dmg = stats.damage || 0;
+
+        // Percent-HP damage (Russia Solntsepyok).
+        if (stats.pctHpDmg && target.maxHp > 0) {
+            const pctBonus = (target.hp || 0) * stats.pctHpDmg;
+            dmg = Math.min((stats.pctHpDmgCap || Infinity), dmg + pctBonus);
+        }
+
+        // Anti-fortification (Saudi GBU-39).
+        const t = target.structure?.type;
+        if (stats.vsFortMult && (t === 'G' || t === 'B' || t === 'BUNK' || t === 'PT')) {
+            dmg *= stats.vsFortMult;
+        }
+        // Anti-sub (UK Astute).
+        if (stats.vsSubMult && t === 'SSG') dmg *= stats.vsSubMult;
+        // Anti-navy (already handled by SU anti_ship; for completeness).
+        if (stats.vsNavyMult && t && NAVY_BUILD_TYPES.has(t)) dmg *= stats.vsNavyMult;
+
+        // Treasury-scaled damage (Saudi Royal Guard).
+        if (stats.treasuryDmgPer500) {
+            const bonus = Math.min(stats.treasuryDmgCap || 30, Math.floor(p.gold / 500) * stats.treasuryDmgPer500);
+            dmg += bonus;
+        }
+
+        // Building-count scaling damage (Finland JASSM).
+        if (stats.buildingScaleDmg) {
+            const friendlyCount = this._friendlyBuildingCount(tile.owner);
+            const bonus = Math.min(stats.buildingScaleCap || 0.6, friendlyCount * stats.buildingScaleDmg);
+            dmg *= (1 + bonus);
+        }
+
+        // First shot of the game bonus (Vietnam Tunnel Launch).
+        if (stats.firstShotBonusPct && !s._firedOnce) {
+            dmg *= (1 + stats.firstShotBonusPct);
+        }
+        // UK SAS Raid Team — opening-strike flat damage bonus on the unit's first ever shot.
+        if (stats.openingStrike && !s._firedOnce) {
+            dmg += stats.openingStrike;
+        }
+
+        // Dug-in bonus (Japan Mountain Garrison) — applied to fire rate by being a self-buff,
+        // we expose extra range/HP on build; here we use it as a damage boost when surrounded
+        // by friendly tiles to keep the unit's identity in play.
+        if (stats.dugInBonus && this._countFriendlyAdjTiles(tile, tile.owner) >= (stats.dugInMinFriendlyAdj || 3)) {
+            // Range/HP bonus is handled at build/upgrade time; on-fire we add +20% dmg for being dug-in.
+            dmg *= 1.20;
+        }
+
+        // Adjacency synergy (Italy Bersaglieri).
+        if (stats.adjacencyDmg) {
+            const n = Math.min(stats.adjacencyMax || 5, this._countFriendlyAdjGroundUnits(tile, tile.owner));
+            dmg *= (1 + n * stats.adjacencyDmg);
+        }
+
+        // Ambush bonus (Finland Jäger) — +25% dmg if it's been >ambushCooldownMs since last shot.
+        if (stats.ambushDmgBonus && stats.ambushCooldownMs) {
+            const dt = this.gameTime - (s.lastFiredAt || 0);
+            if (dt >= stats.ambushCooldownMs) dmg *= (1 + stats.ambushDmgBonus);
+        }
+
+        // Vengeance (Vietnam Kilo).
+        if (stats.vengeanceDmgBonus && this._recentFriendlyLossNear(tile, tile.owner, 4, 8000)) {
+            dmg *= (1 + stats.vengeanceDmgBonus);
+        }
+
+        // Home territory defender bonus (Japan Type 12).
+        let projCount = stats.projectiles || 1;
+        if (stats.homeTerritoryBonus?.extraProj && this._inOwnInfluenceTerritory(target, tile.owner)) {
+            projCount += stats.homeTerritoryBonus.extraProj;
+        }
+
+        // Auto-spread (China Rocket Force) — distribute projectiles across multiple targets.
+        const autoSpread = !!stats.autoSpread;
+
+        // Pierce-line (Indonesia KCR) — single projectile flagged for line-pierce.
+        const pierce = stats.pierceTargets || 0;
+
+        // Pay costs.
+        if (stats.goldPerShot) {
+            p.gold -= stats.goldPerShot;
+            p.stats.goldSpent += stats.goldPerShot;
+        }
+        if (stats.preStock != null) {
+            s._preStockUsed = (s._preStockUsed || 0) + 1;
+            if (s._preStockUsed > stats.preStock) {
+                // Out of pre-stock — refuse fire.
+                s._preStockUsed = stats.preStock;
+                return false;
+            }
+        } else if (stats.missilesPerShot && cat !== 'gnd') {
+            p.missiles -= stats.missilesPerShot;
+        }
+        if (stats.lifetimeShots != null) s._lifeShotsUsed = (s._lifeShotsUsed || 0) + 1;
+
+        s.lastFiredAt = this.gameTime;
+        s._firedOnce = true;
+
+        // Projectile spec.
+        const projType = cat === 'nav' ? 'navy' : (cat === 'gnd' ? 'ground' : 'rocket');
+        const splashFlag = !!stats.splash;
+        const interceptable = stats.interceptable !== false;
+
+        // Spawn projectiles.
+        if (autoSpread && projCount > 1) {
+            // China auto-distributed shells across nearby enemies.
+            const targets = this._pickMultiTargets(tile, stats, projCount);
+            for (const tgt of targets) {
+                this.spawnProjectile(tile, tgt, {
+                    type: projType, damage: dmg, speed: 3.0,
+                    interceptable, trail: true, splash: splashFlag,
+                    pierce, splashRadius: stats.splashRadius || 1
+                });
+            }
+        } else if (pierce > 0) {
+            // Single line-attack projectile.
+            this.spawnProjectile(tile, target, {
+                type: projType, damage: dmg, speed: 3.0,
+                interceptable, trail: true, splash: false, pierce
+            });
+        } else {
+            for (let i = 0; i < projCount; i++) {
+                // Türkiye Anadolu — one drone per volley is stealth (non-interceptable).
+                const isStealthExtra = stats.stealthExtraProj && i === 0;
+                // Poland NSM Coastal — afPierceChance grants a per-shot roll to bypass the first AF layer.
+                const afPierce = stats.afPierceChance && Math.random() < stats.afPierceChance;
+                this.spawnProjectile(tile, target, {
+                    type: projType, damage: dmg, speed: 3.0,
+                    interceptable: (isStealthExtra || afPierce) ? false : interceptable,
+                    trail: true, splash: splashFlag,
+                    splashRadius: stats.splashRadius || 1,
+                    killRefundPct: stats.killRefundPct,
+                    sourceType: s.type,
+                });
+            }
+        }
+        // USA Stryker BCT: paint the target tile so adjacent friendly B fire faster/harder on it.
+        if (stats.paintAura) {
+            s._paintedTile = { q: target.q, r: target.r };
+        }
+
+        this.spawnMuzzleFlash(tile, target, { color: '#ffb060', size: 1.4, count: 4 });
+        this._fireSfx(tile, projType === 'navy' ? 'launch_navy' : (projType === 'ground' ? 'launch_drone' : 'launch_rocket'));
+        return true;
+    }
+
+    /** Count friendly land-buildable tiles in a radius (used for "dug-in" bonus). */
+    _countFriendlyAdjTiles(tile, ownerId) {
+        const h = new Hex(tile.q, tile.r);
+        let n = 0;
+        for (const ne of h.getNeighbors()) {
+            const t = this.grid.getTile(ne.q, ne.r);
+            if (t && t.owner === ownerId) n++;
+        }
+        return n;
+    }
+
+    /** Count friendly ground units (B/M/D + faction GND) adjacent to `tile`. */
+    _countFriendlyAdjGroundUnits(tile, ownerId) {
+        const h = new Hex(tile.q, tile.r);
+        let n = 0;
+        for (const ne of h.getNeighbors()) {
+            const t = this.grid.getTile(ne.q, ne.r);
+            if (!t?.structure || t.owner !== ownerId) continue;
+            const ty = t.structure.type;
+            if (ty === 'B' || ty === 'M' || ty === 'D') n++;
+            else if (isFactionUnit(ty) && factionUnitCategory(ty) === 'gnd') n++;
+        }
+        return n;
+    }
+
+    /** True if a friendly structure was destroyed within `radius` hexes of `tile` in the last `msAgo` ms. */
+    _recentFriendlyLossNear(tile, ownerId, radius, msAgo) {
+        const cutoff = this.gameTime - msAgo;
+        const losses = this._recentLossesByOwner?.get(ownerId);
+        if (!losses || losses.length === 0) return false;
+        for (const l of losses) {
+            if (l.t < cutoff) continue;
+            if (Hex.distance(tile, { q: l.q, r: l.r }) <= radius) return true;
+        }
+        return false;
+    }
+
+    /** Total friendly building count (used for FIN JASSM scaling). */
+    _friendlyBuildingCount(ownerId) {
+        this._ensureIndex();
+        let n = 0;
+        for (const t of this._structureTiles) {
+            if (t.owner === ownerId) n++;
+        }
+        return n;
+    }
+
+    /** Pick N distinct enemy targets in range (used for CHN auto-spread). */
+    _pickMultiTargets(tile, stats, n) {
+        const out = [];
+        const seen = new Set();
+        const primary = this.resolveTarget(tile, stats);
+        if (primary) {
+            out.push(primary);
+            seen.add(`${primary.q},${primary.r}`);
+        }
+        // Sweep tiles within stats.range for additional enemy structures.
+        const range = stats.range || 5;
+        for (const cand of this._structureTiles || []) {
+            if (out.length >= n) break;
+            if (!cand.structure || cand.owner === tile.owner) continue;
+            if (this.areAllied(cand.owner, tile.owner)) continue;
+            if (Hex.distance(tile, cand) > range) continue;
+            const k = `${cand.q},${cand.r}`;
+            if (seen.has(k)) continue;
+            seen.add(k);
+            out.push(cand);
+        }
+        // Pad with primary if not enough targets.
+        while (out.length < n && out.length > 0) out.push(out[0]);
+        return out;
+    }
+
     // ========================================================================
     //  PROJECTILES
     // ========================================================================
@@ -2012,6 +2512,10 @@ export class Game {
             speed: opts.speed,
             interceptable: opts.interceptable,
             splash: !!opts.splash,
+            splashRadius: opts.splashRadius,
+            pierce: opts.pierce || 0,
+            killRefundPct: opts.killRefundPct,
+            sourceType: opts.sourceType,
             trail: opts.trail,
             trailPts: [],
             color: COLORS[`PLAYER${atkOwner}`],
@@ -2090,6 +2594,28 @@ export class Game {
 
     checkInterception(proj) {
         if (proj.interceptable === false) return false;
+        // Türkiye KORAL Spoofer — enemy interceptable projectile entering KORAL aura has its targeting
+        // re-rolled to a random friendly tile. One-shot effect per projectile (uses `_spoofed`).
+        if (!proj._spoofed) {
+            for (const t of this._structureTiles || []) {
+                if (!t.structure?.stats?.koralSpoof) continue;
+                if (t.owner === proj.owner || this.areAllied(t.owner, proj.owner)) continue;
+                if (!t.structure.stats.range) continue;
+                const hex = this.grid.pixelToHex(proj.x, proj.y);
+                if (Hex.distance(hex, t) > t.structure.stats.range) continue;
+                if (Math.random() > t.structure.stats.koralSpoof) continue;
+                // Pick a random friendly tile belonging to the spoofer.
+                const friendlyTiles = (this._structureTiles || []).filter(x => x.owner === t.owner && x !== t);
+                if (friendlyTiles.length === 0) break;
+                const pick = friendlyTiles[(Math.random() * friendlyTiles.length) | 0];
+                const newEnd = this.grid.hexToPixel(pick.q, pick.r);
+                proj.targetQR = { q: pick.q, r: pick.r };
+                proj.targetX = newEnd.x;
+                proj.targetY = newEnd.y;
+                proj._spoofed = true;
+                break;
+            }
+        }
         this._ensureIndex();
         if (this._aasTiles.length === 0) return false;
 
@@ -2114,7 +2640,10 @@ export class Game {
                 if (tile.contested) continue;
                 if ((tile.structure.charge || 0) <= 0) continue;
                 // ICBM warheads can only be intercepted by Lv3 interceptors (Iron Dome / Aegis BMD).
-                if (proj.type === 'icbm' && GAME_CONFIG.ICBM_REQUIRES_L3_INTERCEPTOR && tile.structure.level !== 2) continue;
+                if (proj.type === 'icbm' && GAME_CONFIG.ICBM_REQUIRES_L3_INTERCEPTOR
+                    && tile.structure.level !== 2 && !tile.structure.stats?.interceptsIcbm) continue;
+                // KSA THAAD `ballisticOnly`: only intercepts rocket / icbm types.
+                if (tile.structure.stats?.ballisticOnly && proj.type !== 'rocket' && proj.type !== 'icbm') continue;
 
                 let range = tile.structure.stats.range;
                 if (tile.structure.type === 'AF' && tile.structure.level === 2 && proj.fromQR) {
@@ -2122,6 +2651,17 @@ export class Game {
                     if (fTile?.structure && !fTile.buildable && NAVY_BUILD_TYPES.has(fTile.structure.type)) {
                         range += GAME_CONFIG.AF3_NAVY_ORIGIN_RANGE;
                     }
+                }
+                // USA Patriot Targeting Cell — bonus range on adjacent AAS.
+                if (tile.structure.type === 'AAS') {
+                    range += this._patriotAasBonus(tile, tile.owner).rangeBonus || 0;
+                }
+                // Faction `timeScaleHpRange` (Finland NASAMS Sisu): range scales with match minutes.
+                if (tile.structure.stats?.timeScaleHpRange) {
+                    const cfg = tile.structure.stats.timeScaleHpRange;
+                    const mins = this.gameTime / 60000;
+                    const mult = 1 + Math.min(cfg.cap || 0.6, mins * (cfg.rangePerMin || 0));
+                    range = Math.floor(range * mult);
                 }
                 if (Hex.distance(hex, tile) <= range) eligible.push(tile);
             }
@@ -2150,6 +2690,26 @@ export class Game {
             best.structure.charge--;
             const interceptor = best.owner ? this.players[best.owner - 1] : null;
             if (interceptor?.stats) interceptor.stats.missilesIntercepted++;
+            // ITA SAMP/T reflect-intercept: chance to return-fire at the source for a fraction of the original damage.
+            const reflect = best.structure.stats?.reflectIntercept;
+            if (reflect && Math.random() < reflect && proj.fromQR) {
+                const sourceTile = this.grid.getTile(proj.fromQR.q, proj.fromQR.r);
+                if (sourceTile?.structure && sourceTile.owner === proj.owner) {
+                    const reflectDmg = (proj.damage || 0) * (best.structure.stats.reflectDmgMult || 0.5);
+                    if (reflectDmg > 0) {
+                        this.spawnProjectile(best, sourceTile, {
+                            type: 'rocket', damage: reflectDmg, speed: 4.0,
+                            interceptable: false, trail: true,
+                        });
+                    }
+                }
+            }
+            // ITA Concordia Belltower: every intercept refunds a small gold bounty.
+            if (best.structure.stats?.interceptRefundGold && interceptor) {
+                const g = best.structure.stats.interceptRefundGold;
+                interceptor.gold += g;
+                if (interceptor.stats) interceptor.stats.goldEarned += g;
+            }
             return true;
         }
         return false;
@@ -2214,6 +2774,11 @@ export class Game {
             }
             // ITA "aegis_aura": friendly L3 Aster Battery within 3 hex reduces incoming damage by 15%.
             if (this._inFriendlyAegisAura(tile, tile.owner)) dmg *= 0.85;
+            // Faction-unique DR aura (Switzerland Réduit, Japan Logistics Hub L3).
+            const drMult = this._friendlyDrAuraMult(tile, tile.owner);
+            if (drMult < 1) dmg *= drMult;
+            // Switzerland Réduit Casemate splash-resist.
+            if (proj.splash && tile.structure?.stats?.splashResist) dmg *= (1 - tile.structure.stats.splashResist);
             // Bunker Lv3 "Hardened": the bunker itself takes 25% less damage from all sources.
             if (tile.structure.type === 'BUNK' && tile.structure.level === 2) {
                 dmg *= GAME_CONFIG.BUNK_L3_TAKEN_MULT;
@@ -2242,6 +2807,41 @@ export class Game {
                 const victimOwner = tile.owner;
                 this.destroyStructure(tile, proj.owner);
                 this._onSU3Kill(proj, victimBaseCost, victimOwner);
+                this._onFactionKill(proj, victimBaseCost, victimOwner, tile);
+                this._trackRecentLoss(victimOwner, tile);
+            }
+        }
+
+        // IDN KCR Missile Cutter Dock — line-pierce: after the primary impact, chain through up to
+        // `pierce` more enemy structures roughly in line, each taking 25% less damage than the last.
+        if (proj.pierce && proj.pierce > 0 && proj.fromQR) {
+            const src = this.grid.getTile(proj.fromQR.q, proj.fromQR.r);
+            const tgt = this.grid.getTile(proj.targetQR.q, proj.targetQR.r);
+            if (src && tgt) {
+                const dq = tgt.q - src.q, dr = tgt.r - src.r;
+                let curDmg = proj.damage * 0.75;
+                let curQ = tgt.q + dq, curR = tgt.r + dr;
+                for (let i = 0; i < proj.pierce; i++) {
+                    const nextTile = this.grid.getTile(curQ, curR);
+                    if (!nextTile?.structure || !nextTile.owner) break;
+                    if (this.areAllied(nextTile.owner, proj.owner) || nextTile.owner === proj.owner) break;
+                    let pdmg = curDmg;
+                    pdmg *= this.getPlayerModsForOwner(nextTile.owner).takenMult ?? 1;
+                    nextTile.hp -= pdmg;
+                    nextTile.lastDamageTime = this.gameTime;
+                    const atk = this.players[proj.owner - 1];
+                    const def = this.players[nextTile.owner - 1];
+                    if (atk) atk.stats.damageDealt += pdmg;
+                    if (def) def.stats.damageTaken += pdmg;
+                    if (nextTile.hp <= 0) {
+                        const baseCost = UNIT_STATS[nextTile.structure.type]?.levels?.[0]?.cost || 0;
+                        const vOwner = nextTile.owner;
+                        this.destroyStructure(nextTile, proj.owner);
+                        this._onFactionKill(proj, baseCost, vOwner, nextTile);
+                    }
+                    curDmg *= 0.75;
+                    curQ += dq; curR += dr;
+                }
             }
         }
 
@@ -2281,6 +2881,8 @@ export class Game {
                     const vOwner = nt.owner;
                     this.destroyStructure(nt, proj.owner);
                     this._onSU3Kill(proj, baseCost, vOwner);
+                    this._onFactionKill(proj, baseCost, vOwner, nt);
+                    this._trackRecentLoss(vOwner, nt);
                 }
             }
         }
@@ -2313,6 +2915,185 @@ export class Game {
                 if (attacker.stats) attacker.stats.goldEarned += refund;
             }
         }
+    }
+
+    /**
+     * Faction-unique on-kill triggers — runs alongside _onSU3Kill:
+     *   - projectile.killRefundPct (KSA Al-Riyadh) refunds the attacker.
+     *   - USA Wall Street Exchange refunds 4-8% of victim cost to its owner if
+     *     a friendly Wall Street is within killRefundRange of the kill tile.
+     *   - POL Husaria Marshalling Yard banks +killBonusGold per kill within killBonusRange.
+     */
+    _onFactionKill(proj, victimBaseCost, victimOwner, victimTile) {
+        if (!proj || victimBaseCost <= 0 || proj.owner === victimOwner) return;
+        const attacker = this.players?.[proj.owner - 1];
+        if (!attacker) return;
+        // Projectile-level refund (KSA Al-Riyadh, future units).
+        if (proj.killRefundPct) {
+            const refund = Math.floor(victimBaseCost * proj.killRefundPct);
+            if (refund > 0) {
+                attacker.gold += refund;
+                if (attacker.stats) attacker.stats.goldEarned += refund;
+            }
+        }
+        // Scan attacker's ECO faction-unique structures for proximity-based kill payouts.
+        this._ensureIndex();
+        for (const t of this._structureTiles) {
+            if (t.owner !== proj.owner || !t.structure) continue;
+            const stats = t.structure.stats;
+            if (!isFactionUnit(t.structure.type)) continue;
+            // Wall Street Exchange: kill refund aura.
+            if (stats.killRefundPct && stats.killRefundRange) {
+                if (Hex.distance(t, victimTile) <= stats.killRefundRange) {
+                    const refund = Math.floor(victimBaseCost * stats.killRefundPct);
+                    if (refund > 0) {
+                        attacker.gold += refund;
+                        if (attacker.stats) attacker.stats.goldEarned += refund;
+                    }
+                }
+            }
+            // Husaria Marshalling Yard: flat gold-per-kill bonus.
+            if (stats.killBonusGold && stats.killBonusRange) {
+                if (Hex.distance(t, victimTile) <= stats.killBonusRange) {
+                    t.structure._pendingKillGold = (t.structure._pendingKillGold || 0) + stats.killBonusGold;
+                }
+            }
+        }
+    }
+
+    /** POL PILICA: on death, fire N invisible-projectile intercepts at the nearest incoming enemy missiles. */
+    _firePilicaDeathBurst(tile, ownerId, n) {
+        const me = this.players?.[ownerId - 1];
+        let consumed = 0;
+        for (let i = this.projectiles.length - 1; i >= 0 && consumed < n; i--) {
+            const proj = this.projectiles[i];
+            if (!proj.interceptable || proj.owner === ownerId) continue;
+            if (this.areAllied(proj.owner, ownerId)) continue;
+            // Splice it out as if intercepted.
+            this._removeIncomingHumanThreat?.(proj);
+            this.projectiles.splice(i, 1);
+            if (me?.stats) me.stats.missilesIntercepted++;
+            consumed++;
+        }
+    }
+
+    /** GBR PJHQ flagship buff — picks the closest friendly MF and tags it with the HP/output bonus. */
+    _applyFlagshipBuff(treasuryTile, ownerId, buff) {
+        this._ensureIndex();
+        let best = null, bestD = Infinity;
+        for (const t of this._structureTiles) {
+            if (t.owner !== ownerId || !t.structure) continue;
+            if (t.structure.type !== 'MF') continue;
+            const d = Hex.distance(treasuryTile, t);
+            if (d < bestD) { bestD = d; best = t; }
+        }
+        if (!best) return;
+        const hpAdd = Math.floor(best.maxHp * (buff.hp || 0));
+        best.maxHp += hpAdd;
+        best.hp += hpAdd;
+        best.structure._flagshipOutput = 1 + (buff.output || 0);
+    }
+    /** SUI Patrouilleboot 16: water tile must be within `maxD` hex of any owned land tile. */
+    _withinFriendlyLandHexes(tile, ownerId, maxD) {
+        for (const t of this.grid.tiles.values()) {
+            if (!t.buildable) continue;
+            if (t.owner !== ownerId) continue;
+            if (Hex.distance(tile, t) <= maxD) return true;
+        }
+        return false;
+    }
+    /** China Five-Year Plan: discount factory build cost when a Combine is within range. Non-stacking (best discount wins). */
+    _mfCostWithDiscount(tile, ownerId, baseCost) {
+        this._ensureIndex();
+        let bestDisc = 0;
+        for (const t of this._structureTiles) {
+            if (t.owner !== ownerId || !t.structure) continue;
+            const stats = t.structure.stats;
+            if (!stats?.mfCostDiscount) continue;
+            if (Hex.distance(tile, t) > (stats.mfCostDiscountRadius || 0)) continue;
+            if (stats.mfCostDiscount > bestDisc) bestDisc = stats.mfCostDiscount;
+        }
+        return Math.floor(baseCost * (1 - bestDisc));
+    }
+    /** China Five-Year Plan: 15% MF build cost paid back as rebate. */
+    _mfRebateBonus(tile, ownerId, paidCost) {
+        this._ensureIndex();
+        for (const t of this._structureTiles) {
+            if (t.owner !== ownerId || !t.structure) continue;
+            const stats = t.structure.stats;
+            if (!stats?.mfCostDiscount) continue;
+            if (Hex.distance(tile, t) > (stats.mfCostDiscountRadius || 0)) continue;
+            return Math.floor(paidCost * 0.15);
+        }
+        return 0;
+    }
+    /** Russia Iskander Bunker / China HQ-9: friendly MF rate boost when neighbouring a Bunker Depot or Magazine Park. */
+    _mfRateBoostMultFor(tile, ownerId) {
+        this._ensureIndex();
+        let best = 1;
+        for (const t of this._structureTiles) {
+            if (t.owner !== ownerId || !t.structure) continue;
+            const stats = t.structure.stats;
+            if (!stats?.mfRateBoost) continue;
+            if (Hex.distance(tile, t) > (stats.mfRateBoostRadius || 0)) continue;
+            const mult = 1 + stats.mfRateBoost;
+            if (mult > best) best = mult;
+        }
+        return best;
+    }
+    /** China HQ-9 Magazine Park: adjacent friendly launcher RoF boost. */
+    _launcherRofBoostFor(tile, ownerId) {
+        this._ensureIndex();
+        let best = 1;
+        for (const t of this._structureTiles) {
+            if (t.owner !== ownerId || !t.structure) continue;
+            const stats = t.structure.stats;
+            if (!stats?.launcherRofBoost) continue;
+            if (Hex.distance(tile, t) > (stats.launcherRofRadius || 1)) continue;
+            const mult = 1 + stats.launcherRofBoost;
+            if (mult > best) best = mult;
+        }
+        return best;
+    }
+    /** USA Patriot Targeting Cell: nearby friendly AAS get +range and +chargeCap. */
+    _patriotAasBonus(tile, ownerId) {
+        this._ensureIndex();
+        let bestRange = 0;
+        let bestCap = 0;
+        for (const t of this._structureTiles) {
+            if (t.owner !== ownerId || !t.structure) continue;
+            const stats = t.structure.stats;
+            if (!stats?.aasAuraRange) continue;
+            if (Hex.distance(tile, t) > stats.aasAuraRange) continue;
+            if ((stats.aasAuraRangeBonus || 0) > bestRange) bestRange = stats.aasAuraRangeBonus;
+            if ((stats.aasAuraCapBonus || 0) > bestCap) bestCap = stats.aasAuraCapBonus;
+        }
+        return { rangeBonus: bestRange, capBonus: bestCap };
+    }
+    /** USA Stryker BCT: paint aura — friendly B in radius fire faster + harder at the painted tile.
+     *  `rangeBonus` in the unit stats is the rate-of-fire bonus (interval shrinks by that fraction). */
+    _strykerPaintMultsFor(srcTile, ownerId, targetTile) {
+        this._ensureIndex();
+        for (const t of this._structureTiles) {
+            if (t.owner !== ownerId || !t.structure) continue;
+            const stats = t.structure.stats;
+            if (!stats?.paintAura) continue;
+            if (Hex.distance(srcTile, t) > stats.paintAura.radius) continue;
+            const painted = t.structure._paintedTile;
+            if (!painted || painted.q !== targetTile.q || painted.r !== targetTile.r) continue;
+            return { dmgBonus: stats.paintAura.dmgBonus || 0, rateBonus: stats.paintAura.rangeBonus || 0 };
+        }
+        return { dmgBonus: 0, rateBonus: 0 };
+    }
+
+    /** Track recent friendly losses for the Vietnam Kilo vengeance flag. */
+    _trackRecentLoss(ownerId, tile) {
+        if (!ownerId || !tile) return;
+        if (!this._recentLossesByOwner) this._recentLossesByOwner = new Map();
+        let arr = this._recentLossesByOwner.get(ownerId);
+        if (!arr) { arr = []; this._recentLossesByOwner.set(ownerId, arr); }
+        arr.push({ q: tile.q, r: tile.r, t: this.gameTime });
+        if (arr.length > 32) arr.shift();
     }
 
     // ========================================================================
@@ -2377,13 +3158,20 @@ export class Game {
         const p = this.players[ownerId - 1];
         if (!p) return false;
         if (tile.contested) return false;
-        if (NAVY_BUILD_TYPES.has(type) && !this.isSeaTile(tile)) return false;
+        // Poland NSM Coastal Battery is naval but also accepts owned coastal-land placement.
+        const polCoastalNav = type === 'POL_NAV';
+        if (NAVY_BUILD_TYPES.has(type) && !this.isSeaTile(tile) && !(polCoastalNav && this.isCoastalLand?.(tile))) return false;
         if (!tile.buildable) {
             if (!NAVY_BUILD_TYPES.has(type)) return false;
             if (!this.canBuildNavyOn(tile, ownerId)) return false;
         }
         // Port: only on coastal land (buildable land with a water neighbor).
         if (type === 'PT' && !this.isCoastalLand(tile)) return false;
+        // Switzerland Patrouilleboot 16: lake-only — must be within 4 hex of a friendly land tile.
+        if (type === 'SUI_NAV') {
+            const ok = this._withinFriendlyLandHexes(tile, ownerId, 4);
+            if (!ok) return false;
+        }
 
         const def = UNIT_STATS[type];
         const stats = Array.isArray(def?.levels) ? def.levels[levelIdx] : def;
@@ -2399,27 +3187,84 @@ export class Game {
         } else {
             if (!isOwn) return false;
         }
-        if (!free && p.gold < stats.cost) return false;
+        // CHN Five-Year Plan Combine: discount on MF build cost within range.
+        let effectiveCost = stats.cost;
+        if (type === 'MF') effectiveCost = this._mfCostWithDiscount(tile, ownerId, effectiveCost);
+        if (!free && p.gold < effectiveCost) return false;
         if (type === 'M') {
             const cap = this.militiaCap(p);
             if (p.units.M >= cap) return false;
         }
 
         if (!free) {
-            p.gold -= stats.cost;
-            p.stats.goldSpent += stats.cost;
+            p.gold -= effectiveCost;
+            p.stats.goldSpent += effectiveCost;
+            // China Five-Year Plan rebate: pay back 15% over time.
+            if (type === 'MF') {
+                const rebate = this._mfRebateBonus(tile, ownerId, effectiveCost);
+                if (rebate > 0) {
+                    p.gold += rebate;
+                    p.stats.goldEarned += rebate;
+                }
+            }
         }
         // AAS starts with 0 charge — it needs BUILD_COOLDOWNS.AAS ms before its first recharge.
         tile.structure = { type, level: levelIdx, stats, charge: 0, target: null, lastFiredAt: 0 };
+        // Iran Sanctions Bazaar — pre-stocked gold lump on build.
+        if (stats.goldLumpOnBuild) {
+            p.gold += stats.goldLumpOnBuild;
+            p.stats.goldEarned += stats.goldLumpOnBuild;
+        }
+        // GBR Royal Treasury & PJHQ: pick the closest friendly MF as flagship and apply HP+output buff.
+        if (stats.flagshipBuff) {
+            this._applyFlagshipBuff(tile, ownerId, stats.flagshipBuff);
+        }
+        // Pre-stocked silos (Iran Fateh) start fully loaded with their internal magazine.
+        if (stats.preStock != null) {
+            tile.structure._preStockUsed = 0;
+        }
+        // Bavar-style lifetime intercepts — start with full charge from cap (free).
+        if (stats.lifetimeShots != null) {
+            tile.structure.charge = stats.chargeCap || stats.lifetimeShots;
+        }
         if (type === 'SU') {
             tile.structure.displayName = getSpecialUnitLabelForPlayer(this, ownerId);
         }
         tile.owner = ownerId;
         tile.hp = stats.hp || 100;
         tile.maxHp = tile.hp;
+        // JPN Mountain Garrison dug-in bonus — if the placement tile borders enough friendly tiles,
+        // increase the unit's HP and range. Stats are shallow-cloned so the bump doesn't leak into
+        // other instances of the same tier.
+        if (stats.dugInBonus && this._countFriendlyAdjTiles(tile, ownerId) >= (stats.dugInMinFriendlyAdj || 3)) {
+            const hpAdd = Math.floor(tile.maxHp * (stats.dugInBonus.hp || 0));
+            tile.maxHp += hpAdd;
+            tile.hp += hpAdd;
+            if (stats.dugInBonus.range) {
+                tile.structure.stats = { ...stats, range: (stats.range || 0) + stats.dugInBonus.range };
+            }
+        }
+        // IDN KCR-60 Archipelago Boat — +range when built within 2 hex of owned land.
+        if (stats.landAdjRangeBonus) {
+            const nearLand = this._withinFriendlyLandHexes(tile, ownerId, 2);
+            if (nearLand) {
+                tile.structure.stats = { ...stats, range: (stats.range || 0) + stats.landAdjRangeBonus };
+            }
+        }
+        // ITA Bersaglieri Concord adjacency HP bonus — applied at build (re-evaluated never; intentional snapshot).
+        if (stats.adjacencyHp && stats.adjacencyMax) {
+            const n = Math.min(stats.adjacencyMax, this._countFriendlyAdjGroundUnits(tile, ownerId));
+            if (n > 0) {
+                const hpAdd = Math.floor(tile.maxHp * n * stats.adjacencyHp);
+                tile.maxHp += hpAdd;
+                tile.hp += hpAdd;
+            }
+        }
 
         // Apply initial build cooldown: offset lastAction so the first action fires at T + cooldown.
-        const buildCooldown = GAME_CONFIG.BUILD_COOLDOWNS[type] ?? 0;
+        let buildCooldown = GAME_CONFIG.BUILD_COOLDOWNS[type] ?? 0;
+        // Charge-up units (CHN_OFF DF-17, POL_GND Hussar Charge) — add chargeUpMs to the initial wait.
+        if (stats.chargeUpMs) buildCooldown = Math.max(buildCooldown, stats.chargeUpMs);
         const structInterval =
             type === 'MF'  ? (stats.produceInterval  || 10000) :
             type === 'AAS' || type === 'AF' ? (stats.rechargeInterval  || 12000) :
@@ -2462,8 +3307,22 @@ export class Game {
         if (tile.structure) {
             const p = this.players[tile.owner - 1];
             const t = tile.structure.type;
+            const stats = tile.structure.stats;
             if (p && t === 'M') {
                 p.units.M = Math.max(0, p.units.M - 1);
+            }
+
+            // POL PILICA "Death Burst": on death, fire N free interceptors at the closest enemy projectile.
+            if (stats?.deathInterceptors && tile.owner) {
+                this._firePilicaDeathBurst(tile, tile.owner, stats.deathInterceptors);
+            }
+            // SUI Alpine Vault: stored gold is lost on death (if non-demolish).
+            if (!isDemolish && stats?.vaultCap && tile.structure._vaultStored) {
+                const lost = tile.structure._vaultStored | 0;
+                if (p) {
+                    p.gold = Math.max(0, (p.gold || 0) - lost);
+                }
+                this.logEvent(tile.owner, attackerId, 'vault', `Vault destroyed — lost $${lost}`);
             }
 
             if (p && !isDemolish) p.stats.structuresLost++;
@@ -2536,6 +3395,15 @@ export class Game {
         tile.maxHp = newMaxHp;
         const hpGain = Math.max(0, newMaxHp - prevMaxHp);
         tile.hp = Math.min(newMaxHp, (prevHp ?? 0) + hpGain);
+
+        // IRN Sanctions Bazaar — pay the delta lump when upgrading (L1→L2 250→450, L2→L3 450→700).
+        const prevLump = prevLevelStats?.goldLumpOnBuild || 0;
+        const nextLump = nextLevel.goldLumpOnBuild || 0;
+        if (nextLump > prevLump) {
+            const delta = nextLump - prevLump;
+            p.gold += delta;
+            p.stats.goldEarned += delta;
+        }
 
         const newStats = tile.structure.stats;
         const newInterval =
