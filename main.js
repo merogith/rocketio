@@ -1166,7 +1166,7 @@ function handleInput() {
     if (Input.consumePress('settings')) openSettings();
 
     // Build hotkeys
-    const buildTypes = ['G', 'RL', 'AAS', 'MF', 'B', 'M', 'D', 'SU', 'AB', 'BUNK', 'RC', 'TH', 'EW', 'PT', 'DDG', 'AF', 'SSG', 'CV'];
+    const buildTypes = ['G', 'RL', 'AAS', 'MF', 'B', 'M', 'D', 'SU', 'AB', 'BUNK', 'RC', 'TH', 'EW', 'PT', 'DDG', 'AF', 'SSG', 'CV', 'ICBM'];
     buildTypes.forEach((type, i) => {
         if (Input.consumePress(`build_${type}`)) {
             if (game.campaign?.buildTutorial?.active) {
@@ -1414,6 +1414,8 @@ function structureL3PerkHtml(type, levelIdx, opts = {}) {
             return `<p class="info-perk"><b>Lv3 — Spoofing</b> · Friendly tiles in range take ${Math.round((1 - UNIT_STATS.EW.levels[2].ewDmgMult) * 100)}% less damage from interceptable missiles, and ${Math.round(UNIT_STATS.EW.levels[2].ewCancelChance * 100)}% of incoming missiles are fully spoofed (no damage).</p>`;
         case 'CV':
             return `<p class="info-perk"><b>Lv3 — Air Wing</b> · Volley adds one extra non-interceptable stealth sortie. Combined with the base ${UNIT_STATS.CV.levels[2].projectiles} interceptable sorties, an L3 Carrier launches ${UNIT_STATS.CV.levels[2].projectiles + 1} projectiles per shot.</p>`;
+        case 'ICBM':
+            return `<p class="info-perk"><b>Strategic Strike</b> · Global range. ${UNIT_STATS.ICBM.levels[0].damage} dmg warhead with ${Math.round(GAME_CONFIG.ICBM_SPLASH_MULT * 100)}% splash to all 6 adjacent hexes. Only Lv3 AAS / Lv3 AF can intercept.</p>`;
         default:
             return '';
     }
@@ -1580,6 +1582,11 @@ function showBuildTooltip(btn) {
 
     if (type === 'CV') {
         html += `<div class="tt-upgrade dim">Naval air-projection. Built on owned water. Long range, multi-sortie volleys, missile-consuming. Lv3 "Air Wing": +1 stealth sortie per volley.</div>`;
+    }
+
+    if (type === 'ICBM') {
+        const l = def.levels[0];
+        html += `<div class="tt-upgrade dim">Strategic finisher. Global range, ${(l.interval / 1000) | 0}s recharge, ${l.missilesPerShot} missiles per launch. ${l.damage} dmg with ${Math.round(GAME_CONFIG.ICBM_SPLASH_MULT * 100)}% splash to all adjacent hexes. ONLY Lv3 AAS / Lv3 AF can intercept — lesser interceptors cannot reach.</div>`;
     }
 
     buildTooltip.innerHTML = html;

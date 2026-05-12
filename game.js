@@ -1081,7 +1081,7 @@ export class Game {
             if (tile.contested && !m3Insurgent) continue;
 
             const s = tile.structure;
-            if (s.type === 'RL' || s.type === 'AB' || s.type === 'DDG' || s.type === 'SSG' || s.type === 'CV') continue;
+            if (s.type === 'RL' || s.type === 'AB' || s.type === 'DDG' || s.type === 'SSG' || s.type === 'CV' || s.type === 'ICBM') continue;
 
             const stats = s.stats;
             const p = this.players[tile.owner - 1];
@@ -1150,7 +1150,7 @@ export class Game {
             if (!tile.structure) continue;
             if (tile.contested) continue;
             const s = tile.structure;
-            if (s.type !== 'RL' && s.type !== 'AB' && s.type !== 'DDG' && s.type !== 'SSG' && s.type !== 'CV') continue;
+            if (s.type !== 'RL' && s.type !== 'AB' && s.type !== 'DDG' && s.type !== 'SSG' && s.type !== 'CV' && s.type !== 'ICBM') continue;
             const stats = s.stats;
             const p = this.players[tile.owner - 1];
             const eff = this.effFor(tile);
@@ -1207,6 +1207,8 @@ export class Game {
                     if (this.fireNavySSG(tile)) tile.lastAction = time;
                 } else if (s.type === 'CV') {
                     if (this.fireNavyCV(tile)) tile.lastAction = time;
+                } else if (s.type === 'ICBM') {
+                    if (this.fireIcbm(tile)) tile.lastAction = time;
                 }
             }
             this._autoTargetAllocMap = null;
@@ -1810,6 +1812,39 @@ export class Game {
         return true;
     }
 
+    /**
+     * ICBM Silo strategic strike — global range, massive splash, slow recharge, missile-heavy.
+     * Projectile type is 'icbm'; only Lv3 AAS / Lv3 AF can intercept (see checkInterception()).
+     */
+    fireIcbm(tile) {
+        const p = this.players[tile.owner - 1];
+        const s = tile.structure;
+        const stats = s.stats;
+        const { target, fromManual } = this._resolveTargetWithFlags(tile, stats, {
+            missileSmart: true,
+            allocMap: this._autoTargetAllocMap,
+        });
+        if (!target) return false;
+        if (p.missiles < stats.missilesPerShot) return false;
+        p.missiles -= stats.missilesPerShot;
+        s.lastFiredAt = this.gameTime;
+        if (this._autoTargetAllocMap && !fromManual) {
+            const k = `${s.type}:${target.q},${target.r}`;
+            this._autoTargetAllocMap.set(k, (this._autoTargetAllocMap.get(k) || 0) + 1);
+        }
+        this.spawnProjectile(tile, target, {
+            type: 'icbm',
+            damage: stats.damage,
+            speed: stats.projectileSpeed || 2.6,
+            interceptable: true,
+            trail: true,
+            splash: true, // ICBM splash uses ICBM_SPLASH_MULT in impact()
+        });
+        this.spawnMuzzleFlash(tile, target, { color: '#ffd060', size: 3, count: 9 });
+        this._fireSfx(tile, 'launch_rocket');
+        return true;
+    }
+
     fireGround(tile, projType) {
         const stats = tile.structure.stats;
         const target = this.resolveTarget(tile, stats);
@@ -2015,6 +2050,8 @@ export class Game {
                 if (this.areAllied(tile.owner, proj.owner)) continue;
                 if (tile.contested) continue;
                 if ((tile.structure.charge || 0) <= 0) continue;
+                // ICBM warheads can only be intercepted by Lv3 interceptors (Iron Dome / Aegis BMD).
+                if (proj.type === 'icbm' && GAME_CONFIG.ICBM_REQUIRES_L3_INTERCEPTOR && tile.structure.level !== 2) continue;
 
                 let range = tile.structure.stats.range;
                 if (tile.structure.type === 'AF' && tile.structure.level === 2 && proj.fromQR) {
@@ -2062,6 +2099,7 @@ export class Game {
         const IMPACT_TIER = {
             rocket:    { burst: 18, color: '#ffb060', shake: 4, sfx: 'impact_big'   },
             airstrike: { burst: 22, color: '#ffe9c0', shake: 5, sfx: 'impact_big'   },
+            icbm:      { burst: 60, color: '#ffd060', shake: 10, sfx: 'impact_big'  },
             navy:      { burst: 16, color: '#5aa0c0', shake: 3, sfx: 'impact_big'   },
             cruise:    { burst: 20, color: '#8aa0b8', shake: 4, sfx: 'impact_big'   },
             drone:     { burst: 7,  color: '#78c8ff', shake: 1, sfx: 'impact_small' },
@@ -2143,10 +2181,13 @@ export class Game {
             }
         }
 
-        // Splash: RL3 (rocket) uses RL_L3_SPLASH_MULT; IRN kamikaze drones use a flat 40% to adjacent.
-        if (proj.splash && (proj.type === 'rocket' || (proj.type === 'drone' && proj.suL3 === 'kamikaze'))) {
+        // Splash: RL3 (rocket) uses RL_L3_SPLASH_MULT; IRN kamikaze drones 40%; ICBM 100% (full damage to all adjacent).
+        if (proj.splash && (proj.type === 'rocket' || proj.type === 'icbm' || (proj.type === 'drone' && proj.suL3 === 'kamikaze'))) {
             const origin = new Hex(proj.targetQR.q, proj.targetQR.r);
-            const splashFrac = proj.type === 'rocket' ? GAME_CONFIG.RL_L3_SPLASH_MULT : 0.4;
+            const splashFrac =
+                proj.type === 'icbm'   ? GAME_CONFIG.ICBM_SPLASH_MULT :
+                proj.type === 'rocket' ? GAME_CONFIG.RL_L3_SPLASH_MULT :
+                                         0.4;
             let splashBase = proj.damage * splashFrac;
             for (const n of origin.getNeighbors()) {
                 const nt = this.grid.getTile(n.q, n.r);

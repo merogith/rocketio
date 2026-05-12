@@ -96,6 +96,7 @@ export const GAME_CONFIG = {
         TH: 50,
         EW: 38,
         CV: 55,
+        ICBM: 95,
     },
     /**
      * Optional per-**source** structure type weights: `bySource[RL|AB][G|MF|…]`.
@@ -157,6 +158,7 @@ export const GAME_CONFIG = {
         SSG:  6000,
         SU:   5000,
         CV:   7000,
+        ICBM: 60000,
     },
     // Lv3 Barracks: friendly structures on hexes within its influence radius (stats.radius) deal +10% damage
     // and take −10% damage from projectiles. Overlapping L3 Barracks do not stack (single application).
@@ -206,6 +208,10 @@ export const GAME_CONFIG = {
     PORT_L3_TRADE_CAP: 0.20,
     /** Bunker Lv3 "Hardened": damage taken multiplier applied at impact when defender is a BUNK3. */
     BUNK_L3_TAKEN_MULT: 0.75,
+    /** ICBM impact: splash to adjacent hexes uses this fraction of the warhead damage. */
+    ICBM_SPLASH_MULT: 1.0,
+    /** ICBM projectiles can only be intercepted by Lv3 AAS or Lv3 AF (Aegis BMD). Smaller AA cannot reach. */
+    ICBM_REQUIRES_L3_INTERCEPTOR: true,
     // --- Navy ---
     /** In missileTargetPriority: DDG/SSG add this when target is an enemy **naval** (sea) unit. */
     NAVY_FIRST_TARGET_BONUS: 310_000,
@@ -523,6 +529,18 @@ export const UNIT_STATS = {
             { id: "CV2", hp: 720,  range: 11, damage: 165, cost: 1300, interval: 9000,  missilesPerShot: 1, projectiles: 3, interceptable: true,  projectileSpeed: 5.4, vision: 9 },
             { id: "CV3", hp: 1700, range: 14, damage: 220, cost: 2300, interval: 7000,  missilesPerShot: 2, projectiles: 4, interceptable: true,  projectileSpeed: 6.0, vision: 12, airWing: true }
         ]
+    },
+    /**
+     * ICBM Silo — strategic finisher. Single-tier. Massive cost, very long interval, global range.
+     * Single warhead with 100% splash to all adjacent hexes — devastates dense clusters.
+     * Interceptable ONLY by Lv3 AAS / Lv3 AF (gated by `isIcbmProjectile` in checkInterception()).
+     * Designed as a late-game Blitz / Regime-Change closer, not an early-build pressure tool.
+     */
+    ICBM: {
+        name: "ICBM Silo",
+        levels: [
+            { id: "ICBM", hp: 800, range: 99, damage: 2500, cost: 5000, interval: 90000, missilesPerShot: 5, projectiles: 1, interceptable: true, projectileSpeed: 2.6, vision: 7, icbm: true }
+        ]
     }
 };
 
@@ -589,6 +607,7 @@ export const DEFAULT_KEYBINDS = {
     build_TH:   'F2',
     build_EW:   'F3',
     build_CV:   'F4',
+    build_ICBM: 'F5',
     upgrade:    'Space',
     cancel:     'Escape',
     pan_up:     'KeyW',
