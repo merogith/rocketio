@@ -676,7 +676,7 @@ document.getElementById('reset-keybinds-btn')?.addEventListener('click', () => {
 
 function getProjectileVisualSetting() {
     const v = Input.getSetting('projectileVisual');
-    if (v === 'low' || v === 'medium' || v === 'high' || v === 'unlimited') return v;
+    if (v === 'none' || v === 'low' || v === 'medium' || v === 'high' || v === 'unlimited') return v;
     return 'medium';
 }
 
