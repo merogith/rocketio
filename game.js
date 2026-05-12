@@ -365,8 +365,26 @@ export class Game {
         if (bonus > 0 && this._inFriendlyG3GoldAura(tile, tile.owner)) {
             bonus *= GAME_CONFIG.GOV_L3_GOLD_AURA_MULT;
         }
+        // L3 Trade Hub "Trade Network": passive +5% (per L3 TH, capped) Gov-gold buff for the owner.
+        if (bonus > 0) {
+            const thBoost = this._tradeHubGovBonusFor(tile.owner);
+            if (thBoost > 0) bonus *= (1 + thBoost);
+        }
         const gm = this.getPlayerModsForOwner(tile.owner).goldMult;
         return bonus * gm;
+    }
+
+    /** Sum of `tradeGovBonus` from all friendly L3 Trade Hubs (capped at 20% to keep snowball bounded). */
+    _tradeHubGovBonusFor(ownerId) {
+        if (!ownerId) return 0;
+        this._ensureIndex();
+        let b = 0;
+        for (const t of this._structureTiles) {
+            if (t.owner !== ownerId || t.contested) continue;
+            if (t.structure?.type !== 'TH' || t.structure.level !== 2) continue;
+            b += t.structure.stats?.tradeGovBonus || 0;
+        }
+        return Math.min(0.20, b);
     }
 
     /** Navy structure tile within a friendly Lv3 Port radius (non-stacking — used for navy damage/fire-rate buff). */
@@ -662,6 +680,44 @@ export class Game {
                     this.players[oi].gold += income;
                     this.players[oi].stats.goldEarned += income;
                     goldRates[oi] += income;
+                }
+            }
+        }
+
+        // Trade Hub income — network-based gold. Pays per friendly Gov on the map (other than self
+        // co-located Govs) and (L3) per friendly Port. L3 also passively buffs all your other Govs
+        // through `_thL3GovBonus()` which the per-tile gov gold loop above queries — see helper.
+        const thByOwner = new Map();
+        for (const tile of this.grid.tiles.values()) {
+            if (!tile.structure || tile.structure.type !== 'TH') continue;
+            if (!tile.owner || tile.contested) continue;
+            if (!thByOwner.has(tile.owner)) thByOwner.set(tile.owner, []);
+            thByOwner.get(tile.owner).push(tile);
+        }
+        if (thByOwner.size > 0) {
+            // Pre-count friendly Govs / Ports per owner (Trade Hubs scale with the wider empire).
+            const govCount = new Array(this.players.length).fill(0);
+            const ptCount  = new Array(this.players.length).fill(0);
+            for (const tile of this.grid.tiles.values()) {
+                if (!tile.owner || tile.contested || !tile.structure) continue;
+                if (tile.structure.type === 'G') govCount[tile.owner - 1]++;
+                else if (tile.structure.type === 'PT') ptCount[tile.owner - 1]++;
+            }
+            for (const [ownerId, hubs] of thByOwner) {
+                const oi = ownerId - 1;
+                const others = Math.max(0, govCount[oi] - 1); // count Govs OTHER than the owner's first
+                const ports = ptCount[oi];
+                const gm = this.getPlayerModsForOwner(ownerId).goldMult ?? 1;
+                const isAi = ownerId !== this.humanId;
+                const diffMult = isAi ? (this._difficulty || DIFFICULTY.normal).goldMult : 1;
+                for (const t of hubs) {
+                    const st = t.structure.stats;
+                    const income = (st.tradeBase + st.tradePerGov * others + (st.tradePerPort || 0) * ports) * gm * diffMult;
+                    if (income > 0) {
+                        this.players[oi].gold += income;
+                        this.players[oi].stats.goldEarned += income;
+                        goldRates[oi] += income;
+                    }
                 }
             }
         }

@@ -93,6 +93,7 @@ export const GAME_CONFIG = {
         M: 18,
         BUNK: 8,
         RC: 12,
+        TH: 50,
     },
     /**
      * Optional per-**source** structure type weights: `bySource[RL|AB][G|MF|…]`.
@@ -476,6 +477,20 @@ export const UNIT_STATS = {
             { id: "RC2", hp: 140, cost: 275, vision: 12 },
             { id: "RC3", hp: 260, cost: 400, vision: 16, scouting: true }
         ]
+    },
+    /**
+     * Trade Hub — non-combat economic structure. Income scales with your trade network:
+     * each tick pays `tradeBase + tradePerGov × otherFriendlyGovs + tradePerPort × friendlyPorts`.
+     * Lv3 "Trade Network": also pays +5% gold passive boost to all your other Govs (`tradeGovBonus`).
+     * Rewards a wide connected empire rather than a single fortress.
+     */
+    TH: {
+        name: "Trade Hub",
+        levels: [
+            { id: "TH1", hp: 220, cost: 425, vision: 4, tradeBase: 0.40, tradePerGov: 0.30, tradePerPort: 0.0 },
+            { id: "TH2", hp: 520, cost: 700, vision: 5, tradeBase: 0.60, tradePerGov: 0.40, tradePerPort: 0.0 },
+            { id: "TH3", hp: 1180, cost: 1100, vision: 6, tradeBase: 0.90, tradePerGov: 0.50, tradePerPort: 0.30, tradeGovBonus: 0.05 }
+        ]
     }
 };
 
@@ -539,6 +554,7 @@ export const DEFAULT_KEYBINDS = {
     build_PT:   'F6',
     build_BUNK: 'Digit9',
     build_RC:   'Digit0',
+    build_TH:   'F2',
     upgrade:    'Space',
     cancel:     'Escape',
     pan_up:     'KeyW',
