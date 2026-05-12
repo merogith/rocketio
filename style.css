@@ -1269,3 +1269,129 @@ h3 {
 .cq-primary { color: #fff; }
 .cq-hint { color: var(--text-dim); font-size: 0.75rem; margin-top: 8px; }
 .cq-hint.hidden { display: none !important; }
+
+/* ============================================================ */
+/*  INTERACTIVE PANELS: titlebar, collapse, drag, hidden tray    */
+/* ============================================================ */
+.panel-titlebar {
+    display: flex; align-items: center; gap: 6px;
+    padding: 4px 6px 5px;
+    margin: -2px -2px 6px;
+    border-bottom: 1px solid rgba(0, 229, 255, 0.18);
+    background: linear-gradient(180deg, rgba(0,229,255,0.07), rgba(0,229,255,0));
+    user-select: none;
+    cursor: grab;
+    font-family: var(--font-title);
+    font-size: 0.62rem;
+    letter-spacing: 1.8px;
+    color: var(--accent-blue);
+}
+.panel-titlebar.panel-titlebar-inline {
+    margin: 0 0 4px;
+    padding: 2px 4px 4px;
+    background: linear-gradient(180deg, rgba(0,229,255,0.05), rgba(0,229,255,0));
+}
+.panel-titlebar.compact {
+    padding: 2px 6px 3px;
+    margin: -4px -4px 4px;
+}
+.panel-dragging .panel-titlebar,
+.panel-titlebar:active {
+    cursor: grabbing;
+}
+.panel-grip {
+    color: rgba(0,229,255,0.55);
+    font-size: 0.7rem;
+    letter-spacing: -2px;
+    padding-right: 2px;
+    cursor: grab;
+}
+.panel-title { flex: 0 0 auto; }
+.panel-spacer { flex: 1 1 auto; min-width: 6px; }
+.panel-chrome-btn {
+    background: rgba(0,229,255,0.08);
+    border: 1px solid rgba(0,229,255,0.22);
+    color: rgba(0,229,255,0.85);
+    font-family: var(--font-mono);
+    width: 20px; height: 18px; line-height: 14px;
+    padding: 0; border-radius: 3px;
+    font-size: 0.85rem; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: background .12s, color .12s, transform .12s;
+}
+.panel-chrome-btn:hover {
+    background: rgba(0,229,255,0.22);
+    color: #fff;
+    transform: translateY(-1px);
+}
+.panel-chrome-btn.close-btn { color: #ff8a72; border-color: rgba(255,138,114,0.3); background: rgba(255,138,114,0.08); }
+.panel-chrome-btn.close-btn:hover { background: rgba(255,138,114,0.22); color: #fff; }
+
+/* Collapsed: hide everything except the titlebar/header */
+.panel-collapsed > :not(.panel-titlebar) { display: none !important; }
+#side-panel.panel-collapsed,
+#info-panel.panel-collapsed,
+#minimap-wrap.panel-collapsed,
+#combat-log.panel-collapsed {
+    height: auto !important;
+    min-height: 0 !important;
+    bottom: auto !important;
+    max-height: none !important;
+    padding-bottom: 4px;
+}
+/* Combat log's titlebar is its own header — collapse hides only the entries */
+#combat-log.panel-collapsed .combat-log-entries { display: none !important; }
+
+/* Fully hidden (closed) */
+.panel-hidden { display: none !important; }
+
+/* Floating (post-drag) */
+.panel-floating {
+    z-index: 50;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,229,255,0.18);
+}
+.panel-dragging {
+    opacity: 0.92;
+    z-index: 100;
+    transition: none !important;
+}
+
+/* Hidden-panel tray (top-right under the top-bar) */
+.panel-tray {
+    position: fixed; top: 6px; right: 8px;
+    display: flex; gap: 6px; flex-wrap: wrap;
+    padding: 4px 6px;
+    background: rgba(10, 16, 28, 0.78);
+    border: 1px solid rgba(0,229,255,0.22);
+    border-radius: 6px;
+    backdrop-filter: blur(4px);
+    z-index: 60;
+    max-width: 60vw;
+}
+.panel-tray.hidden { display: none !important; }
+.panel-tray-btn {
+    background: rgba(0,229,255,0.08);
+    border: 1px solid rgba(0,229,255,0.28);
+    color: var(--accent-blue);
+    font-family: var(--font-title);
+    font-size: 0.6rem;
+    letter-spacing: 1.4px;
+    padding: 3px 8px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: background .12s, color .12s, transform .12s;
+}
+.panel-tray-btn:hover {
+    background: rgba(0,229,255,0.2);
+    color: #fff;
+    transform: translateY(-1px);
+}
+.panel-tray-btn.reset-all {
+    color: var(--accent-gold);
+    border-color: rgba(255,200,90,0.35);
+    background: rgba(255,200,90,0.08);
+}
+.panel-tray-btn.reset-all:hover {
+    background: rgba(255,200,90,0.22);
+    color: #fff;
+}
