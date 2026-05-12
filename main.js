@@ -1514,9 +1514,68 @@ function structureL3PerkHtml(type, levelIdx, opts = {}) {
             return `<p class="info-perk"><b>Lv3 — Air Wing</b> · Volley adds one extra non-interceptable stealth sortie. Combined with the base ${UNIT_STATS.CV.levels[2].projectiles} interceptable sorties, an L3 Carrier launches ${UNIT_STATS.CV.levels[2].projectiles + 1} projectiles per shot.</p>`;
         case 'ICBM':
             return `<p class="info-perk"><b>Strategic Strike</b> · Global range. ${UNIT_STATS.ICBM.levels[0].damage} dmg warhead with ${Math.round(GAME_CONFIG.ICBM_SPLASH_MULT * 100)}% splash to all 6 adjacent hexes. Only Lv3 AAS / Lv3 AF can intercept.</p>`;
-        default:
-            return '';
+        default: {
+            // Faction-unique units — generate a one-line perk summary from the L3 stat flags.
+            const fu = FACTION_UNIT_STATS[type];
+            if (!fu) return '';
+            const lv3 = fu.levels?.[2];
+            if (!lv3) return '';
+            const perk = factionUnitL3Description(fu, lv3);
+            return perk
+                ? `<p class="info-perk"><b>Lv3 — ${fu.name}</b> · ${perk}</p>`
+                : `<p class="info-perk"><b>Lv3 — ${fu.name}</b> · Faction-unique unit; see stats above.</p>`;
+        }
     }
+}
+
+/** Build a short, human-readable L3 perk line from the unit's stat flags. Keep < 200 chars. */
+function factionUnitL3Description(fu, lv3) {
+    const bits = [];
+    if (lv3.treasuryGoldPctPerSec) bits.push(`+${(lv3.treasuryGoldPctPerSec * 100).toFixed(1)}%/s of treasury (cap ${lv3.treasuryGoldCap}/s)`);
+    if (lv3.killRefundPct && lv3.killRefundRange) bits.push(`+${Math.round(lv3.killRefundPct * 100)}% kill-refund within ${lv3.killRefundRange} hex`);
+    else if (lv3.killRefundPct) bits.push(`+${Math.round(lv3.killRefundPct * 100)}% kill-refund`);
+    if (lv3.flatGoldPerSec) bits.push(`+$${lv3.flatGoldPerSec}/s base`);
+    if (lv3.timeScaledGoldBase != null) bits.push(`gold scales with match time (cap ${lv3.timeScaledGoldCap}/s)`);
+    if (lv3.seaTileGoldRate) bits.push(`+$${lv3.seaTileGoldRate}/sea tile in r${lv3.seaTileGoldRadius} (cap ${lv3.seaTileGoldCap}/s)`);
+    if (lv3.vaultCap) bits.push(`stores up to $${lv3.vaultCap} (lost on destruction)`);
+    if (lv3.repairAura) bits.push(`+${lv3.repairAura} HP/s repair aura in r${lv3.repairAuraRange}`);
+    if (lv3.drAura) bits.push(`friendly structures in r${lv3.drAuraRange} take −${Math.round((1 - lv3.drAura) * 100)}% damage`);
+    if (lv3.mfCostDiscount) bits.push(`adjacent friendly MF cost −${Math.round(lv3.mfCostDiscount * 100)}%, +15% rebate`);
+    if (lv3.mfRateBoost) bits.push(`adjacent friendly MF output +${Math.round(lv3.mfRateBoost * 100)}%`);
+    if (lv3.aasAuraRangeBonus || lv3.aasAuraCapBonus) bits.push(`adjacent AAS: +${lv3.aasAuraRangeBonus || 0} range, +${lv3.aasAuraCapBonus || 0} cap`);
+    if (lv3.launcherRofBoost) bits.push(`adjacent launchers fire +${Math.round(lv3.launcherRofBoost * 100)}% faster`);
+    if (lv3.paintAura) bits.push(`paints target tile: friendly B in r${lv3.paintAura.radius} deal +${Math.round(lv3.paintAura.dmgBonus * 100)}% damage`);
+    if (lv3.flagshipBuff) bits.push(`closest friendly MF: +${Math.round(lv3.flagshipBuff.hp * 100)}% HP, +${Math.round(lv3.flagshipBuff.output * 100)}% output`);
+    if (lv3.pctHpDmg) bits.push(`+${Math.round(lv3.pctHpDmg * 100)}% of target's HP as bonus damage (cap ${lv3.pctHpDmgCap || '∞'})`);
+    if (lv3.interceptable === false) bits.push(`projectile uninterceptable`);
+    if (lv3.chargeUpMs) bits.push(`requires ${(lv3.chargeUpMs / 1000) | 0}s warm-up after build`);
+    if (lv3.vsFortMult) bits.push(`×${lv3.vsFortMult} damage vs Gov/Barracks/Bunker/Port`);
+    if (lv3.vsSubMult) bits.push(`×${lv3.vsSubMult} damage vs submarines`);
+    if (lv3.pierceTargets) bits.push(`line-pierce: chains through ${lv3.pierceTargets} targets (−25%/pierce)`);
+    if (lv3.preStock) bits.push(`carries ${lv3.preStock} pre-stocked shots (no missile cost)`);
+    if (lv3.lifetimeShots) bits.push(`${lv3.lifetimeShots} lifetime intercepts (no reload)`);
+    if (lv3.reflectIntercept) bits.push(`${Math.round(lv3.reflectIntercept * 100)}% chance reflect intercept back at source (${Math.round(lv3.reflectDmgMult * 100)}% dmg)`);
+    if (lv3.koralSpoof) bits.push(`${Math.round(lv3.koralSpoof * 100)}% chance to redirect enemy missiles in r${lv3.range}`);
+    if (lv3.ballisticOnly) bits.push(`anti-ballistic only (ignores EW jam); ${lv3.interceptsIcbm ? 'intercepts ICBM' : ''}`);
+    if (lv3.deathInterceptors) bits.push(`on death, splices ${lv3.deathInterceptors} enemy projectiles`);
+    if (lv3.firstShotBonusPct) bits.push(`first-shot of the match deals ×${1 + lv3.firstShotBonusPct} damage`);
+    if (lv3.buildingScaleDmg) bits.push(`+${Math.round(lv3.buildingScaleDmg * 100)}% damage per friendly building (cap +${Math.round(lv3.buildingScaleCap * 100)}%)`);
+    if (lv3.goldPerShot) bits.push(`each shot costs $${lv3.goldPerShot}; +1 damage per $500 held (cap +${lv3.treasuryDmgCap})`);
+    if (lv3.lowProfile) bits.push(`only targeted within ${lv3.lowProfileRevealRange} hex (low-profile)`);
+    if (lv3.adjacencyDmg) bits.push(`+${Math.round(lv3.adjacencyDmg * 100)}% dmg per adjacent friendly (max ${lv3.adjacencyMax})${lv3.adjAllyHaste ? `; allies +${Math.round(lv3.adjAllyHaste * 100)}% rate` : ''}`);
+    if (lv3.dugInBonus) bits.push(`dug-in (≥${fu.levels[2].dugInMinFriendlyAdj || 2} friendly adj): +${Math.round(lv3.dugInBonus.hp * 100)}% HP, +${lv3.dugInBonus.range} range`);
+    if (lv3.ambushDmgBonus) bits.push(`+${Math.round(lv3.ambushDmgBonus * 100)}% damage when re-firing after ${(lv3.ambushCooldownMs / 1000) | 0}s silence`);
+    if (lv3.vengeanceDmgBonus) bits.push(`+${Math.round(lv3.vengeanceDmgBonus * 100)}% damage if a friendly died nearby in last 8s`);
+    if (lv3.homeTerritoryBonus?.extraProj) bits.push(`+${lv3.homeTerritoryBonus.extraProj} projectile when firing in own territory`);
+    if (lv3.stealthExtraProj) bits.push(`1 projectile per volley is stealth (uninterceptable)`);
+    if (lv3.martyrMissileMs) bits.push(`below 50% HP, generates 1 free missile every ${(lv3.martyrMissileMs / 1000) | 0}s`);
+    if (lv3.regenSelf) bits.push(`self-regen +${lv3.regenSelf} HP/s`);
+    if (lv3.splashResist) bits.push(`−${Math.round(lv3.splashResist * 100)}% splash damage taken`);
+    if (lv3.killBonusGold && lv3.killBonusRange) bits.push(`+$${lv3.killBonusGold} per enemy kill within ${lv3.killBonusRange} hex`);
+    if (lv3.interceptRefundGold) bits.push(`refunds $${lv3.interceptRefundGold} per intercept`);
+    if (lv3.afPierceChance) bits.push(`${Math.round(lv3.afPierceChance * 100)}% chance projectile pierces first AF intercept`);
+    if (lv3.lakePatrolRegen) bits.push(`+${lv3.lakePatrolRegen} HP/s in home water; reveals stealth in r3`);
+    return bits.join(' · ');
 }
 
 /** One-line summary of a tier's stats for build tooltips (matches UNIT_STATS). */

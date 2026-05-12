@@ -821,7 +821,6 @@ export class Game {
                 let seaTiles = 0;
                 for (const t2 of this.grid.tiles.values()) {
                     if (t2.buildable) continue;
-                    if (Hex.distance(tile, t2) > stats.seaTileGoldRadius) break;
                     if (Hex.distance(tile, t2) <= stats.seaTileGoldRadius) seaTiles++;
                 }
                 const rate = Math.min(stats.seaTileGoldCap || Infinity, seaTiles * stats.seaTileGoldRate);
@@ -1256,7 +1255,23 @@ export class Game {
         }
         // ITA Bersaglieri "Concord" L3 — adjacent friendlies fire 10% faster.
         if (this._adjBersaglieriHasteAura(tile, tile.owner)) mul *= 0.90;
+        // JPN Mogami stealthIntervalBonus — while no enemy is within reveal range, fire faster.
+        const stats0 = tile.structure?.stats;
+        if (stats0?.stealthIntervalBonus && stats0?.lowProfile) {
+            const reveal = stats0.lowProfileRevealRange ?? 2;
+            const exposed = this._enemyWithinHexes(tile, tile.owner, reveal);
+            if (!exposed) mul *= (1 - stats0.stealthIntervalBonus);
+        }
         return mul;
+    }
+    /** True if any non-allied enemy structure sits within `r` hexes of `tile`. */
+    _enemyWithinHexes(tile, ownerId, r) {
+        for (const t of this._structureTiles || []) {
+            if (!t.owner || t.owner === ownerId) continue;
+            if (this.areAllied(t.owner, ownerId)) continue;
+            if (Hex.distance(tile, t) <= r) return true;
+        }
+        return false;
     }
     /** True if any L3 friendly Bersaglieri Concord is adjacent and confers haste. */
     _adjBersaglieriHasteAura(tile, ownerId) {
@@ -2120,9 +2135,13 @@ export class Game {
 
         tile.structure.lastFiredAt = this.gameTime;
         let dmg = stats.damage;
-        // USA Stryker BCT paint aura: bonus damage on the painted tile.
+        // USA Stryker BCT paint aura: bonus damage + faster cadence on the painted tile.
         const paint = this._strykerPaintMultsFor(tile, tile.owner, target);
         if (paint.dmgBonus) dmg *= (1 + paint.dmgBonus);
+        if (paint.rateBonus) {
+            // Shrink time-until-next-fire: pretend last action happened slightly later.
+            tile.lastAction = this.gameTime + Math.floor((stats.interval || 0) * paint.rateBonus);
+        }
         const count = stats.projectiles || 1;
         for (let i = 0; i < count; i++) {
             this.spawnProjectile(tile, target, {
@@ -2219,13 +2238,7 @@ export class Game {
         const cat = factionUnitCategory(s.type);
         if (cat === 'def' || cat === 'eco') return false; // these don't fire here
 
-        // Charge-up: requires `chargeUpMs` of silent build-up between shots — emulated by
-        // refusing to fire until interval has elapsed twice (interval already covers cycle).
-        if (stats.chargeUpMs && tile.lastAction === 0) {
-            // First-ever fire — set lastAction so chargeUpMs elapses.
-            tile.lastAction = this.gameTime - (stats.interval ?? 5000) + stats.chargeUpMs;
-            return false;
-        }
+        // Charge-up enforced via initial cooldown set in buildStructure — no per-fire check needed here.
 
         // Lifetime shots (Iran Bavar) — once exhausted, the structure is inert.
         if (stats.lifetimeShots != null) {
@@ -2235,6 +2248,19 @@ export class Game {
 
         // Gold-per-shot (Saudi Royal Guard) — bankrupt = no fire.
         if (stats.goldPerShot && p.gold < stats.goldPerShot) return false;
+
+        // Utility/support units with no damage and no projectiles (USA Joint Targeting Cell, USA Stryker BCT)
+        // tick for aura upkeep but never spawn projectiles. Their effects (paint/surveillance/range buff)
+        // are applied passively from helper queries elsewhere; we just refresh `lastFiredAt`.
+        if ((stats.damage || 0) === 0 && (stats.projectiles || 0) === 0) {
+            // For paint aura (Stryker), set the painted tile to the current resolveTarget if any.
+            if (stats.paintAura) {
+                const tgt = this.resolveTarget(tile, stats);
+                if (tgt) s._paintedTile = { q: tgt.q, r: tgt.r };
+            }
+            s.lastFiredAt = this.gameTime;
+            return true;
+        }
 
         // Resolve target.
         const target = this.resolveTarget(tile, stats);
@@ -2275,6 +2301,10 @@ export class Game {
         // First shot of the game bonus (Vietnam Tunnel Launch).
         if (stats.firstShotBonusPct && !s._firedOnce) {
             dmg *= (1 + stats.firstShotBonusPct);
+        }
+        // UK SAS Raid Team — opening-strike flat damage bonus on the unit's first ever shot.
+        if (stats.openingStrike && !s._firedOnce) {
+            dmg += stats.openingStrike;
         }
 
         // Dug-in bonus (Japan Mountain Garrison) — applied to fire rate by being a self-buff,
@@ -2360,9 +2390,11 @@ export class Game {
             for (let i = 0; i < projCount; i++) {
                 // Türkiye Anadolu — one drone per volley is stealth (non-interceptable).
                 const isStealthExtra = stats.stealthExtraProj && i === 0;
+                // Poland NSM Coastal — afPierceChance grants a per-shot roll to bypass the first AF layer.
+                const afPierce = stats.afPierceChance && Math.random() < stats.afPierceChance;
                 this.spawnProjectile(tile, target, {
                     type: projType, damage: dmg, speed: 3.0,
-                    interceptable: isStealthExtra ? false : interceptable,
+                    interceptable: (isStealthExtra || afPierce) ? false : interceptable,
                     trail: true, splash: splashFlag,
                     splashRadius: stats.splashRadius || 1,
                     killRefundPct: stats.killRefundPct,
@@ -2780,6 +2812,39 @@ export class Game {
             }
         }
 
+        // IDN KCR Missile Cutter Dock — line-pierce: after the primary impact, chain through up to
+        // `pierce` more enemy structures roughly in line, each taking 25% less damage than the last.
+        if (proj.pierce && proj.pierce > 0 && proj.fromQR) {
+            const src = this.grid.getTile(proj.fromQR.q, proj.fromQR.r);
+            const tgt = this.grid.getTile(proj.targetQR.q, proj.targetQR.r);
+            if (src && tgt) {
+                const dq = tgt.q - src.q, dr = tgt.r - src.r;
+                let curDmg = proj.damage * 0.75;
+                let curQ = tgt.q + dq, curR = tgt.r + dr;
+                for (let i = 0; i < proj.pierce; i++) {
+                    const nextTile = this.grid.getTile(curQ, curR);
+                    if (!nextTile?.structure || !nextTile.owner) break;
+                    if (this.areAllied(nextTile.owner, proj.owner) || nextTile.owner === proj.owner) break;
+                    let pdmg = curDmg;
+                    pdmg *= this.getPlayerModsForOwner(nextTile.owner).takenMult ?? 1;
+                    nextTile.hp -= pdmg;
+                    nextTile.lastDamageTime = this.gameTime;
+                    const atk = this.players[proj.owner - 1];
+                    const def = this.players[nextTile.owner - 1];
+                    if (atk) atk.stats.damageDealt += pdmg;
+                    if (def) def.stats.damageTaken += pdmg;
+                    if (nextTile.hp <= 0) {
+                        const baseCost = UNIT_STATS[nextTile.structure.type]?.levels?.[0]?.cost || 0;
+                        const vOwner = nextTile.owner;
+                        this.destroyStructure(nextTile, proj.owner);
+                        this._onFactionKill(proj, baseCost, vOwner, nextTile);
+                    }
+                    curDmg *= 0.75;
+                    curQ += dq; curR += dr;
+                }
+            }
+        }
+
         // Splash: RL3 (rocket) uses RL_L3_SPLASH_MULT; IRN kamikaze drones 28% (3 projectiles per volley
         // means the expected per-volley splash is already large); ICBM 100% (full damage to all adjacent).
         if (proj.splash && (proj.type === 'rocket' || proj.type === 'icbm' || (proj.type === 'drone' && proj.suL3 === 'kamikaze'))) {
@@ -3005,7 +3070,8 @@ export class Game {
         }
         return { rangeBonus: bestRange, capBonus: bestCap };
     }
-    /** USA Stryker BCT: paint aura — friendly B in radius fire faster at the painted tile. Tracks `_paintedTile`. */
+    /** USA Stryker BCT: paint aura — friendly B in radius fire faster + harder at the painted tile.
+     *  `rangeBonus` in the unit stats is the rate-of-fire bonus (interval shrinks by that fraction). */
     _strykerPaintMultsFor(srcTile, ownerId, targetTile) {
         this._ensureIndex();
         for (const t of this._structureTiles) {
@@ -3013,7 +3079,6 @@ export class Game {
             const stats = t.structure.stats;
             if (!stats?.paintAura) continue;
             if (Hex.distance(srcTile, t) > stats.paintAura.radius) continue;
-            // Painted tile follows the Stryker's lastTarget.
             const painted = t.structure._paintedTile;
             if (!painted || painted.q !== targetTile.q || painted.r !== targetTile.r) continue;
             return { dmgBonus: stats.paintAura.dmgBonus || 0, rateBonus: stats.paintAura.rangeBonus || 0 };
@@ -3168,9 +3233,38 @@ export class Game {
         tile.owner = ownerId;
         tile.hp = stats.hp || 100;
         tile.maxHp = tile.hp;
+        // JPN Mountain Garrison dug-in bonus — if the placement tile borders enough friendly tiles,
+        // increase the unit's HP and range. Stats are shallow-cloned so the bump doesn't leak into
+        // other instances of the same tier.
+        if (stats.dugInBonus && this._countFriendlyAdjTiles(tile, ownerId) >= (stats.dugInMinFriendlyAdj || 3)) {
+            const hpAdd = Math.floor(tile.maxHp * (stats.dugInBonus.hp || 0));
+            tile.maxHp += hpAdd;
+            tile.hp += hpAdd;
+            if (stats.dugInBonus.range) {
+                tile.structure.stats = { ...stats, range: (stats.range || 0) + stats.dugInBonus.range };
+            }
+        }
+        // IDN KCR-60 Archipelago Boat — +range when built within 2 hex of owned land.
+        if (stats.landAdjRangeBonus) {
+            const nearLand = this._withinFriendlyLandHexes(tile, ownerId, 2);
+            if (nearLand) {
+                tile.structure.stats = { ...stats, range: (stats.range || 0) + stats.landAdjRangeBonus };
+            }
+        }
+        // ITA Bersaglieri Concord adjacency HP bonus — applied at build (re-evaluated never; intentional snapshot).
+        if (stats.adjacencyHp && stats.adjacencyMax) {
+            const n = Math.min(stats.adjacencyMax, this._countFriendlyAdjGroundUnits(tile, ownerId));
+            if (n > 0) {
+                const hpAdd = Math.floor(tile.maxHp * n * stats.adjacencyHp);
+                tile.maxHp += hpAdd;
+                tile.hp += hpAdd;
+            }
+        }
 
         // Apply initial build cooldown: offset lastAction so the first action fires at T + cooldown.
-        const buildCooldown = GAME_CONFIG.BUILD_COOLDOWNS[type] ?? 0;
+        let buildCooldown = GAME_CONFIG.BUILD_COOLDOWNS[type] ?? 0;
+        // Charge-up units (CHN_OFF DF-17, POL_GND Hussar Charge) — add chargeUpMs to the initial wait.
+        if (stats.chargeUpMs) buildCooldown = Math.max(buildCooldown, stats.chargeUpMs);
         const structInterval =
             type === 'MF'  ? (stats.produceInterval  || 10000) :
             type === 'AAS' || type === 'AF' ? (stats.rechargeInterval  || 12000) :
@@ -3301,6 +3395,15 @@ export class Game {
         tile.maxHp = newMaxHp;
         const hpGain = Math.max(0, newMaxHp - prevMaxHp);
         tile.hp = Math.min(newMaxHp, (prevHp ?? 0) + hpGain);
+
+        // IRN Sanctions Bazaar — pay the delta lump when upgrading (L1→L2 250→450, L2→L3 450→700).
+        const prevLump = prevLevelStats?.goldLumpOnBuild || 0;
+        const nextLump = nextLevel.goldLumpOnBuild || 0;
+        if (nextLump > prevLump) {
+            const delta = nextLump - prevLump;
+            p.gold += delta;
+            p.stats.goldEarned += delta;
+        }
 
         const newStats = tile.structure.stats;
         const newInterval =

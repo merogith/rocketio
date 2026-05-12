@@ -28,13 +28,13 @@ export const FACTION_UNIT_STATS = {
         levels: [
             { id: 'USA_ECO1', hp: 260, cost: 900,  vision: 5, treasuryGoldPctPerSec: 0.0035, treasuryGoldCap: 1.2, killRefundPct: 0.04, killRefundRange: 10 },
             { id: 'USA_ECO2', hp: 640, cost: 1450, vision: 6, treasuryGoldPctPerSec: 0.0045, treasuryGoldCap: 1.7, killRefundPct: 0.06, killRefundRange: 11 },
-            { id: 'USA_ECO3', hp: 1450,cost: 2300, vision: 7, treasuryGoldPctPerSec: 0.005,  treasuryGoldCap: 2.2, killRefundPct: 0.08, killRefundRange: 12 }
+            { id: 'USA_ECO3', hp: 1450,cost: 2300, vision: 7, treasuryGoldPctPerSec: 0.005,  treasuryGoldCap: 2.2, killRefundPct: 0.08, killRefundRange: 12, l3Perk: '+0.5%/s of treasury (cap 2.2 g/s) and 8% kill-refund within 12 tiles.' }
         ] },
     USA_DEF: { name: 'Patriot Targeting Cell', icon: '📡', factionCode: 'USA', category: 'def',
         levels: [
-            { id: 'USA_DEF1', hp: 90,  cost: 250, vision: 8,  aasAuraRange: 6,  aasAuraRange: 6,  aasAuraRangeBonus: 1, aasAuraCapBonus: 1 },
+            { id: 'USA_DEF1', hp: 90,  cost: 250, vision: 8,  aasAuraRange: 6,  aasAuraRangeBonus: 1, aasAuraCapBonus: 1 },
             { id: 'USA_DEF2', hp: 200, cost: 400, vision: 9,  aasAuraRange: 8,  aasAuraRangeBonus: 2, aasAuraCapBonus: 2 },
-            { id: 'USA_DEF3', hp: 360, cost: 600, vision: 10, aasAuraRange: 10, aasAuraRangeBonus: 2, aasAuraCapBonus: 3, ignoreEwOnCuedAas: true }
+            { id: 'USA_DEF3', hp: 360, cost: 600, vision: 10, aasAuraRange: 10, aasAuraRangeBonus: 2, aasAuraCapBonus: 1, ignoreEwOnCuedAas: true }
         ] },
     USA_OFF: { name: 'Joint Targeting Cell', icon: '🎯', factionCode: 'USA', category: 'off',
         levels: [
@@ -52,15 +52,15 @@ export const FACTION_UNIT_STATS = {
         levels: [
             { id: 'USA_NAV1', hp: 95,  cost: 320, range: 7,  damage: 70,  interval: 10000, projectiles: 1, vision: 7,  interceptable: false },
             { id: 'USA_NAV2', hp: 210, cost: 470, range: 8,  damage: 100, interval: 8000,  projectiles: 1, vision: 8,  interceptable: false },
-            { id: 'USA_NAV3', hp: 360, cost: 640, range: 10, damage: 140, interval: 6500,  projectiles: 1, vision: 10, interceptable: false, railgunPierce: true }
+            { id: 'USA_NAV3', hp: 360, cost: 640, range: 10, damage: 140, interval: 6500,  projectiles: 1, vision: 10, interceptable: false }
         ] },
 
     // ─── RUSSIA ───────────────────────────────────────────────────────────
     RUS_ECO: { name: 'Iskander Bunker Depot', icon: '🏚️', factionCode: 'RUS', category: 'eco',
         levels: [
-            { id: 'RUS_ECO1', hp: 420,  cost: 700,  vision: 5, mfRateBoost: 0.20, mfRateBoostRadius: 1, mfStockpileCap: 5,  mfStockpileRefillMs: 9000, takenMult: 0.92 },
-            { id: 'RUS_ECO2', hp: 950,  cost: 1100, vision: 6, mfRateBoost: 0.28, mfRateBoostRadius: 1, mfStockpileCap: 10, mfStockpileRefillMs: 9000, takenMult: 0.88 },
-            { id: 'RUS_ECO3', hp: 2200, cost: 1700, vision: 7, mfRateBoost: 0.35, mfRateBoostRadius: 1, mfStockpileCap: 18, mfStockpileRefillMs: 9000, takenMult: 0.80, stockpileBlastBonus: 0.20 }
+            { id: 'RUS_ECO1', hp: 420,  cost: 700,  vision: 5, mfRateBoost: 0.20, mfRateBoostRadius: 1 },
+            { id: 'RUS_ECO2', hp: 950,  cost: 1100, vision: 6, mfRateBoost: 0.28, mfRateBoostRadius: 1 },
+            { id: 'RUS_ECO3', hp: 2200, cost: 1700, vision: 7, mfRateBoost: 0.35, mfRateBoostRadius: 1 }
         ] },
     RUS_DEF: { name: 'S-400 Triumf Belt', icon: '🛰️', factionCode: 'RUS', category: 'def',
         levels: [
@@ -72,19 +72,19 @@ export const FACTION_UNIT_STATS = {
         levels: [
             { id: 'RUS_OFF1', hp: 120, cost: 300,  range: 4, damage: 60,  pctHpDmg: 0.08, interval: 14000, projectiles: 1, splash: true, splashRadius: 1, vision: 4 },
             { id: 'RUS_OFF2', hp: 280, cost: 700,  range: 5, damage: 90,  pctHpDmg: 0.14, interval: 11000, projectiles: 1, splash: true, splashRadius: 1, vision: 5 },
-            { id: 'RUS_OFF3', hp: 640, cost: 1300, range: 6, damage: 140, pctHpDmg: 0.22, interval: 8500,  projectiles: 1, splash: true, splashRadius: 2, vision: 6, bunkerPen: 0.30, pctHpDmgCap: 600 }
+            { id: 'RUS_OFF3', hp: 640, cost: 1300, range: 6, damage: 140, pctHpDmg: 0.22, interval: 8500,  projectiles: 1, splash: true, splashRadius: 2, vision: 6, pctHpDmgCap: 600 }
         ] },
     RUS_GND: { name: 'Iskander Strike Brigade', icon: '💥', factionCode: 'RUS', category: 'gnd',
         levels: [
-            { id: 'RUS_GND1', hp: 70,  cost: 380,  range: 8,  damage: 95,  interval: 14000, projectiles: 1, splash: true, splashRadius: 1, vision: 7,  interceptable: false },
-            { id: 'RUS_GND2', hp: 140, cost: 620,  range: 10, damage: 160, interval: 13000, projectiles: 1, splash: true, splashRadius: 1, vision: 9,  interceptable: false },
-            { id: 'RUS_GND3', hp: 260, cost: 1300, range: 12, damage: 240, interval: 12000, projectiles: 1, splash: true, splashRadius: 2, vision: 11, interceptable: false, pmcImpactBurst: 2 }
+            { id: 'RUS_GND1', hp: 70,  cost: 380,  range: 8,  damage: 95,  interval: 14000, projectiles: 1, splash: true, splashRadius: 1, vision: 7,  interceptable: true },
+            { id: 'RUS_GND2', hp: 140, cost: 620,  range: 10, damage: 160, interval: 13000, projectiles: 1, splash: true, splashRadius: 1, vision: 9,  interceptable: true },
+            { id: 'RUS_GND3', hp: 260, cost: 1300, range: 12, damage: 240, interval: 12000, projectiles: 1, splash: true, splashRadius: 1, vision: 11, interceptable: true }
         ] },
     RUS_NAV: { name: 'Gorshkov Zircon Frigate', icon: '🛥️', factionCode: 'RUS', category: 'nav',
         levels: [
-            { id: 'RUS_NAV1', hp: 90,  cost: 380, range: 11, damage: 160, interval: 22000, projectiles: 1, vision: 9,  hypersonicCharge: true },
-            { id: 'RUS_NAV2', hp: 195, cost: 620, range: 13, damage: 240, interval: 18000, projectiles: 1, vision: 11, hypersonicCharge: true },
-            { id: 'RUS_NAV3', hp: 330, cost: 980, range: 16, damage: 340, interval: 14000, projectiles: 1, vision: 13, hypersonicCharge: true, interceptable: false }
+            { id: 'RUS_NAV1', hp: 90,  cost: 500, range: 9,  damage: 160, interval: 22000, projectiles: 1, vision: 9 },
+            { id: 'RUS_NAV2', hp: 195, cost: 800, range: 10, damage: 240, interval: 18000, projectiles: 1, vision: 10 },
+            { id: 'RUS_NAV3', hp: 330, cost: 1300, range: 12, damage: 340, interval: 14000, projectiles: 1, vision: 12, interceptable: false }
         ] },
 
     // ─── CHINA ────────────────────────────────────────────────────────────
@@ -92,7 +92,7 @@ export const FACTION_UNIT_STATS = {
         levels: [
             { id: 'CHN_ECO1', hp: 230,  cost: 500,  vision: 5, mfCostDiscount: 0.04, mfCostDiscountRadius: 4 },
             { id: 'CHN_ECO2', hp: 560,  cost: 800,  vision: 6, mfCostDiscount: 0.07, mfCostDiscountRadius: 5 },
-            { id: 'CHN_ECO3', hp: 1280, cost: 1250, vision: 7, mfCostDiscount: 0.11, mfCostDiscountRadius: 6, mfHpBonus: 0.12 }
+            { id: 'CHN_ECO3', hp: 1280, cost: 1250, vision: 7, mfCostDiscount: 0.11, mfCostDiscountRadius: 6 }
         ] },
     CHN_DEF: { name: 'HQ-9 Magazine Park', icon: '🎯', factionCode: 'CHN', category: 'def',
         levels: [
@@ -102,9 +102,9 @@ export const FACTION_UNIT_STATS = {
         ] },
     CHN_OFF: { name: 'DF-17 Glide Pad', icon: '🛸', factionCode: 'CHN', category: 'off',
         levels: [
-            { id: 'CHN_OFF1', hp: 160, cost: 400,  range: 12, damage: 220, interval: 38000, projectiles: 1, vision: 9,  interceptable: false, chargeUpMs: 18000 },
-            { id: 'CHN_OFF2', hp: 380, cost: 850,  range: 16, damage: 380, interval: 28000, projectiles: 1, vision: 11, interceptable: false, chargeUpMs: 14000 },
-            { id: 'CHN_OFF3', hp: 760, cost: 1400, range: 22, damage: 560, interval: 20000, projectiles: 1, vision: 14, interceptable: false, chargeUpMs: 10000 }
+            { id: 'CHN_OFF1', hp: 160, cost: 400,  range: 11, damage: 220, interval: 38000, projectiles: 1, vision: 9,  interceptable: false, chargeUpMs: 22000 },
+            { id: 'CHN_OFF2', hp: 380, cost: 850,  range: 14, damage: 380, interval: 28000, projectiles: 1, vision: 11, interceptable: false, chargeUpMs: 18000 },
+            { id: 'CHN_OFF3', hp: 760, cost: 1400, range: 17, damage: 560, interval: 20000, projectiles: 1, vision: 14, interceptable: false, chargeUpMs: 16000 }
         ] },
     CHN_GND: { name: 'PCL-181 Rocket Battery', icon: '💢', factionCode: 'CHN', category: 'gnd',
         levels: [
@@ -114,9 +114,9 @@ export const FACTION_UNIT_STATS = {
         ] },
     CHN_NAV: { name: 'Type 055 Renhai', icon: '⚓', factionCode: 'CHN', category: 'nav',
         levels: [
-            { id: 'CHN_NAV1', hp: 100, cost: 350, range: 8,  damage: 22, interval: 16000, projectiles: 6,  vision: 8 },
-            { id: 'CHN_NAV2', hp: 220, cost: 560, range: 9,  damage: 30, interval: 13000, projectiles: 8,  vision: 9 },
-            { id: 'CHN_NAV3', hp: 370, cost: 870, range: 11, damage: 40, interval: 11000, projectiles: 10, vision: 11 }
+            { id: 'CHN_NAV1', hp: 100, cost: 480, range: 8,  damage: 22, interval: 16000, projectiles: 4, vision: 8 },
+            { id: 'CHN_NAV2', hp: 220, cost: 760, range: 9,  damage: 30, interval: 13000, projectiles: 6, vision: 9 },
+            { id: 'CHN_NAV3', hp: 370, cost: 1100, range: 11, damage: 40, interval: 11000, projectiles: 8, vision: 11 }
         ] },
 
     // ─── JAPAN ────────────────────────────────────────────────────────────
@@ -128,9 +128,9 @@ export const FACTION_UNIT_STATS = {
         ] },
     JPN_DEF: { name: 'Chu-SAM Lean Battery', icon: '🛡️', factionCode: 'JPN', category: 'def',
         levels: [
-            { id: 'JPN_DEF1', hp: 130, cost: 225, range: 3, rechargeInterval: 9000, missilesRecharged: 3, chargeCap: 3, vision: 4, burstReload: true },
-            { id: 'JPN_DEF2', hp: 290, cost: 350, range: 4, rechargeInterval: 7500, missilesRecharged: 3, chargeCap: 3, vision: 5, burstReload: true },
-            { id: 'JPN_DEF3', hp: 520, cost: 500, range: 5, rechargeInterval: 5500, missilesRecharged: 4, chargeCap: 4, vision: 6, burstReload: true }
+            { id: 'JPN_DEF1', hp: 130, cost: 225, range: 3, rechargeInterval: 9000, missilesRecharged: 3, chargeCap: 3, vision: 4 },
+            { id: 'JPN_DEF2', hp: 290, cost: 350, range: 4, rechargeInterval: 7500, missilesRecharged: 3, chargeCap: 3, vision: 5 },
+            { id: 'JPN_DEF3', hp: 520, cost: 500, range: 5, rechargeInterval: 5500, missilesRecharged: 4, chargeCap: 4, vision: 6 }
         ] },
     JPN_OFF: { name: 'Type 12 Coastal SSM', icon: '🌊', factionCode: 'JPN', category: 'off',
         levels: [
@@ -140,9 +140,9 @@ export const FACTION_UNIT_STATS = {
         ] },
     JPN_GND: { name: 'Mountain Garrison', icon: '🗻', factionCode: 'JPN', category: 'gnd',
         levels: [
-            { id: 'JPN_GND1', hp: 180, cost: 260, range: 4, damage: 40, interval: 6000, projectiles: 1, vision: 4, dugInBonus: { hp: 0.5, range: 1 }, dugInMinFriendlyAdj: 3 },
-            { id: 'JPN_GND2', hp: 410, cost: 420, range: 5, damage: 55, interval: 5000, projectiles: 1, vision: 5, dugInBonus: { hp: 0.5, range: 1 }, dugInMinFriendlyAdj: 3 },
-            { id: 'JPN_GND3', hp: 920, cost: 980, range: 6, damage: 75, interval: 4000, projectiles: 1, vision: 6, dugInBonus: { hp: 0.5, range: 1 }, dugInMinFriendlyAdj: 3 }
+            { id: 'JPN_GND1', hp: 180, cost: 260, range: 4, damage: 40, interval: 6000, projectiles: 1, vision: 4, dugInBonus: { hp: 0.5, range: 1 }, dugInMinFriendlyAdj: 2 },
+            { id: 'JPN_GND2', hp: 410, cost: 420, range: 5, damage: 55, interval: 5000, projectiles: 1, vision: 5, dugInBonus: { hp: 0.5, range: 1 }, dugInMinFriendlyAdj: 2 },
+            { id: 'JPN_GND3', hp: 920, cost: 820, range: 6, damage: 75, interval: 4000, projectiles: 1, vision: 6, dugInBonus: { hp: 0.5, range: 1 }, dugInMinFriendlyAdj: 2 }
         ] },
     JPN_NAV: { name: 'Mogami Stealth FFM', icon: '🌫️', factionCode: 'JPN', category: 'nav',
         levels: [
@@ -156,7 +156,7 @@ export const FACTION_UNIT_STATS = {
         levels: [
             { id: 'TUR_ECO1', hp: 180, cost: 400, vision: 8,  flatGoldPerSec: 0.45 },
             { id: 'TUR_ECO2', hp: 380, cost: 600, vision: 10, flatGoldPerSec: 0.85 },
-            { id: 'TUR_ECO3', hp: 760, cost: 850, vision: 13, flatGoldPerSec: 1.30, droneScoutCharge: true }
+            { id: 'TUR_ECO3', hp: 760, cost: 850, vision: 13, flatGoldPerSec: 1.30 }
         ] },
     TUR_DEF: { name: 'KORAL EW Spoofer', icon: '📡', factionCode: 'TUR', category: 'def',
         levels: [
@@ -194,25 +194,25 @@ export const FACTION_UNIT_STATS = {
         levels: [
             { id: 'IRN_DEF1', hp: 105, cost: 205, range: 5, rechargeInterval: 9999999, missilesRecharged: 0, chargeCap: 4, vision: 5, lifetimeShots: 4 },
             { id: 'IRN_DEF2', hp: 240, cost: 305, range: 7, rechargeInterval: 9999999, missilesRecharged: 0, chargeCap: 6, vision: 7, lifetimeShots: 6 },
-            { id: 'IRN_DEF3', hp: 430, cost: 405, range: 9, rechargeInterval: 9999999, missilesRecharged: 0, chargeCap: 8, vision: 9, lifetimeShots: 8, finalShotDoubleDmg: true }
+            { id: 'IRN_DEF3', hp: 430, cost: 405, range: 9, rechargeInterval: 9999999, missilesRecharged: 0, chargeCap: 8, vision: 9, lifetimeShots: 8 }
         ] },
     IRN_OFF: { name: 'Fateh Salvo Silo', icon: '🚀', factionCode: 'IRN', category: 'off',
         levels: [
-            { id: 'IRN_OFF1', hp: 110, cost: 325,  range: 7,  damage: 80,  interval: 45000, projectiles: 3, vision: 7,  preStock: 3 },
-            { id: 'IRN_OFF2', hp: 260, cost: 700,  range: 10, damage: 120, interval: 45000, projectiles: 5, vision: 10, preStock: 5 },
-            { id: 'IRN_OFF3', hp: 580, cost: 1200, range: 13, damage: 175, interval: 45000, projectiles: 6, vision: 13, preStock: 6 }
+            { id: 'IRN_OFF1', hp: 110, cost: 325,  range: 7,  damage: 70,  interval: 45000, projectiles: 2, vision: 7,  preStock: 2 },
+            { id: 'IRN_OFF2', hp: 260, cost: 700,  range: 10, damage: 105, interval: 45000, projectiles: 3, vision: 10, preStock: 3 },
+            { id: 'IRN_OFF3', hp: 580, cost: 1200, range: 13, damage: 140, interval: 45000, projectiles: 3, vision: 13, preStock: 3 }
         ] },
     IRN_GND: { name: 'Basij Mobilization', icon: '🏴', factionCode: 'IRN', category: 'gnd',
         levels: [
-            { id: 'IRN_GND1', hp: 95,  cost: 200, range: 3, damage: 12, interval: 9000, projectiles: 2, vision: 4, basijSwarm: true },
-            { id: 'IRN_GND2', hp: 200, cost: 320, range: 4, damage: 16, interval: 7000, projectiles: 3, vision: 5, basijSwarm: true },
-            { id: 'IRN_GND3', hp: 380, cost: 700, range: 5, damage: 22, interval: 5000, projectiles: 4, vision: 6, basijSwarm: true }
+            { id: 'IRN_GND1', hp: 95,  cost: 200, range: 3, damage: 12, interval: 9000, projectiles: 2, vision: 4, interceptable: false },
+            { id: 'IRN_GND2', hp: 200, cost: 320, range: 4, damage: 16, interval: 7000, projectiles: 3, vision: 5, interceptable: false },
+            { id: 'IRN_GND3', hp: 380, cost: 700, range: 5, damage: 22, interval: 5000, projectiles: 4, vision: 6, interceptable: false }
         ] },
     IRN_NAV: { name: 'Houdong Swarm Flotilla', icon: '⛵', factionCode: 'IRN', category: 'nav',
         levels: [
-            { id: 'IRN_NAV1', hp: 84,  cost: 220, range: 4, damage: 18, interval: 7000, projectiles: 3, vision: 4 },
-            { id: 'IRN_NAV2', hp: 152, cost: 310, range: 5, damage: 26, interval: 5500, projectiles: 4, vision: 5 },
-            { id: 'IRN_NAV3', hp: 250, cost: 420, range: 6, damage: 34, interval: 4000, projectiles: 5, vision: 6 }
+            { id: 'IRN_NAV1', hp: 100, cost: 220, range: 4, damage: 22, interval: 7000, projectiles: 3, vision: 4 },
+            { id: 'IRN_NAV2', hp: 200, cost: 310, range: 5, damage: 32, interval: 5500, projectiles: 4, vision: 5 },
+            { id: 'IRN_NAV3', hp: 320, cost: 420, range: 6, damage: 42, interval: 4000, projectiles: 5, vision: 6 }
         ] },
 
     // ─── FINLAND ──────────────────────────────────────────────────────────
@@ -224,9 +224,9 @@ export const FACTION_UNIT_STATS = {
         ] },
     FIN_DEF: { name: 'NASAMS Sisu Bastion', icon: '🛡️', factionCode: 'FIN', category: 'def',
         levels: [
-            { id: 'FIN_DEF1', hp: 110, cost: 275, range: 4, rechargeInterval: 10000, missilesRecharged: 1, chargeCap: 4, vision: 5, timeScaleHpRange: { hpPerMin: 0.05, rangePerMin: 0.05, cap: 0.60 } },
-            { id: 'FIN_DEF2', hp: 250, cost: 425, range: 6, rechargeInterval: 8000,  missilesRecharged: 2, chargeCap: 6, vision: 7, timeScaleHpRange: { hpPerMin: 0.05, rangePerMin: 0.05, cap: 0.60 } },
-            { id: 'FIN_DEF3', hp: 460, cost: 625, range: 8, rechargeInterval: 6000,  missilesRecharged: 3, chargeCap: 8, vision: 9, timeScaleHpRange: { hpPerMin: 0.05, rangePerMin: 0.05, cap: 0.60 } }
+            { id: 'FIN_DEF1', hp: 110, cost: 275, range: 4, rechargeInterval: 10000, missilesRecharged: 1, chargeCap: 4, vision: 5, timeScaleHpRange: { hpPerMin: 0.025, rangePerMin: 0.025, cap: 0.30 } },
+            { id: 'FIN_DEF2', hp: 250, cost: 425, range: 6, rechargeInterval: 8000,  missilesRecharged: 2, chargeCap: 6, vision: 7, timeScaleHpRange: { hpPerMin: 0.025, rangePerMin: 0.025, cap: 0.30 } },
+            { id: 'FIN_DEF3', hp: 460, cost: 625, range: 8, rechargeInterval: 6000,  missilesRecharged: 3, chargeCap: 8, vision: 9, timeScaleHpRange: { hpPerMin: 0.025, rangePerMin: 0.025, cap: 0.30 } }
         ] },
     FIN_OFF: { name: 'JASSM Logistics Depot', icon: '🛫', factionCode: 'FIN', category: 'off',
         levels: [
@@ -242,9 +242,9 @@ export const FACTION_UNIT_STATS = {
         ] },
     FIN_NAV: { name: 'Hamina Mine-Layer', icon: '💣', factionCode: 'FIN', category: 'nav',
         levels: [
-            { id: 'FIN_NAV1', hp: 80,  cost: 260, range: 2, damage: 120, interval: 8000, projectiles: 1, vision: 5, interceptable: false, mineLayer: true },
-            { id: 'FIN_NAV2', hp: 175, cost: 360, range: 2, damage: 180, interval: 6500, projectiles: 1, vision: 6, interceptable: false, mineLayer: true },
-            { id: 'FIN_NAV3', hp: 300, cost: 470, range: 2, damage: 260, interval: 5000, projectiles: 1, vision: 7, interceptable: false, mineLayer: true }
+            { id: 'FIN_NAV1', hp: 80,  cost: 260, range: 2, damage: 80,  interval: 8000, projectiles: 1, vision: 5, interceptable: false, splash: true, splashRadius: 1 },
+            { id: 'FIN_NAV2', hp: 175, cost: 360, range: 2, damage: 120, interval: 6500, projectiles: 1, vision: 6, interceptable: false, splash: true, splashRadius: 1 },
+            { id: 'FIN_NAV3', hp: 300, cost: 470, range: 2, damage: 160, interval: 5000, projectiles: 1, vision: 7, interceptable: false, splash: true, splashRadius: 1 }
         ] },
 
     // ─── INDONESIA ────────────────────────────────────────────────────────
@@ -296,19 +296,19 @@ export const FACTION_UNIT_STATS = {
         levels: [
             { id: 'SUI_OFF1', hp: 250,  cost: 400,  range: 8,  damage: 75,  interval: 11000, projectiles: 1, vision: 8,  splashResist: 0.40 },
             { id: 'SUI_OFF2', hp: 600,  cost: 850,  range: 11, damage: 115, interval: 8500,  projectiles: 1, vision: 11, splashResist: 0.40 },
-            { id: 'SUI_OFF3', hp: 1250, cost: 1300, range: 14, damage: 170, interval: 6500,  projectiles: 1, vision: 14, splashResist: 0.40, stealthImmune: true }
+            { id: 'SUI_OFF3', hp: 1250, cost: 1300, range: 14, damage: 170, interval: 6500,  projectiles: 1, vision: 14, splashResist: 0.40 }
         ] },
     SUI_GND: { name: 'Festung Garrison', icon: '🏰', factionCode: 'SUI', category: 'gnd',
         levels: [
-            { id: 'SUI_GND1', hp: 160, cost: 290,  range: 4, damage: 35, interval: 7400, projectiles: 1, vision: 4, calmDrPerSec: 0.01, calmDrCap: 0.15 },
-            { id: 'SUI_GND2', hp: 360, cost: 470,  range: 5, damage: 50, interval: 6000, projectiles: 1, vision: 5, calmDrPerSec: 0.01, calmDrCap: 0.20 },
-            { id: 'SUI_GND3', hp: 780, cost: 1050, range: 6, damage: 70, interval: 5000, projectiles: 1, vision: 6, calmDrPerSec: 0.01, calmDrCap: 0.25 }
+            { id: 'SUI_GND1', hp: 160, cost: 290,  range: 4, damage: 35, interval: 7400, projectiles: 1, vision: 4 },
+            { id: 'SUI_GND2', hp: 360, cost: 470,  range: 5, damage: 50, interval: 6000, projectiles: 1, vision: 5 },
+            { id: 'SUI_GND3', hp: 780, cost: 1050, range: 6, damage: 70, interval: 5000, projectiles: 1, vision: 6 }
         ] },
     SUI_NAV: { name: 'Patrouilleboot 16', icon: '🛟', factionCode: 'SUI', category: 'nav',
         levels: [
-            { id: 'SUI_NAV1', hp: 60,  cost: 180, range: 4, damage: 28, interval: 9000, projectiles: 1, vision: 6 },
-            { id: 'SUI_NAV2', hp: 130, cost: 240, range: 5, damage: 40, interval: 7000, projectiles: 1, vision: 7 },
-            { id: 'SUI_NAV3', hp: 210, cost: 300, range: 6, damage: 52, interval: 5000, projectiles: 1, vision: 8, lakePatrolRegen: 0.4 }
+            { id: 'SUI_NAV1', hp: 60,  cost: 180, range: 4, damage: 40, interval: 9000, projectiles: 1, vision: 6 },
+            { id: 'SUI_NAV2', hp: 130, cost: 240, range: 5, damage: 55, interval: 7000, projectiles: 1, vision: 7 },
+            { id: 'SUI_NAV3', hp: 210, cost: 300, range: 6, damage: 75, interval: 5000, projectiles: 1, vision: 8, lakePatrolRegen: 0.8 }
         ] },
 
     // ─── SAUDI ARABIA ─────────────────────────────────────────────────────
@@ -338,9 +338,9 @@ export const FACTION_UNIT_STATS = {
         ] },
     KSA_NAV: { name: 'Al-Riyadh Tanker Raider', icon: '🛢️', factionCode: 'KSA', category: 'nav',
         levels: [
-            { id: 'KSA_NAV1', hp: 90,  cost: 300, range: 6, damage: 50, interval: 11000, projectiles: 1, vision: 6, killRefundPct: 0.15 },
-            { id: 'KSA_NAV2', hp: 200, cost: 430, range: 7, damage: 72, interval: 8000,  projectiles: 1, vision: 7, killRefundPct: 0.18 },
-            { id: 'KSA_NAV3', hp: 340, cost: 580, range: 8, damage: 92, interval: 6000,  projectiles: 1, vision: 8, killRefundPct: 0.25 }
+            { id: 'KSA_NAV1', hp: 90,  cost: 300, range: 6, damage: 50, interval: 11000, projectiles: 1, vision: 6, killRefundPct: 0.10 },
+            { id: 'KSA_NAV2', hp: 200, cost: 430, range: 7, damage: 72, interval: 8000,  projectiles: 1, vision: 7, killRefundPct: 0.12 },
+            { id: 'KSA_NAV3', hp: 340, cost: 580, range: 8, damage: 92, interval: 6000,  projectiles: 1, vision: 8, killRefundPct: 0.15 }
         ] },
 
     // ─── POLAND ───────────────────────────────────────────────────────────
@@ -364,9 +364,9 @@ export const FACTION_UNIT_STATS = {
         ] },
     POL_GND: { name: 'Winged Hussar Charge', icon: '⚔️', factionCode: 'POL', category: 'gnd',
         levels: [
-            { id: 'POL_GND1', hp: 130, cost: 320,  range: 6, damage: 70,  interval: 22000, projectiles: 1, vision: 6, splash: true, splashRadius: 1, chargeUpMs: 11000 },
-            { id: 'POL_GND2', hp: 280, cost: 520,  range: 7, damage: 100, interval: 20000, projectiles: 1, vision: 7, splash: true, splashRadius: 1, chargeUpMs: 11000 },
-            { id: 'POL_GND3', hp: 560, cost: 1150, range: 8, damage: 140, interval: 18000, projectiles: 1, vision: 8, splash: true, splashRadius: 2, chargeUpMs: 11000 }
+            { id: 'POL_GND1', hp: 130, cost: 320, range: 6, damage: 110, interval: 18000, projectiles: 1, vision: 6, splash: true, splashRadius: 1, chargeUpMs: 6000 },
+            { id: 'POL_GND2', hp: 280, cost: 520, range: 7, damage: 160, interval: 16000, projectiles: 1, vision: 7, splash: true, splashRadius: 1, chargeUpMs: 6000 },
+            { id: 'POL_GND3', hp: 560, cost: 1150, range: 8, damage: 200, interval: 14000, projectiles: 1, vision: 8, splash: true, splashRadius: 2, chargeUpMs: 6000 }
         ] },
     POL_NAV: { name: 'NSM Coastal Battery', icon: '⛵', factionCode: 'POL', category: 'nav',
         coastalLandBuildable: true,
@@ -417,15 +417,15 @@ export const FACTION_UNIT_STATS = {
         ] },
     GBR_DEF: { name: 'Sky Sabre Expeditionary', icon: '🛡️', factionCode: 'GBR', category: 'def',
         levels: [
-            { id: 'GBR_DEF1', hp: 120, cost: 285, range: 5, rechargeInterval: 9000, missilesRecharged: 1, chargeCap: 4, vision: 6, expeditionaryMobile: true },
-            { id: 'GBR_DEF2', hp: 270, cost: 440, range: 7, rechargeInterval: 7000, missilesRecharged: 2, chargeCap: 5, vision: 8, expeditionaryMobile: true },
-            { id: 'GBR_DEF3', hp: 490, cost: 650, range: 9, rechargeInterval: 5500, missilesRecharged: 2, chargeCap: 6, vision: 10, expeditionaryMobile: true }
+            { id: 'GBR_DEF1', hp: 120, cost: 285, range: 5, rechargeInterval: 9000, missilesRecharged: 1, chargeCap: 4, vision: 6 },
+            { id: 'GBR_DEF2', hp: 270, cost: 440, range: 7, rechargeInterval: 7000, missilesRecharged: 2, chargeCap: 5, vision: 8 },
+            { id: 'GBR_DEF3', hp: 490, cost: 650, range: 9, rechargeInterval: 5500, missilesRecharged: 2, chargeCap: 6, vision: 10 }
         ] },
     GBR_OFF: { name: 'Tempest Strike Wing', icon: '⚡', factionCode: 'GBR', category: 'off',
         levels: [
-            { id: 'GBR_OFF1', hp: 145, cost: 400,  range: 10, damage: 32, interval: 20000, projectiles: 6,  vision: 10, autoRetarget: true },
-            { id: 'GBR_OFF2', hp: 340, cost: 825,  range: 13, damage: 44, interval: 15000, projectiles: 9,  vision: 13, autoRetarget: true },
-            { id: 'GBR_OFF3', hp: 760, cost: 1400, range: 16, damage: 58, interval: 11000, projectiles: 12, vision: 16, autoRetarget: true, priorityAir: true }
+            { id: 'GBR_OFF1', hp: 145, cost: 400,  range: 10, damage: 32, interval: 20000, projectiles: 6,  vision: 10 },
+            { id: 'GBR_OFF2', hp: 340, cost: 825,  range: 13, damage: 44, interval: 15000, projectiles: 9,  vision: 13 },
+            { id: 'GBR_OFF3', hp: 760, cost: 1400, range: 16, damage: 58, interval: 11000, projectiles: 12, vision: 16 }
         ] },
     GBR_GND: { name: 'SAS Raid Team', icon: '🥷', factionCode: 'GBR', category: 'gnd',
         levels: [
@@ -455,9 +455,9 @@ export const FACTION_UNIT_STATS = {
         ] },
     ITA_OFF: { name: 'Vulcano Naval Rack', icon: '🌋', factionCode: 'ITA', category: 'off',
         levels: [
-            { id: 'ITA_OFF1', hp: 125, cost: 325,  range: 8,  damage: 45,  interval: 6000, projectiles: 1, vision: 8 },
-            { id: 'ITA_OFF2', hp: 290, cost: 725,  range: 11, damage: 70,  interval: 5000, projectiles: 1, vision: 11 },
-            { id: 'ITA_OFF3', hp: 640, cost: 1300, range: 14, damage: 100, interval: 4000, projectiles: 1, vision: 14 }
+            { id: 'ITA_OFF1', hp: 125, cost: 325, range: 8,  damage: 70,  interval: 6000, projectiles: 1, vision: 8 },
+            { id: 'ITA_OFF2', hp: 290, cost: 600, range: 11, damage: 105, interval: 5000, projectiles: 1, vision: 11 },
+            { id: 'ITA_OFF3', hp: 640, cost: 1100, range: 14, damage: 145, interval: 4000, projectiles: 1, vision: 14 }
         ] },
     ITA_GND: { name: 'Bersaglieri Concord', icon: '🎺', factionCode: 'ITA', category: 'gnd',
         levels: [
@@ -467,9 +467,9 @@ export const FACTION_UNIT_STATS = {
         ] },
     ITA_NAV: { name: 'FREMM Multi-Role', icon: '⚓', factionCode: 'ITA', category: 'nav',
         levels: [
-            { id: 'ITA_NAV1', hp: 100, cost: 330, range: 6, damage: 55,  interval: 11000, projectiles: 1, vision: 6, fremmStance: true },
-            { id: 'ITA_NAV2', hp: 220, cost: 490, range: 7, damage: 80,  interval: 8500,  projectiles: 1, vision: 7, fremmStance: true },
-            { id: 'ITA_NAV3', hp: 375, cost: 680, range: 9, damage: 108, interval: 6000,  projectiles: 1, vision: 9, fremmStance: true }
+            { id: 'ITA_NAV1', hp: 100, cost: 330, range: 6, damage: 55,  interval: 11000, projectiles: 1, vision: 6 },
+            { id: 'ITA_NAV2', hp: 220, cost: 490, range: 7, damage: 80,  interval: 8500,  projectiles: 1, vision: 7 },
+            { id: 'ITA_NAV3', hp: 375, cost: 680, range: 9, damage: 108, interval: 6000,  projectiles: 1, vision: 9 }
         ] },
 };
 
