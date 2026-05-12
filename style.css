@@ -630,9 +630,12 @@ canvas { display: block; width: 100%; height: 100%; }
 }
 
 #side-panel {
-    position: absolute; top: 110px; left: 20px; width: 190px;
-    padding: 14px; display: flex; flex-direction: column; gap: 12px;
+    position: absolute; top: 110px; left: 20px; bottom: 20px; width: 200px;
+    padding: 10px 10px 12px; display: flex; flex-direction: column; gap: 7px;
+    overflow-y: auto;
 }
+#side-panel::-webkit-scrollbar { width: 6px; }
+#side-panel::-webkit-scrollbar-thumb { background: rgba(0,229,255,0.18); border-radius: 3px; }
 
 h3 {
     font-size: 0.72rem; color: var(--accent-blue);
@@ -641,17 +644,26 @@ h3 {
     padding-bottom: 5px;
 }
 
-.build-group { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+#side-panel h3 {
+    font-size: 0.62rem;
+    letter-spacing: 1.8px;
+    padding: 0 0 3px;
+    margin: 4px 0 1px;
+}
+#side-panel h3:first-child { margin-top: 0; }
+
+.build-group { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
 
 .build-btn {
     position: relative;
     background: rgba(255,255,255,0.04);
     border: 1px solid var(--glass-border);
-    padding: 8px 4px 6px;
-    border-radius: 6px;
+    padding: 6px 3px 5px;
+    border-radius: 5px;
     color: white; cursor: pointer;
     transition: all .18s;
-    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    min-width: 0;
 }
 .shortcut-tag {
     position: absolute; top: -5px; right: -5px;
@@ -659,16 +671,16 @@ h3 {
     font-size: 0.6rem; padding: 1px 5px; border-radius: 10px;
     font-weight: 700; font-family: var(--font-mono);
 }
-.build-btn:hover { background: rgba(0,229,255,0.15); border-color: var(--accent-blue); transform: translateY(-2px); }
+.build-btn:hover { background: rgba(0,229,255,0.15); border-color: var(--accent-blue); transform: translateY(-1px); }
 .build-btn.active {
     background: var(--accent-blue); color: black;
     box-shadow: 0 0 12px rgba(0, 229, 255, 0.5);
 }
 .build-btn.active .cost { color: rgba(0,0,0,0.75); }
-.build-btn .icon { font-size: 1.35rem; line-height: 1; }
-.build-btn .name { font-size: 0.58rem; font-weight: 700; letter-spacing: 1px; color: rgba(255,255,255,0.85); }
+.build-btn .icon { font-size: 1.2rem; line-height: 1; }
+.build-btn .name { font-size: 0.56rem; font-weight: 700; letter-spacing: 0.8px; color: rgba(255,255,255,0.85); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .build-btn.active .name { color: black; }
-.build-btn .cost { font-size: 0.62rem; font-family: var(--font-mono); color: var(--accent-gold); opacity: 0.9; }
+.build-btn .cost { font-size: 0.6rem; font-family: var(--font-mono); color: var(--accent-gold); opacity: 0.9; }
 
 .build-btn.cannot-afford { opacity: 0.45; filter: grayscale(0.4); }
 .build-btn.cannot-afford .cost { color: var(--accent-red); }
@@ -795,14 +807,39 @@ h3 {
 }
 #build-mode-banner .dim { color: rgba(255,255,255,0.5); font-size: 0.7rem; letter-spacing: 1px; margin-left: 6px; }
 
-#instructions {
-    position: absolute; bottom: 280px; left: 20px;
-    padding: 8px 14px; text-align: left;
-    font-size: 0.74rem; color: rgba(255,255,255,0.55);
-    font-family: var(--font-mono);
-    max-width: 360px;
+#help-toggle {
+    position: absolute; bottom: 24px; left: 316px;
+    width: 30px; height: 30px;
+    padding: 0;
+    border-radius: 50%;
+    font-family: var(--font-title);
+    font-size: 0.95rem; font-weight: 700;
+    color: var(--accent-blue);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background .15s, transform .15s;
+    z-index: 10;
 }
-#instructions p { line-height: 1.6; }
+#help-toggle:hover { background: rgba(0,229,255,0.15); transform: scale(1.05); }
+#help-toggle.active { background: var(--accent-blue); color: black; }
+
+#instructions {
+    position: absolute; bottom: 64px; left: 316px;
+    padding: 12px 16px; text-align: left;
+    font-size: 0.72rem; color: rgba(255,255,255,0.7);
+    font-family: var(--font-mono);
+    max-width: 380px;
+    display: flex; flex-direction: column; gap: 8px;
+    z-index: 10;
+}
+#instructions.hidden { display: none; }
+#instructions .help-section { display: flex; flex-direction: column; gap: 2px; }
+#instructions .help-head {
+    font-family: var(--font-title); font-size: 0.6rem;
+    letter-spacing: 1.6px; color: var(--accent-blue);
+    opacity: 0.85;
+}
+#instructions p { line-height: 1.55; margin: 0; }
 #instructions b { color: var(--accent-blue); }
 
 #notis {

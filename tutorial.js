@@ -41,15 +41,15 @@ export const TUTORIAL_PAGES = [
         <div class="tut-steps">
             <div class="tut-step">
                 <span class="tut-step-num">1</span>
-                <div><b>Build a Missile Factory</b> <span class="tut-dim">($${L1.MF.cost}) — press <span class="key-badge">4</span></span><br>You start with one. Build a second immediately — rockets need ammo.</div>
+                <div><b>Build a Missile Factory</b> <span class="tut-dim">($${L1.MF.cost}) — press <span class="key-badge">2</span></span><br>You start with one. Build a second immediately — rockets need ammo.</div>
             </div>
             <div class="tut-step">
                 <span class="tut-step-num">2</span>
-                <div><b>Build Rocket Launchers</b> <span class="tut-dim">($${L1.RL.cost}) — press <span class="key-badge">2</span></span><br>Your main damage dealers. Place 2–3 near your border.</div>
+                <div><b>Build Rocket Launchers</b> <span class="tut-dim">($${L1.RL.cost}) — press <span class="key-badge">9</span></span><br>Your main damage dealers. Place 2–3 near your border.</div>
             </div>
             <div class="tut-step">
                 <span class="tut-step-num">3</span>
-                <div><b>Build an Anti-Air System</b> <span class="tut-dim">($${L1.AAS.cost}) — press <span class="key-badge">3</span></span><br>Intercepts enemy missiles. Protect your Government!</div>
+                <div><b>Build an Anti-Air System</b> <span class="tut-dim">($${L1.AAS.cost}) — press <span class="key-badge">5</span></span><br>Intercepts enemy missiles. Protect your Government!</div>
             </div>
             <div class="tut-step">
                 <span class="tut-step-num">4</span>
