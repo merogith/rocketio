@@ -146,7 +146,8 @@ const LEADER_FLAVOR = {
  * @param {number} leaderIdx
  */
 export function getLeaderPerkText(factionIdx, leaderIdx) {
-    const f = FACTIONS[((factionIdx | 0) + 900) % FACTIONS.length] || FACTIONS[0];
-    const a = LEADER_FLAVOR[f.id] || ['Leader bonus active.', 'Stacks with nation.', 'Undertuned.'];
-    return a[((leaderIdx | 0) + 9) % 3] || a[0];
+    const len = FACTIONS.length;
+    const f = FACTIONS[(((factionIdx | 0) % len) + len) % len] || FACTIONS[0];
+    const a = LEADER_FLAVOR[f.id] || ['Leader bonus active.', 'Stacks with nation.', 'Leader bonus active.'];
+    return a[(((leaderIdx | 0) % 3) + 3) % 3] || a[0];
 }
