@@ -1,7 +1,7 @@
-import { UNIT_STATS, COLORS, GAME_CONFIG, DIFFICULTY, DIPLOMACY, govGoldForDistance } from './constants.js?v=naval2027';
-import { getPlayerMods, getSpecialUnitLabelForPlayer } from './factions.js?v=naval2027';
-import { Hex } from './hexGrid.js?v=naval2027';
-import { SFX } from './sfx.js?v=naval2027';
+import { UNIT_STATS, COLORS, GAME_CONFIG, DIFFICULTY, DIPLOMACY, govGoldForDistance } from './constants.js?v=cmpn3';
+import { getPlayerMods, getSpecialUnitLabelForPlayer } from './factions.js?v=cmpn3';
+import { Hex } from './hexGrid.js?v=cmpn3';
+import { SFX } from './sfx.js?v=cmpn3';
 
 function relKey(a, b) {
     const x = Math.min(a, b), y = Math.max(a, b);
@@ -2204,6 +2204,11 @@ export class Game {
     checkVictory() {
         const mode = this.victoryConfig.mode;
         this._ensureIndex();
+
+        // Campaign safety: while a build-tutorial is active the human is mid-setup, possibly
+        // between a forced teardown and the rebuild click. Don't let any victory condition fire
+        // during that window — it can hand the enemy an instant regime-change win.
+        if (this.campaign?.buildTutorial?.active) return;
 
         for (const p of this.players) {
             if (this.defeated.has(p.id)) continue;
