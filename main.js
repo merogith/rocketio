@@ -2,7 +2,7 @@ import { Hex, HexGrid, Camera } from './hexGrid.js?v=units3';
 import { Game } from './game.js?v=units3';
 import { Renderer } from './renderer.js?v=units3';
 import { UNIT_STATS, GAME_CONFIG, getEffectiveMapRadius, VICTORY_MODES, COLORS, DIPLOMACY, govGoldBandLinesHtml } from './constants.js?v=units3';
-import { getFactionSignatureL3, getSpecialUnitName } from './factions.js?v=units3';
+import { getFactionSignatureL3, getSpecialUnitName, getSpecialUnitIcon } from './factions.js?v=units3';
 import { TUTORIAL_PAGES } from './tutorial.js?v=units3';
 import { getMissionById, CAMPAIGN_MISSIONS } from './campaignData.js?v=units3';
 import { loadCampaignProgress, canStartMission, markMissionBeaten } from './campaignProgress.js?v=units3';
@@ -157,6 +157,19 @@ function syncCampaignBuildQuestPanel() {
         campaignQuestHint.innerHTML = h ? campaignLineToHtml(h) : '';
         campaignQuestHint.classList.toggle('hidden', !h);
     }
+}
+
+function updateSignatureBuildButton(factionId) {
+    const btn = document.querySelector('.build-btn[data-type="SU"]');
+    if (!btn) return;
+    const sn = getSpecialUnitName(factionId);
+    const icon = getSpecialUnitIcon(factionId);
+    const sig = getFactionSignatureL3(factionId);
+    const iconEl = btn.querySelector('.icon');
+    const nameEl = btn.querySelector('.name');
+    if (iconEl) iconEl.textContent = icon;
+    if (nameEl) nameEl.textContent = sn;
+    btn.title = `[F10] ${sn} — faction signature. L3 “${sig.label}”: ${sig.desc}`;
 }
 
 function m1AutoselectBuild() {
@@ -405,6 +418,7 @@ function initWorld(mapSize, mapStyle, playerCount, playerName, victoryConfig, di
         const f0 = getFaction(p0.factionId);
         const l0 = f0.leaders[p0.leaderIdx] || f0.leaders[0];
         playerLabelEl.textContent = `${p0.name} · ${f0.code} · ${l0.name}`;
+        updateSignatureBuildButton(p0.factionId);
     }
     if (playerPortraitEl) {
         playerPortraitEl.innerHTML = buildPortraitSvg(game.players[0], 28);
@@ -1468,7 +1482,7 @@ function structureL3PerkHtml(type, levelIdx, opts = {}) {
 }
 
 /** One-line summary of a tier's stats for build tooltips (matches UNIT_STATS). */
-function summarizeLevelForTooltip(type, lv) {
+function summarizeLevelForTooltip(type, lv, factionId = null) {
     const parts = [];
     if (lv.hp != null) parts.push(`${lv.hp} HP`);
     if (lv.range != null) parts.push(`rng ${lv.range}`);
@@ -1496,7 +1510,10 @@ function summarizeLevelForTooltip(type, lv) {
         parts.push(`splash ${Math.round(GAME_CONFIG.RL_L3_SPLASH_CHANCE * 100)}% → ${Math.round(GAME_CONFIG.RL_L3_SPLASH_MULT * 100)}% adj`);
     }
     if (lv.jamming) parts.push(`jam −${Math.round((GAME_CONFIG.DRONE_L3_RECHARGE_DEBUFF_MULT - 1) * 100)}% enemy recharge`);
-    if (lv.signatureJam) parts.push('faction-unique doctrine');
+    if (lv.signatureJam) {
+        const sig = factionId != null ? getFactionSignatureL3(factionId) : null;
+        parts.push(sig ? `doctrine: ${sig.label}` : 'faction-unique doctrine');
+    }
     if (lv.cec) parts.push(`CEC vs ships (+${Math.round((GAME_CONFIG.DDG3_CEC_DMG_MULT - 1) * 100)}%)`);
     if (lv.illuminator) parts.push('Aegis BMD + spot');
     if (lv.bastion) parts.push(`+stealth cruise (${Math.round(GAME_CONFIG.SSG_L3_STEALTH_CHANCE * 100)}%)`);
@@ -1511,7 +1528,9 @@ function showBuildTooltip(btn) {
     if (!def) return;
     const l1 = def.levels[0];
 
-    let html = `<h4>${def.name.toUpperCase()}</h4>`;
+    const localFactionId = game?.players?.[0]?.factionId ?? 0;
+    const headerName = (type === 'SU') ? getSpecialUnitName(localFactionId) : def.name;
+    let html = `<h4>${headerName.toUpperCase()}</h4>`;
     const stats = [
         l1.hp && ['HP', l1.hp],
         l1.range && ['Atk Range', l1.range],
@@ -1546,7 +1565,7 @@ function showBuildTooltip(btn) {
         for (let i = 1; i < def.levels.length; i++) {
             const lv = def.levels[i];
             const discCost = Math.floor(lv.cost * GAME_CONFIG.UPGRADE_COST_MULT);
-            const sum = summarizeLevelForTooltip(type, lv);
+            const sum = summarizeLevelForTooltip(type, lv, type === 'SU' ? localFactionId : null);
             html += `<div class="tt-tier">Lv${i + 1}: <b>$${discCost}</b> <span class="tt-list">(list $${lv.cost})</span> — ${sum}</div>`;
         }
         html += '</div>';
@@ -1605,7 +1624,9 @@ function showBuildTooltip(btn) {
     }
 
     if (type === 'SU') {
-        html += `<div class="tt-upgrade dim">Lv3: <b>faction-unique doctrine</b> — your signature unit gains a bonus tied to your nation. Hover the unit in-game to see the active effect.</div>`;
+        const sig = getFactionSignatureL3(localFactionId);
+        const sn = getSpecialUnitName(localFactionId);
+        html += `<div class="tt-upgrade dim">Lv3 — <b>${sig.label}</b> · ${sn}: ${sig.desc}</div>`;
     }
 
     if (type === 'BUNK') {
