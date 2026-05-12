@@ -2,7 +2,7 @@ import { Hex, HexGrid, Camera } from './hexGrid.js?v=units3';
 import { Game } from './game.js?v=units3';
 import { Renderer } from './renderer.js?v=units3';
 import { UNIT_STATS, GAME_CONFIG, getEffectiveMapRadius, VICTORY_MODES, COLORS, DIPLOMACY, govGoldBandLinesHtml } from './constants.js?v=units3';
-import { getFactionSignatureL3, getSpecialUnitName, getSpecialUnitIcon } from './factions.js?v=units3';
+import { getFactionSignatureL3, getSpecialUnitName, getSpecialUnitIcon } from './factions.js?v=units4';
 import { TUTORIAL_PAGES } from './tutorial.js?v=units3';
 import { getMissionById, CAMPAIGN_MISSIONS } from './campaignData.js?v=units3';
 import { loadCampaignProgress, canStartMission, markMissionBeaten } from './campaignProgress.js?v=units3';
@@ -10,8 +10,8 @@ import { applyCampaignScenario, m1BuildTutorialCheckPlace, m1OnBuildPlaced } fro
 import { Input } from './input.js?v=units3';
 import { updateAI } from './ai.js?v=units3';
 import { SFX } from './sfx.js?v=units3';
-import { FACTIONS, getFaction, describeModsList, getPlayerMods } from './factions.js?v=units3';
-import { FACTION_BANNERS, PLACEHOLDER_LEADER_PORTRAIT, getSpecialUnitBlurb, getLeaderPerkText } from './factionsDisplay.js?v=units3';
+import { FACTIONS, getFaction, describeModsList, getPlayerMods } from './factions.js?v=units4';
+import { FACTION_BANNERS, PLACEHOLDER_LEADER_PORTRAIT, getSpecialUnitBlurb, getLeaderPerkText } from './factionsDisplay.js?v=units4';
 
 // ============================================================================
 //  DOM
