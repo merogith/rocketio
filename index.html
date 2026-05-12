@@ -9,7 +9,7 @@
     <title>RocketIO | Modern Warfare Hex Strategy</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=sig3">
+    <link rel="stylesheet" href="style.css?v=units3">
     <script>
     (function () {
         function send(d) {
@@ -348,7 +348,7 @@
                         <div class="name">Drone</div>
                         <div class="cost">$155</div>
                     </button>
-                    <button class="build-btn" data-type="SU" title="[F10] Signature: faction glass cannon; L3 weaker jam than Drone">
+                    <button class="build-btn" data-type="SU" title="[F10] Signature: faction-unique glass cannon. L3 doctrine depends on your nation — hover the unit to see active bonus.">
                         <div class="shortcut-tag">F10</div>
                         <div class="icon">🎯</div>
                         <div class="name">Sig</div>
@@ -363,6 +363,42 @@
                 </div>
                 <h3>NAVY <span class="dim" style="font-size:0.7em">(water)</span></h3>
                 <div class="build-group">
+                    <button class="build-btn" data-type="BUNK" title="[9] Bunker: pure HP wall. No attack, no income — soaks damage to anchor chokepoints. Lv3 takes 25% less damage.">
+                        <div class="shortcut-tag">9</div>
+                        <div class="icon">🧱</div>
+                        <div class="label">BUNKER</div>
+                        <div class="cost">$300</div>
+                    </button>
+                    <button class="build-btn" data-type="RC" title="[0] Recon Outpost: cheap fog-breaker. Huge vision, fragile. Counters stealth & ambush.">
+                        <div class="shortcut-tag">0</div>
+                        <div class="icon">🛰️</div>
+                        <div class="label">RECON</div>
+                        <div class="cost">$175</div>
+                    </button>
+                    <button class="build-btn" data-type="TH" title="[F2] Trade Hub: non-combat economy. Income scales with friendly Govs (and Ports at L3). Rewards a wide connected empire.">
+                        <div class="shortcut-tag">F2</div>
+                        <div class="icon">💰</div>
+                        <div class="label">TRADE</div>
+                        <div class="cost">$425</div>
+                    </button>
+                    <button class="build-btn" data-type="EW" title="[F3] EW Jammer: soft-kill defense. Reduces damage from incoming interceptable missiles in range. L3 has a chance to fully spoof.">
+                        <div class="shortcut-tag">F3</div>
+                        <div class="icon">📶</div>
+                        <div class="label">EW JAM</div>
+                        <div class="cost">$375</div>
+                    </button>
+                    <button class="build-btn" data-type="CV" title="[F4] Carrier Group: naval air-projection. Long range, multi-sortie volleys. Built on owned water. L3 adds a stealth sortie.">
+                        <div class="shortcut-tag">F4</div>
+                        <div class="icon">🛩️</div>
+                        <div class="label">CARRIER</div>
+                        <div class="cost">$700</div>
+                    </button>
+                    <button class="build-btn" data-type="ICBM" title="[F5] ICBM Silo: strategic finisher. $5000, 90s recharge, 2500 dmg with 100% adjacent splash. Only Lv3 AAS / Lv3 AF can intercept.">
+                        <div class="shortcut-tag">F5</div>
+                        <div class="icon">☢️</div>
+                        <div class="label">ICBM</div>
+                        <div class="cost">$5000</div>
+                    </button>
                     <button class="build-btn" data-type="PT" title="[F6] Port: coastal land, sea influence + sea-trade gold, supplies navy">
                         <div class="shortcut-tag">F6</div>
                         <div class="icon">⚓</div>
@@ -525,6 +561,6 @@
         return false;
     }
     </script>
-    <script type="module" src="main.js?v=sig3"></script>
+    <script type="module" src="main.js?v=units3"></script>
 </body>
 </html>

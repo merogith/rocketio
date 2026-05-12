@@ -91,6 +91,12 @@ export const GAME_CONFIG = {
         D: 22,
         SU: 21,
         M: 18,
+        BUNK: 8,
+        RC: 12,
+        TH: 50,
+        EW: 38,
+        CV: 55,
+        ICBM: 95,
     },
     /**
      * Optional per-**source** structure type weights: `bySource[RL|AB][G|MF|…]`.
@@ -151,6 +157,8 @@ export const GAME_CONFIG = {
         AF:   3200,
         SSG:  6000,
         SU:   5000,
+        CV:   7000,
+        ICBM: 60000,
     },
     // Lv3 Barracks: friendly structures on hexes within its influence radius (stats.radius) deal +10% damage
     // and take −10% damage from projectiles. Overlapping L3 Barracks do not stack (single application).
@@ -162,37 +170,50 @@ export const GAME_CONFIG = {
     RL_L3_SPLASH_CHANCE: 0.3,
     /** When RL3 splash procs, adjacent enemies take this fraction of the rocket's damage. */
     RL_L3_SPLASH_MULT: 0.5,
-    /** AAS3: on each recharge tick, this chance to gain +1 intercept charge (beyond missilesRecharged). */
-    AAS_L3_BONUS_RECHARGE_CHANCE: 0.2,
+    /**
+     * AAS3 "Iron Dome": reliable saturation defense. Reworked from RNG bonus to a deterministic
+     * deeper magazine + larger volley on each recharge tick. Set to 0 to disable the legacy RNG bonus.
+     */
+    AAS_L3_BONUS_RECHARGE_CHANCE: 0,
     /** AB L3: chance per shot for a stealth strike (non-interceptable, uses AB_L3_STEALTH_MISSILES). */
     AB_L3_STEALTH_CHANCE: 0.3,
     AB_L3_STEALTH_MISSILES: 2,
     /** Enemy L3 Drone: military + AAS in range get this mult on interval/recharge (slower fire). MF excluded. */
     DRONE_L3_RECHARGE_DEBUFF_MULT: 1.25,
-    /** Enemy Lv3 Signature (SU): same jam class as Drone, weaker debuff. */
-    /** Enemy Lv3 Signature (SU) with EW archetype: same jam class as Drone, weaker
-     *  debuff. Bumped 1.12 → 1.15 so EW factions feel meaningfully different from
-     *  baseline SU while still sitting below Drone L3's dedicated 1.25 ceiling. */
-    SIGNATURE_L3_RECHARGE_DEBUFF_MULT: 1.15,
-    // --- Signature (SU) L3 archetype magnitudes ---
-    // Each faction's L3 signature carries one archetype effect (see factions.js).
-    // Magnitudes are tuned to sit ABOVE baseline SU but BELOW the dedicated
-    // structure (RL/AAS/D/B) that fills the same niche — signature is a faction-
-    // flavored side-grade, not a strict upgrade.
-    /** 'strike' archetype: SU3 projectiles roll splash with this probability (RL3 splash = 0.30). */
-    SIG_STRIKE_SPLASH_CHANCE: 0.25,
-    /** 'artillery' archetype: SU3 fires this many extra projectiles per volley (base SU3 = 3 → with 1 extra = 4). */
-    SIG_ARTILLERY_EXTRA_PROJECTILES: 1,
-    /** 'antiship' archetype: SU3 damage × this when target is naval (DDG/AF/SSG). DDG natural anti-ship = 1.25. */
-    SIG_ANTISHIP_DAMAGE_MULT: 1.30,
-    /** 'airdef' archetype: friendly AAS/AF in SU3 range have rechargeInterval × this (lower = faster). */
-    SIG_AIRDEF_AURA_MULT: 0.92,
-    /** 'bastion' archetype: SU3 base HP × this on build (one-time, applied at structure creation). */
-    SIG_BASTION_HP_MULT: 1.40,
+    /** Enemy Lv3 Signature (SU): legacy weaker-jam fallback — only applies when
+     *  a faction's `signatureL3.id === 'jam'`. The 14 built-in faction doctrines
+     *  use their own dispatch and never fall through to this. */
+    SIGNATURE_L3_RECHARGE_DEBUFF_MULT: 1.12,
     /** All Missile Factories: missiles produced × this (1.0 = honest base numbers, no hidden nerf). */
     MF_GLOBAL_PRODUCTION_MULT: 1.0,
     /** Non–MF3 factory adjacent (hex 1) to a friendly MF3: production × this; MF3 does not buff itself. Non-stack. */
     MF_L3_NEIGHBOR_PRODUCTION_MULT: 1.3,
+    /** MF3 "Arsenal" self-boost: per adjacent friendly MF (any tier), this fraction is added to its own output. */
+    MF_L3_SELF_BONUS_PER_ADJACENT_MF: 0.15,
+    /** Cap on MF3 self-boost (so a 6-neighbor MF cluster doesn't explode). */
+    MF_L3_SELF_BONUS_CAP: 0.60,
+    /** G3 "Capitol": friendly structures inside G3 radius regenerate HP at this multiplier. */
+    GOV_L3_REGEN_AURA_MULT: 2.0,
+    /** M3 "Insurgency": when true, Militia HQ may continue to operate (fire, regen, project influence) on contested tiles. */
+    MILITIA_HQ_L3_OPERATES_CONTESTED: true,
+    /** M3 "Insurgency": damage multiplier applied to all M3 fire (small offensive bump to emphasize identity). */
+    MILITIA_HQ_L3_DMG_MULT: 1.10,
+    /** DDG3 "CEC Datalink": radius (hex) within which a friendly navy unlocks the CEC bonus. Was 3; widened to 5. */
+    DDG3_CEC_RADIUS: 5,
+    /** AF3 "Aegis BMD": enemies illuminated by AF3 take this multiplier in additional damage from friendly DDG/SSG. */
+    AF3_ILLUM_DMG_MULT: 1.10,
+    /** SSG3 "Bastion": chance per cruise missile to fire as stealth (non-interceptable). */
+    SSG_L3_STEALTH_CHANCE: 0.25,
+    /** PT3 "Free Trade": +5% gold to all owned Port sea income per OTHER friendly Port on the map. */
+    PORT_L3_TRADE_PER_OTHER_PORT: 0.05,
+    /** Cap on PT3 trade bonus regardless of Port count (caps at +20%, i.e. ~4 partner Ports). */
+    PORT_L3_TRADE_CAP: 0.20,
+    /** Bunker Lv3 "Hardened": damage taken multiplier applied at impact when defender is a BUNK3. */
+    BUNK_L3_TAKEN_MULT: 0.75,
+    /** ICBM impact: splash to adjacent hexes uses this fraction of the warhead damage. */
+    ICBM_SPLASH_MULT: 1.0,
+    /** ICBM projectiles can only be intercepted by Lv3 AAS or Lv3 AF (Aegis BMD). Smaller AA cannot reach. */
+    ICBM_REQUIRES_L3_INTERCEPTOR: true,
     // --- Navy ---
     /** In missileTargetPriority: DDG/SSG add this when target is an enemy **naval** (sea) unit. */
     NAVY_FIRST_TARGET_BONUS: 310_000,
@@ -336,7 +357,8 @@ export const UNIT_STATS = {
         levels: [
             { id: "AAS1", hp: 105, range: 4, cost: 205, rechargeInterval: 10710, missilesRecharged: 1, chargeCap: 4,  vision: 5 },
             { id: "AAS2", hp: 237, range: 6, cost: 305, rechargeInterval: 7455, missilesRecharged: 2, chargeCap: 6, vision: 7 },
-            { id: "AAS3", hp: 412, range: 9, cost: 405, rechargeInterval: 5303, missilesRecharged: 3, chargeCap: 9, vision: 9 }
+            // L3 "Iron Dome": deeper magazine + bigger volley per tick (was 3 missiles / cap 9 + RNG bonus).
+            { id: "AAS3", hp: 412, range: 9, cost: 405, rechargeInterval: 5303, missilesRecharged: 4, chargeCap: 11, vision: 9 }
         ]
     },
     MF: {
@@ -439,6 +461,88 @@ export const UNIT_STATS = {
             { id: "PT2", hp: 580,  radius: 6, cost: 1050, influence: 1700, vision: 9,  seaGoldPerTile: 0.28 },
             { id: "PT3", hp: 1450, radius: 8, cost: 1600, influence: 2400, vision: 12, seaGoldPerTile: 0.38, navyAura: true }
         ]
+    },
+    /**
+     * Bunker — pure HP wall. No attack, no influence, no income. Placed on owned land,
+     * soaks damage to anchor chokepoints. Lv3 "Hardened" reduces damage taken to itself by 25%.
+     * Cheap-per-HP relative to combat structures because it does nothing offensive.
+     */
+    BUNK: {
+        name: "Bunker",
+        levels: [
+            { id: "BUNK1", hp: 1200, cost: 300, vision: 3 },
+            { id: "BUNK2", hp: 2800, cost: 500, vision: 4 },
+            { id: "BUNK3", hp: 6500, cost: 900, vision: 5, hardened: true }
+        ]
+    },
+    /**
+     * Recon Outpost — fog breaker. Cheap, fragile, huge vision radius. No attack, no influence.
+     * Counter-play to AB3 stealth strikes and ambushes — the player who scouts wins target priority.
+     * Lv3 "Aerial Surveillance": +50% extra vision and exposes targets in its vision for the player
+     * (used by missile-smart targeting to prefer scouted enemies).
+     */
+    RC: {
+        name: "Recon Outpost",
+        levels: [
+            { id: "RC1", hp: 70,  cost: 175, vision: 9 },
+            { id: "RC2", hp: 140, cost: 275, vision: 12 },
+            { id: "RC3", hp: 260, cost: 400, vision: 14, scouting: true }
+        ]
+    },
+    /**
+     * Trade Hub — non-combat economic structure. Income scales with your trade network:
+     * each tick pays `tradeBase + tradePerGov × otherFriendlyGovs + tradePerPort × friendlyPorts`.
+     * Lv3 "Trade Network": also pays +5% gold passive boost to all your other Govs (`tradeGovBonus`).
+     * Rewards a wide connected empire rather than a single fortress.
+     */
+    TH: {
+        name: "Trade Hub",
+        levels: [
+            { id: "TH1", hp: 220, cost: 425, vision: 4, tradeBase: 0.40, tradePerGov: 0.30, tradePerPort: 0.0 },
+            { id: "TH2", hp: 520, cost: 700, vision: 5, tradeBase: 0.60, tradePerGov: 0.40, tradePerPort: 0.0 },
+            { id: "TH3", hp: 1180, cost: 1100, vision: 6, tradeBase: 0.90, tradePerGov: 0.50, tradePerPort: 0.30, tradeGovBonus: 0.05 }
+        ]
+    },
+    /**
+     * EW Jammer — soft-kill defensive structure. Friendly tiles within `range` take reduced damage
+     * from interceptable enemy projectiles (rockets, airstrikes, navy, cruise, drones, signature).
+     * Distinct from AAS/AF which physically intercepts: EW is a passive damage reduction aura.
+     * Lv3 "Spoofing": adds a chance to fully cancel an interceptable projectile (soft-intercept).
+     * `ewDmgMult` is per-level; non-stacking (best aura wins).
+     */
+    EW: {
+        name: "EW Jammer",
+        levels: [
+            { id: "EW1", hp: 200,  cost: 375, range: 4, vision: 5, ewDmgMult: 0.85, ewCancelChance: 0 },
+            { id: "EW2", hp: 480,  cost: 625, range: 5, vision: 6, ewDmgMult: 0.78, ewCancelChance: 0 },
+            { id: "EW3", hp: 1050, cost: 950, range: 6, vision: 7, ewDmgMult: 0.70, ewCancelChance: 0.15 }
+        ]
+    },
+    /**
+     * Carrier Group — naval air-projection. Long-range, expensive, launches multi-projectile
+     * air sorties from sea. Built on owned water (NAVY_BUILD_TYPES). Each volley consumes
+     * `missilesPerShot` missiles regardless of projectile count, so missile economy matters.
+     * Lv3 "Air Wing": each volley fires one extra stealth (non-interceptable) sortie.
+     */
+    CV: {
+        name: "Carrier Group",
+        levels: [
+            { id: "CV1", hp: 280,  range: 9,  damage: 110, cost: 700,  interval: 12000, missilesPerShot: 1, projectiles: 2, interceptable: true,  projectileSpeed: 4.8, vision: 7 },
+            { id: "CV2", hp: 720,  range: 11, damage: 165, cost: 1300, interval: 9000,  missilesPerShot: 1, projectiles: 3, interceptable: true,  projectileSpeed: 5.4, vision: 9 },
+            { id: "CV3", hp: 1700, range: 14, damage: 190, cost: 2300, interval: 7000,  missilesPerShot: 2, projectiles: 4, interceptable: true,  projectileSpeed: 6.0, vision: 12, airWing: true }
+        ]
+    },
+    /**
+     * ICBM Silo — strategic finisher. Single-tier. Massive cost, very long interval, global range.
+     * Single warhead with 100% splash to all adjacent hexes — devastates dense clusters.
+     * Interceptable ONLY by Lv3 AAS / Lv3 AF (gated by `isIcbmProjectile` in checkInterception()).
+     * Designed as a late-game Blitz / Regime-Change closer, not an early-build pressure tool.
+     */
+    ICBM: {
+        name: "ICBM Silo",
+        levels: [
+            { id: "ICBM", hp: 800, range: 99, damage: 2500, cost: 5000, interval: 90000, missilesPerShot: 5, projectiles: 1, interceptable: true, projectileSpeed: 2.6, vision: 7, icbm: true }
+        ]
     }
 };
 
@@ -500,6 +604,12 @@ export const DEFAULT_KEYBINDS = {
     build_AF:   'F8',
     build_SSG:  'F9',
     build_PT:   'F6',
+    build_BUNK: 'Digit9',
+    build_RC:   'Digit0',
+    build_TH:   'F2',
+    build_EW:   'F3',
+    build_CV:   'F4',
+    build_ICBM: 'F5',
     upgrade:    'Space',
     cancel:     'Escape',
     pan_up:     'KeyW',

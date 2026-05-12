@@ -60,7 +60,7 @@ export const TUTORIAL_PAGES = [
         <div class="tut-controls">
             <div class="tut-ctrl"><span class="key-badge">WASD</span> Pan camera</div>
             <div class="tut-ctrl"><span class="key-badge">Scroll</span> Zoom</div>
-            <div class="tut-ctrl"><span class="key-badge">1–8</span> Quick build</div>
+            <div class="tut-ctrl"><span class="key-badge">1–0 / F2–F10</span> Quick build</div>
             <div class="tut-ctrl"><span class="key-badge">Space</span> Upgrade</div>
             <div class="tut-ctrl"><span class="key-badge">X</span> Demolish</div>
             <div class="tut-ctrl"><span class="key-badge">ESC</span> Menu</div>

@@ -33,7 +33,7 @@ import { Hex } from './hexGrid.js?v=sig3';
 
 const PHASES = { EXPAND: 0, FORTIFY: 1, PRESSURE: 2, DOMINATE: 3 };
 
-const KILL_VALUE = { G: 100, AB: 60, SSG: 34, MF: 55, AAS: 45, AF: 42, RL: 40, DDG: 30, B: 35, D: 25, SU: 24, M: 8 };
+const KILL_VALUE = { G: 100, AB: 60, SSG: 34, MF: 55, AAS: 45, AF: 42, RL: 40, DDG: 30, B: 35, D: 25, SU: 24, M: 8, BUNK: 5, RC: 14, TH: 50, EW: 38, CV: 55, ICBM: 110 };
 
 const ATTACKER_TYPES = new Set(['RL', 'B', 'D', 'SU', 'AB', 'M', 'DDG', 'SSG']);
 const COMBAT_TYPES   = new Set(['RL', 'B', 'D', 'SU', 'AB', 'M', 'DDG', 'SSG']);
@@ -359,7 +359,8 @@ function computeSharedAssessment(game) {
                 const sec = (ms.produceInterval * eff) / 1000;
                 missileProd.set(pid, missileProd.get(pid) + (ms.missilesProduced / sec));
             }
-            if (s.type === 'RL' || s.type === 'AB' || s.type === 'DDG' || s.type === 'SSG') {
+            if (s.type === 'RL' || s.type === 'AB' || s.type === 'DDG' || s.type === 'SSG'
+                || s.type === 'CV' || s.type === 'ICBM') {
                 const ms = s.stats;
                 const eff = game.effFor(tile);
                 const sec = (ms.interval * eff) / 1000;
@@ -1309,6 +1310,17 @@ function tryEconomy(game, p, snap, phase, shared, doctrine) {
         if (spot) return game.buildStructure(spot, 'MF', p.id);
     }
 
+    // Trade Hub — scaling economy structure. Pays per other Gov + (L3) per Port.
+    // Only after the basic empire is up (>=2 Govs) and missile economy is healthy.
+    const thCount = snap.ownByType.TH?.length || 0;
+    const thMax = Math.max(1, snap.govCount - 1);
+    if (snap.govCount >= 2 && thCount < thMax && p.gold >= 550
+        && (snap.missileProd || 0) >= (snap.missileCons || 0) * 0.9
+        && canAffordType(p, 'TH')) {
+        const spot = pickSupplyAwareRearSpot(game, p, snap);
+        if (spot) return game.buildStructure(spot, 'TH', p.id);
+    }
+
     return false;
 }
 
@@ -1328,7 +1340,8 @@ function tryStrategicBuild(game, p, snap, shared, phase, doctrine) {
     // Proactive missile economy: enough MF to feed launchers, capped so we do not wall off the map with factories
     const mfCap = maxMissileFactoriesForPlayer(game, p, snap);
     const futureConsumers = (snap.ownByType.RL?.length || 0) + (snap.ownByType.AB?.length || 0)
-        + (snap.ownByType.DDG?.length || 0) + (snap.ownByType.SSG?.length || 0);
+        + (snap.ownByType.DDG?.length || 0) + (snap.ownByType.SSG?.length || 0)
+        + (snap.ownByType.CV?.length || 0) + (snap.ownByType.ICBM?.length || 0) * 2;
     const wantMf = Math.min(mfCap, 1 + (phase >= PHASES.PRESSURE ? 1 : 0) + (futureConsumers >= 3 ? 1 : 0));
     const needMoreMF = snap.mfCount < mfCap && (
         snap.mfCount < wantMf
@@ -1348,6 +1361,55 @@ function tryStrategicBuild(game, p, snap, shared, phase, doctrine) {
                 const spot = findEmptyAdjacent(game, p.id, g);
                 if (spot) return game.buildStructure(spot, 'AAS', p.id);
             }
+        }
+    }
+
+    // EW Jammer — soft-kill aura, especially valuable against missile-heavy enemies.
+    // Built before combat weighting so defenders prioritise the aura ahead of more launchers.
+    {
+        const ewCount = snap.ownByType.EW?.length || 0;
+        const enemyMisShooters = (snap.visibleEnemyTypeCounts?.RL || 0) + (snap.visibleEnemyTypeCounts?.AB || 0)
+            + (snap.visibleEnemyTypeCounts?.D || 0) + (snap.visibleEnemyTypeCounts?.SU || 0);
+        if (ewCount < 2 && enemyMisShooters >= 2 && phase >= PHASES.FORTIFY && canAffordType(p, 'EW')) {
+            const spot = pickPlacementForType(game, p, snap, 'EW', snap.visibleEnemies);
+            if (spot) return game.buildStructure(spot, 'EW', p.id);
+        }
+    }
+
+    // Recon Outpost — break fog when stealth threats appear (AB3 / SU stealth doctrines)
+    // or in PRESSURE+ when the frontier is wide enough that we need persistent vision.
+    {
+        const rcCount = snap.ownByType.RC?.length || 0;
+        const hasStealthThreat = snap.visibleEnemies.some(e =>
+            (e.structure.type === 'AB' && e.structure.level === 2)
+            || (e.structure.type === 'SSG' && e.structure.level === 2));
+        const wantRecon = hasStealthThreat || (phase >= PHASES.PRESSURE && snap.frontier.length >= 6);
+        if (rcCount < 2 && wantRecon && Math.random() < 0.18 && canAffordType(p, 'RC')) {
+            const spot = pickPlacementForType(game, p, snap, 'RC', snap.visibleEnemies);
+            if (spot) return game.buildStructure(spot, 'RC', p.id);
+        }
+    }
+
+    // Bunker — frontier hardening for defensive doctrines. Soaks damage to anchor a line.
+    {
+        const psIsDefend = (doctrine.playstyle === 'defend');
+        const bunkCount = snap.ownByType.BUNK?.length || 0;
+        const bunkCap = psIsDefend ? 4 : 2;
+        const bunkRoll = psIsDefend ? 0.30 : 0.10;
+        if (bunkCount < bunkCap && phase >= PHASES.FORTIFY && snap.frontier.length
+            && snap.visibleEnemies.length > 0 && Math.random() < bunkRoll && canAffordType(p, 'BUNK')) {
+            const spot = pickPlacementForType(game, p, snap, 'BUNK', snap.visibleEnemies);
+            if (spot) return game.buildStructure(spot, 'BUNK', p.id);
+        }
+    }
+
+    // ICBM Silo — strategic finisher reserved for DOMINATE phase with healthy missile reserves.
+    {
+        const icbmCount = snap.ownByType.ICBM?.length || 0;
+        if (phase >= PHASES.DOMINATE && p.gold >= 5200 && p.missiles >= 8
+            && icbmCount === 0 && canAffordType(p, 'ICBM')) {
+            const spot = pickPlacementForType(game, p, snap, 'ICBM', snap.visibleEnemies);
+            if (spot) return game.buildStructure(spot, 'ICBM', p.id);
         }
     }
 
@@ -1600,6 +1662,10 @@ function tryNavyOpportunism(game, p, snap) {
     if (canAffordType(p, 'DDG') && p.missiles >= 1) w.DDG = 0.5;
     if (canAffordType(p, 'AF') && p.missiles >= 0) w.AF = 0.38;
     if (canAffordType(p, 'SSG') && p.missiles >= 2) w.SSG = 0.12;
+    // Carrier — premium air-projection. Heavy missile cost; gate behind missile economy and Port.
+    if (canAffordType(p, 'CV') && p.missiles >= 3 && portCount >= 1 && (snap.missileProd || 0) >= (snap.missileCons || 0)) {
+        w.CV = 0.16;
+    }
     if (Object.keys(w).length === 0) return false;
     return game.buildStructure(spot, weightedPick(w), p.id);
 }
@@ -1985,9 +2051,40 @@ function pickPlacementForType(game, p, snap, type, valuableEnemies) {
                pickSupplyAwareRearSpot(game, p, snap);
     }
 
-    if (type === 'DDG' || type === 'AF' || type === 'SSG') {
+    if (type === 'DDG' || type === 'AF' || type === 'SSG' || type === 'CV') {
         return findFirstNavyWater(game, p.id) ||
             null;
+    }
+
+    if (type === 'BUNK') {
+        // Place on the frontier facing enemies — soaks damage and anchors a chokepoint.
+        return pickDirectionalFrontierSpot(game, p, snap, valuableEnemies || snap.visibleEnemies)
+            || pickScreenBarracksSpot(game, p, snap);
+    }
+
+    if (type === 'RC') {
+        // Recon — push forward toward the frontier so its vision reaches into enemy territory.
+        return pickDirectionalFrontierSpot(game, p, snap, valuableEnemies || snap.visibleEnemies)
+            || pickSupplyAwareRearSpot(game, p, snap);
+    }
+
+    if (type === 'TH' || type === 'ICBM') {
+        // Economic / strategic — keep deep in the rear, in supply, away from the frontier.
+        return pickSupplyAwareRearSpot(game, p, snap);
+    }
+
+    if (type === 'EW') {
+        // Project the aura over our valuable cluster (Gov + MF). Build adjacent to the densest cluster.
+        const cluster = [
+            ...(snap.ownByType.G  || []),
+            ...(snap.ownByType.MF || []),
+            ...(snap.ownByType.AB || []),
+        ];
+        for (const v of cluster) {
+            const sp = findEmptyAdjacent(game, p.id, v);
+            if (sp && !sp.contested) return sp;
+        }
+        return pickSupplyAwareRearSpot(game, p, snap);
     }
 
     if (type === 'PT') {

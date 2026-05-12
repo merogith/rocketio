@@ -40,25 +40,16 @@ export const FACTION_BANNERS = [
     { flag: '💎', accent: 'linear-gradient(120deg, #0a140a 0%, #0a3a1a 50%, #d4af37 100%)' },
 ];
 
-/** Per-archetype description of the L3 bonus (what unlocks at level 3). */
-const L3_ARCHETYPE_BLURB = {
-    ew:        'Lv3: area jam — enemy structures in range reload 15% slower (weaker than Drone L3).',
-    strike:    'Lv3: terminal strike — 25% chance each shot to splash neighboring enemy tiles.',
-    artillery: 'Lv3: extra tube — fires +1 projectile per volley (4 instead of 3).',
-    antiship:  'Lv3: anti-ship — projectiles deal +30% damage to enemy ships (DDG/AF/SSG).',
-    airdef:    'Lv3: air-defense aura — friendly AAS/AF in range reload 8% faster.',
-    bastion:   'Lv3: dug-in — built with +40% HP (one-time, on upgrade to Lv3).',
-};
-
-/** What the Signature (SU) unit does — shared rules + per-archetype L3 + faction name */
+/** What the Signature (SU) unit does — shared rules + faction-unique L3 doctrine. */
 export function getSpecialUnitBlurb(faction) {
     const s = typeof faction === 'object' && faction != null && faction.specialName
         ? faction
         : getFaction(typeof faction === 'number' ? faction : 0);
-    const icon = getSpecialUnitIcon(typeof faction === 'number' ? faction : FACTIONS.indexOf(s));
-    const archetype = s.sigArchetype || 'ew';
-    const l3 = L3_ARCHETYPE_BLURB[archetype] || L3_ARCHETYPE_BLURB.ew;
-    return `${s.specialName} ${icon} — build with Sig (F10). Glass cannon chip damage, higher DPS/$ than the Drone line. ${l3}`;
+    const idx = typeof faction === 'number' ? faction : FACTIONS.indexOf(s);
+    const icon = getSpecialUnitIcon(idx);
+    const sig = s.signatureL3;
+    const sigLine = sig ? ` Lv3 "${sig.label}": ${sig.desc}` : ' Lv3: area jam in range.';
+    return `${s.specialName} ${icon} — build with Sig (F10). Glass cannon chip damage, higher DPS/$ than the Drone line.${sigLine}`;
 }
 
 /** 3 short flavor lines per faction, parallel to `leaders[]`. UI lists the
