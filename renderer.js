@@ -1,8 +1,13 @@
 import { COLORS, UNIT_STATS, PROJECTILE_VISUAL_PRESETS } from './constants.js?v=sig3';
 import { getSpecialUnitIcon } from './factions.js?v=sig3';
+import { FACTION_UNIT_STATS } from './factionUnits.js?v=fu1';
 
 const TARGETABLE_TYPES = new Set(['RL', 'B', 'D', 'SU', 'M', 'AB', 'DDG', 'SSG']);
 const NAVY_BUILD_GHOST = new Set(['DDG', 'AF', 'SSG', 'CV']);
+for (const [tid, def] of Object.entries(FACTION_UNIT_STATS)) {
+    if (def.category === 'nav') NAVY_BUILD_GHOST.add(tid);
+    if (def.category === 'off' || def.category === 'gnd' || def.category === 'nav') TARGETABLE_TYPES.add(tid);
+}
 
 export class Renderer {
     constructor(canvas, grid, camera) {

@@ -1,5 +1,8 @@
 // ============================================================================
 //  ROCKETIO v0.3 — CONSTANTS
+import { FACTION_UNIT_STATS } from './factionUnits.js?v=fu1';
+// ============================================================================
+//  (continued)
 // ----------------------------------------------------------------------------
 //  INFLUENCE
 //    Influence at distance d = base * max(0, 1 - d/(radius+1)).
@@ -549,6 +552,9 @@ export const UNIT_STATS = {
         ]
     }
 };
+
+// Faction-unique units — 14 nations × 5 categories. Merged at module-load.
+Object.assign(UNIT_STATS, FACTION_UNIT_STATS);
 
 /**
  * playstyle (AI macro layers — after land grab + missile comfort):

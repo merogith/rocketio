@@ -4,6 +4,7 @@ import { Game } from './game.js?v=units3';
 import { Renderer } from './renderer.js?v=units3';
 import { UNIT_STATS, GAME_CONFIG, getEffectiveMapRadius, VICTORY_MODES, COLORS, DIPLOMACY, govGoldBandLinesHtml } from './constants.js?v=units3';
 import { getFactionSignatureL3, getSpecialUnitName, getSpecialUnitIcon } from './factions.js?v=units3';
+import { FACTION_UNITS_BY_CODE, FACTION_UNIT_STATS } from './factionUnits.js?v=fu1';
 import { TUTORIAL_PAGES } from './tutorial.js?v=units3';
 import { getMissionById, CAMPAIGN_MISSIONS } from './campaignData.js?v=units3';
 import { loadCampaignProgress, canStartMission, markMissionBeaten } from './campaignProgress.js?v=units3';
@@ -83,6 +84,10 @@ const playerPortraitEl = document.getElementById('player-portrait');
 
 const TARGETABLE_TYPES = new Set(['RL', 'B', 'D', 'SU', 'M', 'AB', 'DDG', 'SSG']);
 const NAVY_BUILD_TYPES_UI = new Set(['DDG', 'AF', 'SSG', 'CV']);
+for (const [tid, def] of Object.entries(FACTION_UNIT_STATS)) {
+    if (def.category === 'nav') NAVY_BUILD_TYPES_UI.add(tid);
+    if (def.category === 'off' || def.category === 'gnd' || def.category === 'nav') TARGETABLE_TYPES.add(tid);
+}
 
 // ============================================================================
 //  WORLD
@@ -171,6 +176,33 @@ function updateSignatureBuildButton(factionId) {
     if (iconEl) iconEl.textContent = icon;
     if (nameEl) nameEl.textContent = sn;
     btn.title = `[F10] ${sn} — faction signature. L3 “${sig.label}”: ${sig.desc}`;
+}
+
+/**
+ * Update the 5 NATIONAL-section faction-slot buttons (Economy / Defense / Offense
+ * / Ground / Navy) to point at the player's faction-unique unit IDs. Called
+ * after the human player's factionId becomes known.
+ */
+function updateFactionBuildButtons(factionId) {
+    const faction = FACTIONS?.[((factionId | 0) + FACTIONS.length * 10) % FACTIONS.length];
+    if (!faction) return;
+    const slotMap = FACTION_UNITS_BY_CODE[faction.code];
+    if (!slotMap) return;
+    const slots = ['eco', 'def', 'off', 'gnd', 'nav'];
+    for (const slot of slots) {
+        const unitId = slotMap[slot];
+        const def = FACTION_UNIT_STATS[unitId];
+        const btn = document.getElementById(`fbtn-${slot}`);
+        if (!btn || !def) continue;
+        btn.dataset.type = unitId;
+        const iconEl = btn.querySelector('.icon');
+        const nameEl = btn.querySelector('.name');
+        const costEl = btn.querySelector('.cost');
+        if (iconEl && def.icon) iconEl.textContent = def.icon;
+        if (nameEl) nameEl.textContent = def.name;
+        if (costEl) costEl.textContent = `$${def.levels[0].cost}`;
+        btn.title = `${def.name} (${slot.toUpperCase()}) — national unit. Cost $${def.levels[0].cost}.`;
+    }
 }
 
 function m1AutoselectBuild() {
@@ -421,6 +453,7 @@ function initWorld(mapSize, mapStyle, playerCount, playerName, victoryConfig, di
         const l0 = f0.leaders[p0.leaderIdx] || f0.leaders[0];
         playerLabelEl.textContent = `${p0.name} · ${f0.code} · ${l0.name}`;
         updateSignatureBuildButton(p0.factionId);
+        updateFactionBuildButtons(p0.factionId);
     }
     if (playerPortraitEl) {
         playerPortraitEl.innerHTML = buildPortraitSvg(game.players[0], 28);
