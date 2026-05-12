@@ -220,6 +220,7 @@ body {
 .faction-brief .fb-para, .faction-brief .fb-lore {
     font-size: 0.78rem; line-height: 1.45; color: rgba(210, 230, 255, 0.92);
     margin: 0 0 6px;
+    white-space: pre-line;
 }
 .faction-brief .fb-leader-card {
     display: flex;
