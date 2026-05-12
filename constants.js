@@ -162,19 +162,42 @@ export const GAME_CONFIG = {
     RL_L3_SPLASH_CHANCE: 0.3,
     /** When RL3 splash procs, adjacent enemies take this fraction of the rocket's damage. */
     RL_L3_SPLASH_MULT: 0.5,
-    /** AAS3: on each recharge tick, this chance to gain +1 intercept charge (beyond missilesRecharged). */
-    AAS_L3_BONUS_RECHARGE_CHANCE: 0.2,
+    /**
+     * AAS3 "Iron Dome": reliable saturation defense. Reworked from RNG bonus to a deterministic
+     * deeper magazine + larger volley on each recharge tick. Set to 0 to disable the legacy RNG bonus.
+     */
+    AAS_L3_BONUS_RECHARGE_CHANCE: 0,
     /** AB L3: chance per shot for a stealth strike (non-interceptable, uses AB_L3_STEALTH_MISSILES). */
     AB_L3_STEALTH_CHANCE: 0.3,
     AB_L3_STEALTH_MISSILES: 2,
     /** Enemy L3 Drone: military + AAS in range get this mult on interval/recharge (slower fire). MF excluded. */
     DRONE_L3_RECHARGE_DEBUFF_MULT: 1.25,
-    /** Enemy Lv3 Signature (SU): same jam class as Drone, weaker debuff. */
+    /** Enemy Lv3 Signature (SU): default weaker jam — only used by factions whose signatureL3.id === 'jam'. */
     SIGNATURE_L3_RECHARGE_DEBUFF_MULT: 1.12,
     /** All Missile Factories: missiles produced × this (1.0 = honest base numbers, no hidden nerf). */
     MF_GLOBAL_PRODUCTION_MULT: 1.0,
     /** Non–MF3 factory adjacent (hex 1) to a friendly MF3: production × this; MF3 does not buff itself. Non-stack. */
     MF_L3_NEIGHBOR_PRODUCTION_MULT: 1.3,
+    /** MF3 "Arsenal" self-boost: per adjacent friendly MF (any tier), this fraction is added to its own output. */
+    MF_L3_SELF_BONUS_PER_ADJACENT_MF: 0.15,
+    /** Cap on MF3 self-boost (so a 6-neighbor MF cluster doesn't explode). */
+    MF_L3_SELF_BONUS_CAP: 0.60,
+    /** G3 "Capitol": friendly structures inside G3 radius regenerate HP at this multiplier. */
+    GOV_L3_REGEN_AURA_MULT: 2.0,
+    /** M3 "Insurgency": when true, Militia HQ may continue to operate (fire, regen, project influence) on contested tiles. */
+    MILITIA_HQ_L3_OPERATES_CONTESTED: true,
+    /** M3 "Insurgency": damage multiplier applied to all M3 fire (small offensive bump to emphasize identity). */
+    MILITIA_HQ_L3_DMG_MULT: 1.10,
+    /** DDG3 "CEC Datalink": radius (hex) within which a friendly navy unlocks the CEC bonus. Was 3; widened to 5. */
+    DDG3_CEC_RADIUS: 5,
+    /** AF3 "Aegis BMD": enemies illuminated by AF3 take this multiplier in additional damage from friendly DDG/SSG. */
+    AF3_ILLUM_DMG_MULT: 1.10,
+    /** SSG3 "Bastion": chance per cruise missile to fire as stealth (non-interceptable). */
+    SSG_L3_STEALTH_CHANCE: 0.25,
+    /** PT3 "Free Trade": +5% gold to all owned Port sea income per OTHER friendly Port on the map. */
+    PORT_L3_TRADE_PER_OTHER_PORT: 0.05,
+    /** Cap on PT3 trade bonus regardless of Port count (caps at +20%, i.e. ~4 partner Ports). */
+    PORT_L3_TRADE_CAP: 0.20,
     // --- Navy ---
     /** In missileTargetPriority: DDG/SSG add this when target is an enemy **naval** (sea) unit. */
     NAVY_FIRST_TARGET_BONUS: 310_000,
@@ -318,7 +341,8 @@ export const UNIT_STATS = {
         levels: [
             { id: "AAS1", hp: 105, range: 4, cost: 205, rechargeInterval: 10710, missilesRecharged: 1, chargeCap: 4,  vision: 5 },
             { id: "AAS2", hp: 237, range: 6, cost: 305, rechargeInterval: 7455, missilesRecharged: 2, chargeCap: 6, vision: 7 },
-            { id: "AAS3", hp: 412, range: 9, cost: 405, rechargeInterval: 5303, missilesRecharged: 3, chargeCap: 9, vision: 9 }
+            // L3 "Iron Dome": deeper magazine + bigger volley per tick (was 3 missiles / cap 9 + RNG bonus).
+            { id: "AAS3", hp: 412, range: 9, cost: 405, rechargeInterval: 5303, missilesRecharged: 4, chargeCap: 11, vision: 9 }
         ]
     },
     MF: {

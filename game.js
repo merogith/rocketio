@@ -1,5 +1,5 @@
 import { UNIT_STATS, COLORS, GAME_CONFIG, DIFFICULTY, DIPLOMACY, govGoldForDistance } from './constants.js?v=naval2027';
-import { getPlayerMods, getSpecialUnitLabelForPlayer } from './factions.js?v=naval2027';
+import { getPlayerMods, getSpecialUnitLabelForPlayer, getFactionSignatureL3 } from './factions.js?v=naval2027';
 import { Hex } from './hexGrid.js?v=naval2027';
 import { SFX } from './sfx.js?v=naval2027';
 
@@ -101,6 +101,8 @@ export class Game {
         this._d3JamTiles.length = 0;
         if (!this._l3PortTiles) this._l3PortTiles = [];
         this._l3PortTiles.length = 0;
+        if (!this._aegisAuraTiles) this._aegisAuraTiles = [];
+        this._aegisAuraTiles.length = 0;
         this._govCount = new Array(this.players.length).fill(0);
         for (const tile of this.grid.tiles.values()) {
             if (!tile.structure) continue;
@@ -109,7 +111,15 @@ export class Game {
             if (tile.structure.type === 'B' && tile.structure.level === 2) this._l3BarracksTiles.push(tile);
             if (tile.structure.type === 'G' && tile.structure.level === 2 && tile.owner) this._l3GovTiles.push(tile);
             if (tile.structure.type === 'D' && tile.structure.level === 2 && tile.structure.stats?.jamming) this._d3JamTiles.push(tile);
-            if (tile.structure.type === 'SU' && tile.structure.level === 2 && tile.structure.stats?.signatureJam) this._d3JamTiles.push(tile);
+            // SU3 only jams enemies if its faction's signature L3 doctrine is "jam" (legacy default).
+            // Faction-unique doctrines (USA shoot-scoot, RUS terminal, CHN saturation, etc.) replace jamming.
+            if (tile.structure.type === 'SU' && tile.structure.level === 2 && tile.structure.stats?.signatureJam
+                && this._suSignatureId(tile) === 'jam') this._d3JamTiles.push(tile);
+            // ITA "aegis_aura": index L3 SU3 tiles owned by a faction whose signatureL3.id === 'aegis_aura'.
+            if (tile.structure.type === 'SU' && tile.structure.level === 2 && this._suSignatureId(tile) === 'aegis_aura') {
+                if (!this._aegisAuraTiles) this._aegisAuraTiles = [];
+                this._aegisAuraTiles.push(tile);
+            }
             if (tile.structure.type === 'PT' && tile.structure.level === 2 && tile.structure.stats?.navyAura) this._l3PortTiles.push(tile);
             if (tile.structure.type === 'G' && tile.owner) {
                 this._govTiles.push(tile);
@@ -134,6 +144,64 @@ export class Game {
             if (Hex.distance(tile, bTile) <= r) return true;
         }
         return false;
+    }
+
+    /**
+     * @returns {string|null} the faction signature L3 id (e.g. 'shoot_scoot') for an SU tile's owner,
+     * or null if tile is not an SU. Independent of level — caller must also check `level === 2`.
+     */
+    _suSignatureId(tile) {
+        if (!tile?.structure || tile.structure.type !== 'SU' || !tile.owner) return null;
+        const p = this.players?.[tile.owner - 1];
+        if (!p) return null;
+        return getFactionSignatureL3(p.factionId ?? 0)?.id || null;
+    }
+
+    /**
+     * True if `defTile` lies within 3 hex of any friendly Lv3 ITA Signature ("Aegis Aura").
+     * Non-stacking; used to reduce projectile damage on impact.
+     */
+    _inFriendlyAegisAura(defTile, ownerId) {
+        if (!defTile || !ownerId) return false;
+        this._ensureIndex();
+        const list = this._aegisAuraTiles || [];
+        if (list.length === 0) return false;
+        for (const t of list) {
+            if (t.owner !== ownerId) continue;
+            if (Hex.distance(defTile, t) <= 3) return true;
+        }
+        return false;
+    }
+
+    /** True if `targetTile` lies within ANY friendly Gov / Barracks / Port / M3 influence radius (own territory test). */
+    _inOwnInfluenceTerritory(targetTile, ownerId) {
+        if (!targetTile || !ownerId) return false;
+        this._ensureIndex();
+        for (const t of this._structureTiles) {
+            if (t.owner !== ownerId) continue;
+            if (!isInfluencer(t.structure)) continue;
+            const r = t.structure._lockedRadius ?? t.structure.stats?.radius ?? 0;
+            if (r <= 0) continue;
+            if (Hex.distance(targetTile, t) <= r) return true;
+        }
+        return false;
+    }
+
+    /** True if `targetTile` currently holds an enemy navy structure (DDG/AF/SSG) from `ownerId`'s perspective. */
+    _isEnemyNavyTarget(targetTile, ownerId) {
+        return !!(targetTile?.structure && targetTile.owner && targetTile.owner !== ownerId
+            && !this.areAllied(targetTile.owner, ownerId)
+            && NAVY_BUILD_TYPES.has(targetTile.structure.type));
+    }
+
+    /** Count friendly Ports anywhere on the map (for PT3 "Free Trade" stacking). */
+    _countFriendlyPorts(ownerId) {
+        this._ensureIndex();
+        let n = 0;
+        for (const t of this._structureTiles) {
+            if (t.owner === ownerId && t.structure?.type === 'PT') n++;
+        }
+        return n;
     }
 
     /** Land or near-shore water (≤3 of land) — count toward economy tileCount, earn Gov/M3 gold. */
@@ -203,16 +271,32 @@ export class Game {
         return out;
     }
 
-    /** Port income sources — Ports project trade gold onto owned shore + open-sea tiles in radius. */
+    /**
+     * Port income sources — Ports project trade gold onto owned shore + open-sea tiles in radius.
+     * PT3 "Free Trade": L3 Port income is multiplied by (1 + 0.05 × OTHER friendly Ports), capped at +20%.
+     */
     _buildPortGoldSources() {
         const out = [];
+        // Pre-count Ports per owner for the L3 "Free Trade" stacking bonus.
+        const portsByOwner = new Map();
         for (const tile of this.grid.tiles.values()) {
             if (!tile.owner || tile.contested) continue;
             const s = tile.structure;
             if (!s || s.type !== 'PT') continue;
-            const rate = s.stats?.seaGoldPerTile || 0;
+            portsByOwner.set(tile.owner, (portsByOwner.get(tile.owner) || 0) + 1);
+        }
+        for (const tile of this.grid.tiles.values()) {
+            if (!tile.owner || tile.contested) continue;
+            const s = tile.structure;
+            if (!s || s.type !== 'PT') continue;
+            let rate = s.stats?.seaGoldPerTile || 0;
             if (rate <= 0) continue;
             const r = s._lockedRadius ?? s.stats.radius ?? 0;
+            if (s.level === 2) {
+                const others = Math.max(0, (portsByOwner.get(tile.owner) || 1) - 1);
+                const bonus = Math.min(GAME_CONFIG.PORT_L3_TRADE_CAP, others * GAME_CONFIG.PORT_L3_TRADE_PER_OTHER_PORT);
+                rate *= 1 + bonus;
+            }
             out.push({ tile, owner: tile.owner, radius: r, rate });
         }
         return out;
@@ -341,7 +425,8 @@ export class Game {
             const st = dTile.structure;
             if (st.type === 'D' && st.level === 2 && st.stats?.jamming) {
                 best = Math.max(best, GAME_CONFIG.DRONE_L3_RECHARGE_DEBUFF_MULT);
-            } else if (st.type === 'SU' && st.level === 2 && st.stats?.signatureJam) {
+            } else if (st.type === 'SU' && st.level === 2 && st.stats?.signatureJam
+                       && this._suSignatureId(dTile) === 'jam') {
                 best = Math.max(best, GAME_CONFIG.SIGNATURE_L3_RECHARGE_DEBUFF_MULT);
             }
         }
@@ -581,13 +666,24 @@ export class Game {
             }
         }
 
-        // HP regen
+        // HP regen — base 0.8%/s, with G3 "Capitol" 2× aura, FIN sisu 2× self, and M3 "Insurgency" allowing regen while contested.
         const now = this.gameTime;
         for (const tile of this.grid.tiles.values()) {
-            if (!tile.structure || !tile.owner || tile.contested) continue;
+            if (!tile.structure || !tile.owner) continue;
+            // M3 Lv3 "Insurgency" may regen even while its tile is contested.
+            const isM3 = tile.structure.type === 'M' && tile.structure.level === 2 && tile.structure.stats?.radius;
+            if (tile.contested && !(GAME_CONFIG.MILITIA_HQ_L3_OPERATES_CONTESTED && isM3)) continue;
             if (tile.hp >= tile.maxHp) continue;
             if (now - (tile.lastDamageTime || 0) < GAME_CONFIG.REGEN_COOLDOWN_MS) continue;
-            tile.hp = Math.min(tile.maxHp, tile.hp + tile.maxHp * GAME_CONFIG.HP_REGEN_RATE);
+            let mult = 1;
+            if (this._inFriendlyG3GoldAura(tile, tile.owner)) {
+                // Capitol aura: any tile in friendly G3 radius (gold + regen shared boundary). Non-stacking.
+                mult *= GAME_CONFIG.GOV_L3_REGEN_AURA_MULT;
+            }
+            if (tile.structure.type === 'SU' && tile.structure.level === 2 && this._suSignatureId(tile) === 'sisu') {
+                mult *= 2;
+            }
+            tile.hp = Math.min(tile.maxHp, tile.hp + tile.maxHp * GAME_CONFIG.HP_REGEN_RATE * mult);
         }
 
         this.players.forEach((p, i) => {
@@ -632,7 +728,11 @@ export class Game {
             if (!tile.structure || !tile.owner) continue;
             const player = this.players[tile.owner - 1];
             if (!player) continue;
-            const vr = visionFor(tile.structure.stats);
+            let vr = visionFor(tile.structure.stats);
+            // TUR "recon": L3 Bayraktar Signature grants +3 vision (loiter recon).
+            if (tile.structure.type === 'SU' && tile.structure.level === 2 && this._suSignatureId(tile) === 'recon') {
+                vr += 3;
+            }
             for (let dq = -vr; dq <= vr; dq++) {
                 for (let dr = Math.max(-vr, -dq - vr); dr <= Math.min(vr, -dq + vr); dr++) {
                     const key = `${tile.q + dq},${tile.r + dr}`;
@@ -865,8 +965,13 @@ export class Game {
     }
 
     effFor(tile) {
-        let mul = intervalEff(tile);
-        if (!this.isInSupply(tile, tile.owner)) {
+        // JPN "precision": L3 Signature ignores its own intervalEff penalty (always fires at full cadence
+        // regardless of HP). Skip the interval scaling that damaged structures suffer.
+        const suId = (tile.structure?.type === 'SU' && tile.structure?.level === 2) ? this._suSignatureId(tile) : null;
+        let mul = (suId === 'precision') ? 1 : intervalEff(tile);
+        const inSupply = this.isInSupply(tile, tile.owner);
+        // FIN "sisu": L3 Signature ignores out-of-supply slowdown entirely.
+        if (!inSupply && suId !== 'sisu') {
             const k = this.getPlayerModsForOwner(tile.owner).outSupplyMult ?? 1;
             mul *= 1 + (GAME_CONFIG.SUPPLY_OUT_MULT - 1) * k;
         }
@@ -890,7 +995,10 @@ export class Game {
 
         for (const tile of this.grid.tiles.values()) {
             if (!tile.structure) continue;
-            if (tile.contested) continue;
+            // M3 "Insurgency": Lv3 Militia HQ may continue to operate (fire, regen, influence) on contested tiles.
+            const m3Insurgent = tile.contested && GAME_CONFIG.MILITIA_HQ_L3_OPERATES_CONTESTED
+                && tile.structure.type === 'M' && tile.structure.level === 2 && tile.structure.stats?.radius;
+            if (tile.contested && !m3Insurgent) continue;
 
             const s = tile.structure;
             if (s.type === 'RL' || s.type === 'AB' || s.type === 'DDG' || s.type === 'SSG') continue;
@@ -903,7 +1011,21 @@ export class Game {
                 if (time - tile.lastAction > stats.produceInterval * eff) {
                     let prodMult = GAME_CONFIG.MF_GLOBAL_PRODUCTION_MULT;
                     if (tile.structure.level !== 2 && this._mfNeighborOfFriendlyMF3(tile)) {
+                        // Non-MF3 factory neighbouring a friendly MF3 — original aura buff.
                         prodMult *= GAME_CONFIG.MF_L3_NEIGHBOR_PRODUCTION_MULT;
+                    } else if (tile.structure.level === 2) {
+                        // MF3 "Arsenal" self-boost: count adjacent friendly MFs (any tier) and add 15% each (capped).
+                        const h = new Hex(tile.q, tile.r);
+                        let neighborMFs = 0;
+                        for (const n of h.getNeighbors()) {
+                            const nt = this.grid.getTile(n.q, n.r);
+                            if (nt?.structure?.type === 'MF' && nt.owner === tile.owner) neighborMFs++;
+                        }
+                        const bonus = Math.min(
+                            GAME_CONFIG.MF_L3_SELF_BONUS_CAP,
+                            neighborMFs * GAME_CONFIG.MF_L3_SELF_BONUS_PER_ADJACENT_MF
+                        );
+                        prodMult *= 1 + bonus;
                     }
                     prodMult *= this.getPlayerModsForOwner(tile.owner).mfMult ?? 1;
                     p.missiles += Math.floor(stats.missilesProduced * prodMult);
@@ -1493,9 +1615,10 @@ export class Game {
         if (this._enemyNavyOnSeaForOwner(target, tile.owner)) {
             dmg *= GAME_CONFIG.DDG_ANTISHIP_DMG_MULT;
         }
+        // DDG3 "CEC Datalink": widened from 3-hex partner radius to GAME_CONFIG.DDG3_CEC_RADIUS (5).
         if (s.type === 'DDG' && tile.structure.level === 2 && stats.cec
             && this._enemyNavyOnSeaForOwner(target, tile.owner)
-            && this._otherFriendlyNavyInRangeExcl(tile, 3, tile.owner) > 0) {
+            && this._otherFriendlyNavyInRangeExcl(tile, GAME_CONFIG.DDG3_CEC_RADIUS, tile.owner) > 0) {
             dmg *= GAME_CONFIG.DDG3_CEC_DMG_MULT;
         }
         if (this._inFriendlyL3PortAura(tile, tile.owner)) {
@@ -1546,12 +1669,15 @@ export class Game {
             const k = `${s.type}:${target.q},${target.r}`;
             this._autoTargetAllocMap.set(k, (this._autoTargetAllocMap.get(k) || 0) + 1);
         }
+        // SSG3 "Bastion": 25% of cruise missiles fire as stealth (non-interceptable).
+        const isSsg3 = s.type === 'SSG' && tile.structure.level === 2;
         for (let i = 0; i < (stats.projectiles || 1); i++) {
+            const stealth = isSsg3 && Math.random() < GAME_CONFIG.SSG_L3_STEALTH_CHANCE;
             this.spawnProjectile(tile, target, {
                 type: 'cruise',
                 damage: dmg,
                 speed: stats.projectileSpeed || 4.2,
-                interceptable: stats.interceptable !== false,
+                interceptable: stealth ? false : (stats.interceptable !== false),
                 trail: true
             });
         }
@@ -1593,14 +1719,52 @@ export class Game {
         if (!target) return false;
 
         tile.structure.lastFiredAt = this.gameTime;
-        const count = stats.projectiles || 1;
-        for (let i = 0; i < count; i++) {
+        const s = tile.structure;
+        const suL3 = (s.type === 'SU' && s.level === 2) ? this._suSignatureId(tile) : null;
+
+        // Damage modifiers applied at fire time (depend on shooter or target).
+        let dmg = stats.damage;
+        let interceptable = stats.interceptable !== false;
+        let splash = false;
+
+        if (suL3 === 'anti_ship' && this._isEnemyNavyTarget(target, tile.owner)) {
+            dmg *= 1.5; // IDN Yakhont — coastal anti-ship.
+        }
+        if (suL3 === 'recon' && target.structure && target.maxHp > 0 && (target.hp / target.maxHp) < 0.5) {
+            dmg *= 1.25; // TUR Bayraktar — finish-the-wounded loiter bonus.
+        }
+        if (suL3 === 'defender') {
+            // SUI Réduit — homeland defender. Boost or penalty based on whose influence target sits in.
+            dmg *= this._inOwnInfluenceTerritory(target, tile.owner) ? 1.6 : 0.8;
+        }
+        if (suL3 === 'entrenched') {
+            // VNM Bastion-P — on shore (coastal land) the unit hits harder.
+            if (tile.shoreIncome || this.isCoastalLand?.(tile)) dmg *= 1.2;
+        }
+        if (suL3 === 'kamikaze') {
+            dmg *= 1.3;
+            splash = true; // IRN Shahed — drone splash on impact (40% to adjacent, see impact()).
+        }
+        if (suL3 === 'terminal_maneuver') {
+            interceptable = false; // RUS Iskander — non-interceptable.
+        }
+
+        // CHN "Saturation": every 4th salvo fires the regular volley + 2 extra projectiles.
+        let projCount = stats.projectiles || 1;
+        if (suL3 === 'saturation') {
+            s._satShotCount = ((s._satShotCount | 0) + 1);
+            if (s._satShotCount % 4 === 0) projCount += 2;
+        }
+
+        for (let i = 0; i < projCount; i++) {
             this.spawnProjectile(tile, target, {
                 type: 'drone',
-                damage: stats.damage,
+                damage: dmg,
                 speed: 3.5,
-                interceptable: stats.interceptable !== false,
-                trail: true
+                interceptable,
+                trail: true,
+                splash,
+                suL3, // carried for impact-time dispatch (POL first-strike, GBR bunker-buster, USA shoot_scoot, KSA gilded)
             });
         }
         this.spawnMuzzleFlash(tile, target, { color: '#78c8ff', size: 0.8, count: 3 });
@@ -1637,7 +1801,10 @@ export class Game {
             splash: !!opts.splash,
             trail: opts.trail,
             trailPts: [],
-            color: COLORS[`PLAYER${atkOwner}`]
+            color: COLORS[`PLAYER${atkOwner}`],
+            // Faction signature L3 doctrine for impact-time dispatch (POL first_strike, GBR bunker_buster,
+            // USA shoot_scoot kill credit, KSA gilded refund, IRN kamikaze splash on drones).
+            suL3: opts.suL3 || null,
         });
         this._addIncomingHumanThreat(this.projectiles[this.projectiles.length - 1]);
     }
@@ -1788,9 +1955,24 @@ export class Game {
 
         if (tile && tile.structure) {
             let dmg = proj.damage;
+            // POL "first_strike": +50% versus full-HP targets (snapshot BEFORE applying this hit).
+            if (proj.suL3 === 'first_strike' && tile.hp >= tile.maxHp - 0.01) dmg *= 1.5;
+            // GBR "bunker_buster": +50% versus high-value structures (G, B, PT, M3 = M with radius).
+            if (proj.suL3 === 'bunker_buster') {
+                const st = tile.structure?.type;
+                if (st === 'G' || st === 'B' || st === 'PT' || (st === 'M' && tile.structure.stats?.radius)) {
+                    dmg *= 1.5;
+                }
+            }
+            // AF3 "Aegis BMD" illumination — naval projectiles hitting an illuminated tile do extra damage.
+            if ((proj.type === 'navy' || proj.type === 'cruise') && tile.navyIlluminatedUntil && this.gameTime < tile.navyIlluminatedUntil) {
+                dmg *= GAME_CONFIG.AF3_ILLUM_DMG_MULT;
+            }
             if (this._inFriendlyL3BarracksCommandAura(tile, tile.owner)) {
                 dmg *= GAME_CONFIG.BARRACKS_L3_COMMAND_IN_MULT;
             }
+            // ITA "aegis_aura": friendly L3 Aster Battery within 3 hex reduces incoming damage by 15%.
+            if (this._inFriendlyAegisAura(tile, tile.owner)) dmg *= 0.85;
             dmg *= this.getPlayerModsForOwner(tile.owner).takenMult ?? 1;
             tile.hp -= dmg;
             tile.lastDamageTime = this.gameTime;
@@ -1809,12 +1991,20 @@ export class Game {
             const structName = st?.displayName || UNIT_STATS[st?.type]?.name || st?.type;
             this.logEvent(proj.owner, tile.owner, 'hit', `${proj.type} hit ${structName} (-${Math.round(dmg * 10) / 10} HP)`);
 
-            if (tile.hp <= 0) this.destroyStructure(tile, proj.owner);
+            if (tile.hp <= 0) {
+                // Capture base build cost BEFORE destroyStructure() nulls the reference (KSA gilded refund).
+                const victimBaseCost = UNIT_STATS[st?.type]?.levels?.[0]?.cost || 0;
+                const victimOwner = tile.owner;
+                this.destroyStructure(tile, proj.owner);
+                this._onSU3Kill(proj, victimBaseCost, victimOwner);
+            }
         }
 
-        if (proj.splash && proj.type === 'rocket') {
+        // Splash: RL3 (rocket) uses RL_L3_SPLASH_MULT; IRN kamikaze drones use a flat 40% to adjacent.
+        if (proj.splash && (proj.type === 'rocket' || (proj.type === 'drone' && proj.suL3 === 'kamikaze'))) {
             const origin = new Hex(proj.targetQR.q, proj.targetQR.r);
-            let splashBase = proj.damage * GAME_CONFIG.RL_L3_SPLASH_MULT;
+            const splashFrac = proj.type === 'rocket' ? GAME_CONFIG.RL_L3_SPLASH_MULT : 0.4;
+            let splashBase = proj.damage * splashFrac;
             for (const n of origin.getNeighbors()) {
                 const nt = this.grid.getTile(n.q, n.r);
                 if (!nt?.structure || !nt.owner) continue;
@@ -1836,8 +2026,36 @@ export class Game {
                 }
                 const nst = nt.structure;
                 const sn = nst?.displayName || UNIT_STATS[nst?.type]?.name || nst?.type;
-                this.logEvent(proj.owner, nt.owner, 'hit', `rocket splash ${sn} (-${Math.round(sdmg * 10) / 10} HP)`);
-                if (nt.hp <= 0) this.destroyStructure(nt, proj.owner);
+                this.logEvent(proj.owner, nt.owner, 'hit', `${proj.type === 'rocket' ? 'rocket splash' : 'kamikaze splash'} ${sn} (-${Math.round(sdmg * 10) / 10} HP)`);
+                if (nt.hp <= 0) {
+                    const baseCost = UNIT_STATS[nst?.type]?.levels?.[0]?.cost || 0;
+                    const vOwner = nt.owner;
+                    this.destroyStructure(nt, proj.owner);
+                    this._onSU3Kill(proj, baseCost, vOwner);
+                }
+            }
+        }
+    }
+
+    /**
+     * Faction signature L3 kill triggers:
+     *  - USA shoot_scoot: source SU3 tile's next salvo is ready 40% sooner.
+     *  - KSA gilded:      refund 25% of victim's L1 base build cost to the attacker.
+     */
+    _onSU3Kill(proj, victimBaseCost, victimOwner) {
+        if (!proj || !proj.suL3) return;
+        if (proj.suL3 === 'shoot_scoot') {
+            const src = this.grid.getTile(proj.fromQR?.q, proj.fromQR?.r);
+            if (src?.structure?.type === 'SU' && src.structure.level === 2 && src.owner === proj.owner) {
+                const interval = src.structure.stats?.interval ?? 0;
+                src.lastAction = (src.lastAction || 0) - interval * 0.4;
+            }
+        } else if (proj.suL3 === 'gilded') {
+            const attacker = this.players?.[proj.owner - 1];
+            if (attacker && victimBaseCost > 0 && proj.owner !== victimOwner) {
+                const refund = Math.floor(victimBaseCost * 0.25);
+                attacker.gold += refund;
+                if (attacker.stats) attacker.stats.goldEarned += refund;
             }
         }
     }

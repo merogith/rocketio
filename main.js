@@ -2,6 +2,7 @@ import { Hex, HexGrid, Camera } from './hexGrid.js?v=naval2027';
 import { Game } from './game.js?v=naval2027';
 import { Renderer } from './renderer.js?v=naval2027';
 import { UNIT_STATS, GAME_CONFIG, getEffectiveMapRadius, VICTORY_MODES, COLORS, DIPLOMACY, govGoldBandLinesHtml } from './constants.js?v=naval2027';
+import { getFactionSignatureL3, getSpecialUnitName } from './factions.js?v=naval2027';
 import { TUTORIAL_PAGES } from './tutorial.js?v=naval2027';
 import { getMissionById, CAMPAIGN_MISSIONS } from './campaignData.js?v=naval2027';
 import { loadCampaignProgress, canStartMission, markMissionBeaten } from './campaignProgress.js?v=naval2027';
@@ -1369,35 +1370,40 @@ function computeStructureDps(stats) {
 }
 
 /** Lv3 (levelIdx 2) special — shown in selection info panel. */
-function structureL3PerkHtml(type, levelIdx) {
+function structureL3PerkHtml(type, levelIdx, opts = {}) {
     if (levelIdx !== 2) return '';
     switch (type) {
         case 'G':
-            return `<p class="info-perk"><b>Lv3 — Economic aura</b> · Friendly land &amp; shore (in influence) that already earn Gov gold get ×${GAME_CONFIG.GOV_L3_GOLD_AURA_MULT} (non-stacking).</p>`;
+            return `<p class="info-perk"><b>Lv3 — Capitol</b> · Friendly tiles in influence: +${Math.round((GAME_CONFIG.GOV_L3_GOLD_AURA_MULT - 1) * 100)}% gold AND friendly structures regenerate ×${GAME_CONFIG.GOV_L3_REGEN_AURA_MULT} HP/s (non-stacking).</p>`;
         case 'RL':
             return `<p class="info-perk"><b>Lv3 — Siege</b> · 2 missiles per volley. ${Math.round(GAME_CONFIG.RL_L3_SPLASH_CHANCE * 100)}% chance to deal ${Math.round(GAME_CONFIG.RL_L3_SPLASH_MULT * 100)}% splash damage to adjacent enemy structures.</p>`;
         case 'AB':
             return `<p class="info-perk"><b>Lv3 — Stealth sortie</b> · ${Math.round(GAME_CONFIG.AB_L3_STEALTH_CHANCE * 100)}% non-interceptable strike using ${GAME_CONFIG.AB_L3_STEALTH_MISSILES} missiles.</p>`;
         case 'D':
             return `<p class="info-perk"><b>Lv3 — Jamming</b> · Enemy RL, AB, Barracks, Militia &amp; AAS in range: +${Math.round((GAME_CONFIG.DRONE_L3_RECHARGE_DEBUFF_MULT - 1) * 100)}% fire interval (MF excluded).</p>`;
-        case 'SU':
-            return `<p class="info-perk"><b>Lv3 — Signature jam</b> · Same class as Drone, weaker: +${Math.round((GAME_CONFIG.SIGNATURE_L3_RECHARGE_DEBUFF_MULT - 1) * 100)}% enemy fire interval in range (MF excluded).</p>`;
+        case 'SU': {
+            // Faction-unique doctrine string. opts.factionId is passed by the selection panel renderer.
+            const fid = opts.factionId ?? 0;
+            const sig = getFactionSignatureL3(fid);
+            const sn = getSpecialUnitName(fid);
+            return `<p class="info-perk"><b>Lv3 — ${sig.label}</b> · ${sn}: ${sig.desc}</p>`;
+        }
         case 'MF':
-            return `<p class="info-perk"><b>Lv3 — Logistics</b> · Adjacent friendly factories +${Math.round((GAME_CONFIG.MF_L3_NEIGHBOR_PRODUCTION_MULT - 1) * 100)}% output (not self). All factories: ×${GAME_CONFIG.MF_GLOBAL_PRODUCTION_MULT} global.</p>`;
+            return `<p class="info-perk"><b>Lv3 — Arsenal</b> · Adjacent friendly factories: +${Math.round((GAME_CONFIG.MF_L3_NEIGHBOR_PRODUCTION_MULT - 1) * 100)}% output. <b>MF3 itself</b>: +${Math.round(GAME_CONFIG.MF_L3_SELF_BONUS_PER_ADJACENT_MF * 100)}% output per adjacent friendly MF (cap +${Math.round(GAME_CONFIG.MF_L3_SELF_BONUS_CAP * 100)}%).</p>`;
         case 'B':
             return `<p class="info-perk"><b>Lv3 — Command</b> · In influence: allies +${Math.round((GAME_CONFIG.BARRACKS_L3_COMMAND_OUT_MULT - 1) * 100)}% damage dealt, −${Math.round((1 - GAME_CONFIG.BARRACKS_L3_COMMAND_IN_MULT) * 100)}% damage taken (non-stacking).</p>`;
         case 'M':
-            return `<p class="info-perk"><b>Lv3 — Militia HQ</b> · Keeps Lv2 range &amp; damage. Gains influence radius 1: claims adjacent land &amp; shore and earns +${UNIT_STATS.M.levels[2].goldPerTile}/tile/s on covered eligible tiles.</p>`;
+            return `<p class="info-perk"><b>Lv3 — Insurgency</b> · Militia HQ keeps Lv2 range &amp; damage; influence radius 1 (+$${UNIT_STATS.M.levels[2].goldPerTile}/tile/s). <b>Operates while contested</b> — fire, regen and influence project through enemy pressure.</p>`;
         case 'AAS':
-            return `<p class="info-perk"><b>Lv3 — Battery</b> · Larger magazine and faster recharge cycle vs lower tiers. ${Math.round(GAME_CONFIG.AAS_L3_BONUS_RECHARGE_CHANCE * 100)}% chance +1 intercept charge when recharging.</p>`;
+            return `<p class="info-perk"><b>Lv3 — Iron Dome</b> · Deeper magazine (cap ${UNIT_STATS.AAS.levels[2].chargeCap}) and reliable salvo (×${UNIT_STATS.AAS.levels[2].missilesRecharged} intercepts per recharge). Saturation-defense.</p>`;
         case 'DDG':
-            return `<p class="info-perk"><b>Lv3 — CEC</b> · +${Math.round((GAME_CONFIG.DDG3_CEC_DMG_MULT - 1) * 100)}% volley damage vs <b>enemy ships</b> when another friendly <b>navy</b> unit is within 3 hexes.</p>`;
+            return `<p class="info-perk"><b>Lv3 — CEC Datalink</b> · +${Math.round((GAME_CONFIG.DDG3_CEC_DMG_MULT - 1) * 100)}% damage vs <b>enemy ships</b> when any friendly <b>navy</b> is within ${GAME_CONFIG.DDG3_CEC_RADIUS} hex.</p>`;
         case 'AF':
-            return `<p class="info-perk"><b>Lv3 — Illumination BMD</b> · +${GAME_CONFIG.AF3_NAVY_ORIGIN_RANGE} intercept range vs shots fired from <b>enemy naval</b> tiles. Intercepts briefly <b>spot</b> the shooter for your DDG/SSG.</p>`;
+            return `<p class="info-perk"><b>Lv3 — Aegis BMD</b> · +${GAME_CONFIG.AF3_NAVY_ORIGIN_RANGE} intercept range vs naval-fired shots. Spotted shooters take +${Math.round((GAME_CONFIG.AF3_ILLUM_DMG_MULT - 1) * 100)}% damage from your DDG &amp; SSG.</p>`;
         case 'SSG':
-            return `<p class="info-perk"><b>Lv3 — SAG</b> · +${Math.round((GAME_CONFIG.SSG3_BASTION_DMG_MULT - 1) * 100)}% cruise damage vs <b>enemy ships</b> with another friendly <b>navy</b> in an adjacent hex.</p>`;
+            return `<p class="info-perk"><b>Lv3 — Bastion</b> · +${Math.round((GAME_CONFIG.SSG3_BASTION_DMG_MULT - 1) * 100)}% damage vs <b>enemy ships</b> with friendly navy adjacent. <b>${Math.round(GAME_CONFIG.SSG_L3_STEALTH_CHANCE * 100)}% of cruise missiles fire as stealth</b> (non-interceptable).</p>`;
         case 'PT':
-            return `<p class="info-perk"><b>Lv3 — Fleet Command</b> · Friendly navy in influence: +${Math.round((GAME_CONFIG.PORT_L3_NAVY_DAMAGE_MULT - 1) * 100)}% damage, −${Math.round((1 - GAME_CONFIG.PORT_L3_NAVY_INTERVAL_MULT) * 100)}% fire interval (non-stacking).</p>`;
+            return `<p class="info-perk"><b>Lv3 — Free Trade &amp; Fleet Command</b> · Navy in influence: +${Math.round((GAME_CONFIG.PORT_L3_NAVY_DAMAGE_MULT - 1) * 100)}% damage, −${Math.round((1 - GAME_CONFIG.PORT_L3_NAVY_INTERVAL_MULT) * 100)}% fire interval. Port sea income +${Math.round(GAME_CONFIG.PORT_L3_TRADE_PER_OTHER_PORT * 100)}% per OTHER friendly Port (cap +${Math.round(GAME_CONFIG.PORT_L3_TRADE_CAP * 100)}%).</p>`;
         default:
             return '';
     }
@@ -1425,7 +1431,6 @@ function summarizeLevelForTooltip(type, lv) {
     if (lv.influence != null && (type === 'G' || type === 'B' || type === 'PT')) parts.push(`inf ${lv.influence}`);
     if (lv.goldPerTile != null) parts.push(type === 'G' ? 'gold: banded rings' : `+${lv.goldPerTile}/tile`);
     if (lv.seaGoldPerTile != null) parts.push(`+${lv.seaGoldPerTile}/sea-tile`);
-    if (lv.navyAura) parts.push('navy aura');
     if (lv.chargeCap) parts.push(`cap ${lv.chargeCap}`);
     if (lv.missilesPerShot != null && lv.missilesPerShot > 1) parts.push(`×${lv.missilesPerShot} msl`);
     if (lv.projectiles != null && lv.projectiles > 1) parts.push(`×${lv.projectiles} proj`);
@@ -1433,7 +1438,11 @@ function summarizeLevelForTooltip(type, lv) {
         parts.push(`splash ${Math.round(GAME_CONFIG.RL_L3_SPLASH_CHANCE * 100)}% → ${Math.round(GAME_CONFIG.RL_L3_SPLASH_MULT * 100)}% adj`);
     }
     if (lv.jamming) parts.push(`jam −${Math.round((GAME_CONFIG.DRONE_L3_RECHARGE_DEBUFF_MULT - 1) * 100)}% enemy recharge`);
-    if (lv.signatureJam) parts.push(`sig jam +${Math.round((GAME_CONFIG.SIGNATURE_L3_RECHARGE_DEBUFF_MULT - 1) * 100)}% enemy interval`);
+    if (lv.signatureJam) parts.push('faction-unique doctrine');
+    if (lv.cec) parts.push(`CEC vs ships (+${Math.round((GAME_CONFIG.DDG3_CEC_DMG_MULT - 1) * 100)}%)`);
+    if (lv.illuminator) parts.push('Aegis BMD + spot');
+    if (lv.bastion) parts.push(`+stealth cruise (${Math.round(GAME_CONFIG.SSG_L3_STEALTH_CHANCE * 100)}%)`);
+    if (lv.navyAura) parts.push('navy aura + free trade');
     if (lv.displayName) parts.unshift(lv.displayName);
     return parts.join(' · ');
 }
@@ -1491,7 +1500,7 @@ function showBuildTooltip(btn) {
     }
 
     if (type === 'G') {
-        html += `<div class="tt-upgrade dim">Lv3: +${Math.round((GAME_CONFIG.GOV_L3_GOLD_AURA_MULT - 1) * 100)}% gold on tiles within its influence (non-stacking)</div>`;
+        html += `<div class="tt-upgrade dim">Lv3 "Capitol": +${Math.round((GAME_CONFIG.GOV_L3_GOLD_AURA_MULT - 1) * 100)}% gold AND friendly structures regenerate ×${GAME_CONFIG.GOV_L3_REGEN_AURA_MULT} HP/s on tiles within its influence (non-stacking).</div>`;
     }
 
     if (type === 'RL') {
@@ -1499,7 +1508,8 @@ function showBuildTooltip(btn) {
     }
 
     if (type === 'AAS') {
-        html += `<div class="tt-upgrade dim">Lv3: ${Math.round(GAME_CONFIG.AAS_L3_BONUS_RECHARGE_CHANCE * 100)}% chance +1 intercept charge when recharging (on top of ×${def.levels[2].missilesRecharged})</div>`;
+        const aas3 = def.levels[2];
+        html += `<div class="tt-upgrade dim">Lv3 "Iron Dome": ×${aas3.missilesRecharged} intercepts per recharge, magazine cap ${aas3.chargeCap}. Reliable saturation-defense.</div>`;
     }
 
     if (type === 'AB') {
@@ -1511,13 +1521,33 @@ function showBuildTooltip(btn) {
     }
 
     if (type === 'MF') {
-        html += `<div class="tt-upgrade dim">All levels: missile output ×${GAME_CONFIG.MF_GLOBAL_PRODUCTION_MULT} (−${Math.round((1 - GAME_CONFIG.MF_GLOBAL_PRODUCTION_MULT) * 100)}%). Lv3: +${Math.round((GAME_CONFIG.MF_L3_NEIGHBOR_PRODUCTION_MULT - 1) * 100)}% to adjacent friendly factories (not self)</div>`;
+        html += `<div class="tt-upgrade dim">Lv3 "Arsenal": +${Math.round((GAME_CONFIG.MF_L3_NEIGHBOR_PRODUCTION_MULT - 1) * 100)}% to adjacent friendly factories. MF3 itself: +${Math.round(GAME_CONFIG.MF_L3_SELF_BONUS_PER_ADJACENT_MF * 100)}% per adjacent MF (cap +${Math.round(GAME_CONFIG.MF_L3_SELF_BONUS_CAP * 100)}%). Cluster for huge output.</div>`;
     }
 
     if (type === 'M') {
         html += `<div class="tt-upgrade">Max: ${GAME_CONFIG.MILITIA_BASE_CAP} + ${GAME_CONFIG.MILITIA_PER_EXTRA_GOV} per Gov beyond your first</div>`;
         const m3 = def.levels[2];
-        html += `<div class="tt-upgrade dim">Lv3: <b>${m3.displayName || 'Militia HQ'}</b> — same range &amp; damage as Lv2; influence radius ${m3.radius ?? 1}: claims nearby tiles &amp; earns +${m3.goldPerTile ?? 0.3}/tile/s.</div>`;
+        html += `<div class="tt-upgrade dim">Lv3 "Insurgency": <b>${m3.displayName || 'Militia HQ'}</b> — influence radius ${m3.radius ?? 1}, +$${m3.goldPerTile ?? 0.3}/tile/s. <b>Operates while contested</b>: fires, regens, and projects influence through enemy pressure.</div>`;
+    }
+
+    if (type === 'DDG') {
+        html += `<div class="tt-upgrade dim">Lv3 "CEC Datalink": +${Math.round((GAME_CONFIG.DDG3_CEC_DMG_MULT - 1) * 100)}% vs enemy ships when any friendly navy within ${GAME_CONFIG.DDG3_CEC_RADIUS} hex.</div>`;
+    }
+
+    if (type === 'AF') {
+        html += `<div class="tt-upgrade dim">Lv3 "Aegis BMD": +${GAME_CONFIG.AF3_NAVY_ORIGIN_RANGE} intercept range vs naval shots. Spotted shooters take +${Math.round((GAME_CONFIG.AF3_ILLUM_DMG_MULT - 1) * 100)}% damage from your DDG/SSG.</div>`;
+    }
+
+    if (type === 'SSG') {
+        html += `<div class="tt-upgrade dim">Lv3 "Bastion": +${Math.round((GAME_CONFIG.SSG3_BASTION_DMG_MULT - 1) * 100)}% vs enemy ships with friendly navy adjacent. ${Math.round(GAME_CONFIG.SSG_L3_STEALTH_CHANCE * 100)}% of cruise missiles fire stealth (uninterceptable).</div>`;
+    }
+
+    if (type === 'PT') {
+        html += `<div class="tt-upgrade dim">Lv3 "Free Trade": navy in influence +${Math.round((GAME_CONFIG.PORT_L3_NAVY_DAMAGE_MULT - 1) * 100)}% damage and −${Math.round((1 - GAME_CONFIG.PORT_L3_NAVY_INTERVAL_MULT) * 100)}% fire interval. Sea income +${Math.round(GAME_CONFIG.PORT_L3_TRADE_PER_OTHER_PORT * 100)}% per OTHER friendly Port (cap +${Math.round(GAME_CONFIG.PORT_L3_TRADE_CAP * 100)}%).</div>`;
+    }
+
+    if (type === 'SU') {
+        html += `<div class="tt-upgrade dim">Lv3: <b>faction-unique doctrine</b> — your signature unit gains a bonus tied to your nation. Hover the unit in-game to see the active effect.</div>`;
     }
 
     buildTooltip.innerHTML = html;
@@ -1744,7 +1774,8 @@ function selectTile(tile) {
         }
     }
 
-    const perk = structureL3PerkHtml(stype, levelIdx);
+    const owner = game.players[tile.owner - 1];
+    const perk = structureL3PerkHtml(stype, levelIdx, { factionId: owner?.factionId ?? 0 });
     const govRingHtml = (stype === 'G' && !govWarmupBlock) ? govGoldBandLinesHtml(levelIdx) : '';
     const titleName = (tile.structure.displayName || stats.displayName || UNIT_STATS[stype].name).toUpperCase();
     infoContent.innerHTML = `

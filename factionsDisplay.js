@@ -39,13 +39,16 @@ export const FACTION_BANNERS = [
     { flag: '💎', accent: 'linear-gradient(120deg, #0a140a 0%, #0a3a1a 50%, #d4af37 100%)' },
 ];
 
-/** What the Signature (SU) unit does — shared rules + faction name */
+/** What the Signature (SU) unit does — shared rules + faction-unique L3 doctrine. */
 export function getSpecialUnitBlurb(faction) {
     const s = typeof faction === 'object' && faction != null && faction.specialName
         ? faction
         : getFaction(typeof faction === 'number' ? faction : 0);
-    const icon = getSpecialUnitIcon(typeof faction === 'number' ? faction : FACTIONS.indexOf(s));
-    return `${s.specialName} — build with Sig (F10). Glass cannon chip damage, higher DPS/$ than the Drone line. Lv3: area jam in range (weaker than Drone L3). Distinct ${icon} map icon.`;
+    const idx = typeof faction === 'number' ? faction : FACTIONS.indexOf(s);
+    const icon = getSpecialUnitIcon(idx);
+    const sig = s.signatureL3;
+    const sigLine = sig ? ` Lv3 "${sig.label}": ${sig.desc}` : ' Lv3: area jam in range.';
+    return `${s.specialName} — build with Sig (F10). Glass cannon chip damage, higher DPS/$ than the Drone line.${sigLine} Distinct ${icon} map icon.`;
 }
 
 /** 3 short flavor lines per faction, parallel to `leaders[]`. UI lists the

@@ -106,6 +106,22 @@ export function getSpecialUnitIcon(factionId) {
     return getFaction(factionId).specialIcon || '🎯';
 }
 
+/**
+ * The L3 "doctrine" of a faction's signature unit. Returns a dispatcher object
+ * `{ id, label, desc }` keyed by `id`. The game engine reads `id` to apply the
+ * faction-specific bonus on top of the base SU3 stats. `label` and `desc` are
+ * shown in tooltips and selection panels so the player can see *why* their
+ * signature feels different from another faction's.
+ *
+ * The fallback `{ id: 'jam', ... }` preserves the historical "weaker Drone L3
+ * jam" behaviour for any faction that hasn't defined a specific signature.
+ * @param {number} factionId
+ */
+export function getFactionSignatureL3(factionId) {
+    const f = getFaction(factionId);
+    return f.signatureL3 || { id: 'jam', label: 'Weak Area Jam', desc: 'Slows enemy fire/recharge cycles in range by 12%.' };
+}
+
 /** @param {{ players: Array<{ factionId?: number }> }} game */
 export function getSpecialUnitLabelForPlayer(game, ownerId) {
     const p = game?.players?.[ownerId - 1];
@@ -128,6 +144,8 @@ export const FACTIONS = [
     //    Real signature: M142 HIMARS — guided rocket artillery.
     { id: 'USA', code: 'USA', name: 'United States', specialName: 'HIMARS Battery', specialIcon: '🚀',
       nation: { effMult: 0.96, dealtMult: 1.03 },
+      signatureL3: { id: 'shoot_scoot', label: 'Shoot & Scoot',
+        desc: 'L3 HIMARS: after a confirmed kill, next salvo is ready 40% sooner. Rewards relentless pressure.' },
       leaders: [
         { name: 'Joe Biden',     mods: { goldMult: 1.06 } },                       // Bidenomics
         { name: 'Donald Trump',  mods: { dealtMult: 1.05, takenMult: 1.02 } },     // Maximum Pressure — hits harder, takes a bit more
@@ -139,6 +157,8 @@ export const FACTIONS = [
     //    Real signature: 9K720 Iskander short-range ballistic missile.
     { id: 'RUS', code: 'RUS', name: 'Russian Federation', specialName: 'Iskander Brigade', specialIcon: '⚙️',
       nation: { dealtMult: 1.07, takenMult: 0.94, effMult: 1.03 },                 // hits hard, takes hits, but slow
+      signatureL3: { id: 'terminal_maneuver', label: 'Terminal Maneuver',
+        desc: 'L3 Iskander: projectiles are non-interceptable. Slips past AAS/AF/Aegis entirely.' },
       leaders: [
         { name: 'Vladimir Putin',   mods: { startMissiles: 2 } },                  // Vertical of Power — opens loaded
         { name: 'Dmitry Medvedev',  mods: { mfMult: 1.10 } },                      // Mobilization Decree
@@ -150,6 +170,8 @@ export const FACTIONS = [
     //    Real signature: DF-26 "carrier killer" intermediate-range ballistic missile.
     { id: 'CHN', code: 'CHN', name: 'People’s Republic of China', specialName: 'DF-26 Brigade', specialIcon: '🐉',
       nation: { mfMult: 1.12, effMult: 0.97, goldMult: 0.96 },                     // factory monster, austerity ethic
+      signatureL3: { id: 'saturation', label: 'Saturation Salvo',
+        desc: 'L3 DF-26: every 4th volley fires +2 extra projectiles. Overwhelms point defense.' },
       leaders: [
         { name: 'Xi Jinping',  mods: { dealtMult: 1.05 } },                        // Centralized Command
         { name: 'Li Qiang',    mods: { goldMult: 1.07 } },                         // State Capitalism — clears the austerity
@@ -161,6 +183,8 @@ export const FACTIONS = [
     //    Real signature: Type 12 Surface-to-Ship Missile (extended-range).
     { id: 'JPN', code: 'JPN', name: 'Japan', specialName: 'Type 12 SSM', specialIcon: '🌊',
       nation: { takenMult: 0.93, effMult: 0.97, mfMult: 0.94 },                    // tough + fast cycle, but lean magazine
+      signatureL3: { id: 'precision', label: 'Precision Doctrine',
+        desc: 'L3 Type 12: ignores its own damage-efficiency penalty — fires at full cadence even at low HP.' },
       leaders: [
         { name: 'Fumio Kishida',  mods: { goldMult: 1.05 } },                      // New Capitalism
         { name: 'Shinzo Abe',     mods: { dealtMult: 1.05 } },                     // Abenomics & Rearm
@@ -172,6 +196,8 @@ export const FACTIONS = [
     //    Real signature: Bayraktar TB2/Akıncı UCAV wing.
     { id: 'TUR', code: 'TUR', name: 'Türkiye', specialName: 'Bayraktar Wing', specialIcon: '🛸',
       nation: { mfMult: 1.08, effMult: 0.95, dealtMult: 0.97 },                    // swarm, not punch
+      signatureL3: { id: 'recon', label: 'Loiter & Finish',
+        desc: 'L3 Bayraktar: +3 vision and +25% damage versus targets below 50% HP. Hunts the wounded.' },
       leaders: [
         { name: 'Recep Tayyip Erdoğan', mods: { dealtMult: 1.05 } },               // Sultan's Push — fixes the chip damage
         { name: 'Kemal Kılıçdaroğlu',   mods: { goldMult: 1.06 } },                // Civic Economy
@@ -183,6 +209,8 @@ export const FACTIONS = [
     //    Real signature: Shahed-136 loitering munition.
     { id: 'IRN', code: 'IRN', name: 'Islamic Republic of Iran', specialName: 'Shahed Swarm', specialIcon: '🦂',
       nation: { startMissiles: 3, takenMult: 0.95, goldMult: 0.95 },               // opens loaded; sanctions bite gold
+      signatureL3: { id: 'kamikaze', label: 'Kamikaze Swarm',
+        desc: 'L3 Shahed: +30% damage and on hit splashes 40% to adjacent enemies. Cheap, lethal, expendable.' },
       leaders: [
         { name: 'Ali Khamenei',      mods: { dealtMult: 1.06 } },                  // Supreme Leader
         { name: 'Masoud Pezeshkian', mods: { goldMult: 1.06 } },                   // Reformist — eases the embargo
@@ -194,6 +222,8 @@ export const FACTIONS = [
     //    Real signature: K9 "Moukari" 155mm SPH (Finnish nickname for K9 Thunder).
     { id: 'FIN', code: 'FIN', name: 'Finland', specialName: 'K9 Moukari', specialIcon: '🔨',
       nation: { outSupplyMult: 0.55, takenMult: 0.95, mfMult: 0.95 },              // best supply mod in the game
+      signatureL3: { id: 'sisu', label: 'Sisu Doctrine',
+        desc: 'L3 K9 Moukari: ignores out-of-supply slowdown entirely and regenerates HP 2× faster.' },
       leaders: [
         { name: 'Alexander Stubb', mods: { dealtMult: 1.05 } },                    // NATO Integration
         { name: 'Sanna Marin',     mods: { goldMult: 1.06 } },                     // Social-Democrat budget
@@ -205,6 +235,8 @@ export const FACTIONS = [
     //    Real signature: Yakhont (P-800 Onyx) coastal anti-ship missile.
     { id: 'IDN', code: 'IDN', name: 'Indonesia', specialName: 'Yakhont Coastal', specialIcon: '🐅',
       nation: { goldMult: 1.07, effMult: 0.95, dealtMult: 0.97 },                  // rich + fast, but chip damage
+      signatureL3: { id: 'anti_ship', label: 'Coastal Anti-Ship',
+        desc: 'L3 Yakhont: +50% damage versus enemy naval targets. The archipelago bites back.' },
       leaders: [
         { name: 'Prabowo Subianto',          mods: { startMissiles: 2 } },         // Force Buildup
         { name: 'Joko Widodo',               mods: { mfMult: 1.10 } },             // Infrastructure
@@ -216,6 +248,8 @@ export const FACTIONS = [
     //    Real signature: the "Réduit" — WWII National Redoubt fortress system.
     { id: 'SUI', code: 'SUI', name: 'Swiss Confederation', specialName: 'Réduit Bastion', specialIcon: '🛡️',
       nation: { takenMult: 0.92, goldMult: 1.04, effMult: 1.03 },                  // tough + rich, but slow
+      signatureL3: { id: 'defender', label: 'Homeland Defender',
+        desc: 'L3 Réduit: +60% damage against targets inside your own influence; –20% damage when projecting power abroad.' },
       leaders: [
         { name: 'Viola Amherd',  mods: { effMult: 0.95 } },                        // Defense Reform — clears the sluggishness
         { name: 'Ignazio Cassis', mods: { outSupplyMult: 0.65 } },                 // Neutral Diplomacy
@@ -227,6 +261,8 @@ export const FACTIONS = [
     //     Real signature: Saqr ("Falcon") family of Royal Saudi strike systems.
     { id: 'KSA', code: 'KSA', name: 'Saudi Arabia', specialName: 'Saqr Battery', specialIcon: '🏜️',
       nation: { goldMult: 1.08, mfMult: 1.08, effMult: 1.02 },                     // wealthy & well-stocked, slow
+      signatureL3: { id: 'gilded', label: 'Gilded Strike',
+        desc: 'L3 Saqr: when a kill is credited to a Saqr volley, refund 25% of the victim’s base build cost.' },
       leaders: [
         { name: 'King Salman',           mods: { dealtMult: 1.05 } },              // Royal Coordination
         { name: 'Mohammed bin Salman',   mods: { effMult: 0.96 } },                // Vision 2030 — sharp reform pivot
@@ -238,6 +274,8 @@ export const FACTIONS = [
     //     Real signature: AHS Krab 155mm self-propelled howitzer.
     { id: 'POL', code: 'POL', name: 'Poland', specialName: 'Krab Battery', specialIcon: '🦀',
       nation: { startMissiles: 2, dealtMult: 1.04, takenMult: 1.03 },              // opens with charge; glass cannon
+      signatureL3: { id: 'first_strike', label: 'First Strike',
+        desc: 'L3 Krab: +50% damage versus full-HP targets. Punishes fresh defenders.' },
       leaders: [
         { name: 'Andrzej Duda',        mods: { goldMult: 1.06 } },                 // NATO Anchor
         { name: 'Donald Tusk',         mods: { mfMult: 1.08 } },                   // EU Integration
@@ -249,6 +287,8 @@ export const FACTIONS = [
     //     Real signature: K-300P Bastion-P mobile coastal defense system.
     { id: 'VNM', code: 'VNM', name: 'Vietnam', specialName: 'Bastion-P', specialIcon: '🌿',
       nation: { takenMult: 0.93, outSupplyMult: 0.65, goldMult: 0.95 },            // attrition specialist
+      signatureL3: { id: 'entrenched', label: 'Coastal Entrenchment',
+        desc: 'L3 Bastion-P: when placed on a shore tile, deals +20% damage and takes 25% less damage.' },
       leaders: [
         { name: 'Tô Lâm',           mods: { effMult: 0.95 } },                     // Doi Moi Military
         { name: 'Phạm Minh Chính',  mods: { goldMult: 1.06 } },                    // Industrial Drive — clears poverty
@@ -260,6 +300,8 @@ export const FACTIONS = [
     //     Real signature: Storm Shadow / SCALP-EG cruise missile.
     { id: 'GBR', code: 'GBR', name: 'United Kingdom', specialName: 'Storm Shadow', specialIcon: '⚡',
       nation: { goldMult: 1.04, mfMult: 1.04, effMult: 0.97 },                     // small bonuses everywhere
+      signatureL3: { id: 'bunker_buster', label: 'Bunker Buster',
+        desc: 'L3 Storm Shadow: +50% damage versus high-value structures (Government, Barracks, Port, Militia HQ).' },
       leaders: [
         { name: 'Keir Starmer',   mods: { goldMult: 1.04 } },                      // Treasury First
         { name: 'Rishi Sunak',    mods: { startMissiles: 2 } },                    // Defense Spend
@@ -271,6 +313,8 @@ export const FACTIONS = [
     //     Real signature: Aster 30 surface-to-air missile (Eurosam, Italian-French).
     { id: 'ITA', code: 'ITA', name: 'Italy', specialName: 'Aster Battery', specialIcon: '✨',
       nation: { goldMult: 1.06, takenMult: 0.95, dealtMult: 0.97 },                // rich and durable; punches light
+      signatureL3: { id: 'aegis_aura', label: 'Aegis Aura',
+        desc: 'L3 Aster: friendly structures within 3 hex take 15% less damage. A walking shield.' },
       leaders: [
         { name: 'Giorgia Meloni',     mods: { dealtMult: 1.05 } },                 // Assertive Doctrine
         { name: 'Sergio Mattarella',  mods: { mfMult: 1.06 } },                    // Institutional Stability
