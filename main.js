@@ -1196,7 +1196,9 @@ function handleInput() {
     if (Input.consumePress('settings')) openSettings();
 
     // Build hotkeys
-    const buildTypes = ['G', 'RL', 'AAS', 'MF', 'B', 'M', 'D', 'SU', 'AB', 'BUNK', 'RC', 'TH', 'EW', 'PT', 'DDG', 'AF', 'SSG', 'CV', 'ICBM'];
+    // Order matches the palette DOM (Economy → Defense → Offense → Ground → Navy)
+    // so buildBtns[i] (querySelectorAll on .build-btn) resolves to the right tile.
+    const buildTypes = ['G', 'MF', 'TH', 'PT', 'AAS', 'EW', 'BUNK', 'RC', 'RL', 'AB', 'ICBM', 'SU', 'B', 'M', 'D', 'CV', 'DDG', 'AF', 'SSG'];
     buildTypes.forEach((type, i) => {
         if (Input.consumePress(`build_${type}`)) {
             if (game.campaign?.buildTutorial?.active) {
@@ -1267,6 +1269,20 @@ function toggleGameMenu() {
     if (game) setPaused(gameMenuOpen);
 }
 document.getElementById('gear-btn')?.addEventListener('click', toggleGameMenu);
+
+const helpToggleBtn = document.getElementById('help-toggle');
+const helpPanel = document.getElementById('instructions');
+helpToggleBtn?.addEventListener('click', () => {
+    const willShow = helpPanel.classList.contains('hidden');
+    helpPanel.classList.toggle('hidden', !willShow);
+    helpToggleBtn.classList.toggle('active', willShow);
+});
+document.addEventListener('click', (e) => {
+    if (!helpPanel || helpPanel.classList.contains('hidden')) return;
+    if (helpPanel.contains(e.target) || helpToggleBtn?.contains(e.target)) return;
+    helpPanel.classList.add('hidden');
+    helpToggleBtn?.classList.remove('active');
+});
 document.getElementById('menu-resume')?.addEventListener('click', () => {
     gameMenuOpen = false;
     gameMenu.classList.add('hidden');

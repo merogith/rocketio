@@ -302,7 +302,7 @@
 
             <!-- BUILD PANEL -->
             <div id="side-panel" class="glass hud-panel">
-                <h3>CONSTRUCTION</h3>
+                <h3>ECONOMY</h3>
                 <div class="build-group">
                     <button class="build-btn" data-type="G" title="[1] Government: Expand Borders">
                         <div class="shortcut-tag">1</div>
@@ -310,116 +310,122 @@
                         <div class="name">Gov</div>
                         <div class="cost">$1525</div>
                     </button>
-                    <button class="build-btn" data-type="RL" title="[2] Rocket Launcher: Attack Enemies">
+                    <button class="build-btn" data-type="MF" title="[2] Missile Factory: Production">
                         <div class="shortcut-tag">2</div>
-                        <div class="icon">🚀</div>
-                        <div class="name">RL</div>
-                        <div class="cost">$225</div>
-                    </button>
-                    <button class="build-btn" data-type="AAS" title="[3] Anti-Air System: Defense">
-                        <div class="shortcut-tag">3</div>
-                        <div class="icon">🛡️</div>
-                        <div class="name">AAS</div>
-                        <div class="cost">$205</div>
-                    </button>
-                    <button class="build-btn" data-type="MF" title="[4] Missile Factory: Production">
-                        <div class="shortcut-tag">4</div>
                         <div class="icon">🏭</div>
                         <div class="name">Factory</div>
                         <div class="cost">$230</div>
                     </button>
-                    <button class="build-btn" data-type="B" title="[5] Barracks: Ground Troops, Supply Hub">
-                        <div class="shortcut-tag">5</div>
-                        <div class="icon">🪖</div>
-                        <div class="name">Barracks</div>
-                        <div class="cost">$425</div>
-                    </button>
-                </div>
-                <h3>DEPLOYMENT</h3>
-                <div class="build-group">
-                    <button class="build-btn" data-type="M" title="[6] Militia: Disrupt Enemy Ground">
-                        <div class="shortcut-tag">6</div>
-                        <div class="icon">🔫</div>
-                        <div class="name">Militia</div>
-                        <div class="cost">$135</div>
-                    </button>
-                    <button class="build-btn" data-type="D" title="[7] Drone: Saturation Fire">
-                        <div class="shortcut-tag">7</div>
-                        <div class="icon">🚁</div>
-                        <div class="name">Drone</div>
-                        <div class="cost">$155</div>
-                    </button>
-                    <button class="build-btn" data-type="SU" title="[F10] Signature: faction-unique glass cannon. L3 doctrine depends on your nation — hover the unit to see active bonus.">
-                        <div class="shortcut-tag">F10</div>
-                        <div class="icon">🎯</div>
-                        <div class="name">Sig</div>
-                        <div class="cost">$158</div>
-                    </button>
-                    <button class="build-btn" data-type="AB" title="[8] Air Base: Heavy Interceptable Strike">
-                        <div class="shortcut-tag">8</div>
-                        <div class="icon">✈️</div>
-                        <div class="name">Air Base</div>
-                        <div class="cost">$350</div>
-                    </button>
-                </div>
-                <h3>NAVY <span class="dim" style="font-size:0.7em">(water)</span></h3>
-                <div class="build-group">
-                    <button class="build-btn" data-type="BUNK" title="[9] Bunker: pure HP wall. No attack, no income — soaks damage to anchor chokepoints. Lv3 takes 25% less damage.">
-                        <div class="shortcut-tag">9</div>
-                        <div class="icon">🧱</div>
-                        <div class="label">BUNKER</div>
-                        <div class="cost">$300</div>
-                    </button>
-                    <button class="build-btn" data-type="RC" title="[0] Recon Outpost: cheap fog-breaker. Huge vision, fragile. Counters stealth & ambush.">
-                        <div class="shortcut-tag">0</div>
-                        <div class="icon">🛰️</div>
-                        <div class="label">RECON</div>
-                        <div class="cost">$175</div>
-                    </button>
-                    <button class="build-btn" data-type="TH" title="[F2] Trade Hub: non-combat economy. Income scales with friendly Govs (and Ports at L3). Rewards a wide connected empire.">
-                        <div class="shortcut-tag">F2</div>
+                    <button class="build-btn" data-type="TH" title="[3] Trade Hub: non-combat economy. Income scales with friendly Govs (and Ports at L3). Rewards a wide connected empire.">
+                        <div class="shortcut-tag">3</div>
                         <div class="icon">💰</div>
-                        <div class="label">TRADE</div>
+                        <div class="name">Trade</div>
                         <div class="cost">$425</div>
                     </button>
-                    <button class="build-btn" data-type="EW" title="[F3] EW Jammer: soft-kill defense. Reduces damage from incoming interceptable missiles in range. L3 has a chance to fully spoof.">
-                        <div class="shortcut-tag">F3</div>
-                        <div class="icon">📶</div>
-                        <div class="label">EW JAM</div>
-                        <div class="cost">$375</div>
-                    </button>
-                    <button class="build-btn" data-type="CV" title="[F4] Carrier Group: naval air-projection. Long range, multi-sortie volleys. Built on owned water. L3 adds a stealth sortie.">
-                        <div class="shortcut-tag">F4</div>
-                        <div class="icon">🛩️</div>
-                        <div class="label">CARRIER</div>
-                        <div class="cost">$700</div>
-                    </button>
-                    <button class="build-btn" data-type="ICBM" title="[F5] ICBM Silo: strategic finisher. $5000, 90s recharge, 2500 dmg with 100% adjacent splash. Only Lv3 AAS / Lv3 AF can intercept.">
-                        <div class="shortcut-tag">F5</div>
-                        <div class="icon">☢️</div>
-                        <div class="label">ICBM</div>
-                        <div class="cost">$5000</div>
-                    </button>
-                    <button class="build-btn" data-type="PT" title="[F6] Port: coastal land, sea influence + sea-trade gold, supplies navy">
-                        <div class="shortcut-tag">F6</div>
+                    <button class="build-btn" data-type="PT" title="[4] Port: coastal land, sea influence + sea-trade gold, supplies navy">
+                        <div class="shortcut-tag">4</div>
                         <div class="icon">⚓</div>
                         <div class="name">Port</div>
                         <div class="cost">$600</div>
                     </button>
-                    <button class="build-btn" data-type="DDG" title="[F7] Destroyer: anti-ship missiles (sea)">
+                </div>
+                <h3>DEFENSE</h3>
+                <div class="build-group">
+                    <button class="build-btn" data-type="AAS" title="[5] Anti-Air System: intercepts incoming missiles">
+                        <div class="shortcut-tag">5</div>
+                        <div class="icon">🛡️</div>
+                        <div class="name">AAS</div>
+                        <div class="cost">$205</div>
+                    </button>
+                    <button class="build-btn" data-type="EW" title="[6] EW Jammer: soft-kill defense. Reduces damage from incoming interceptable missiles in range. L3 has a chance to fully spoof.">
+                        <div class="shortcut-tag">6</div>
+                        <div class="icon">📶</div>
+                        <div class="name">EW Jam</div>
+                        <div class="cost">$375</div>
+                    </button>
+                    <button class="build-btn" data-type="BUNK" title="[7] Bunker: pure HP wall. No attack, no income — soaks damage to anchor chokepoints. Lv3 takes 25% less damage.">
+                        <div class="shortcut-tag">7</div>
+                        <div class="icon">🧱</div>
+                        <div class="name">Bunker</div>
+                        <div class="cost">$300</div>
+                    </button>
+                    <button class="build-btn" data-type="RC" title="[8] Recon Outpost: cheap fog-breaker. Huge vision, fragile. Counters stealth & ambush.">
+                        <div class="shortcut-tag">8</div>
+                        <div class="icon">🛰️</div>
+                        <div class="name">Recon</div>
+                        <div class="cost">$175</div>
+                    </button>
+                </div>
+                <h3>OFFENSE</h3>
+                <div class="build-group">
+                    <button class="build-btn" data-type="RL" title="[9] Rocket Launcher: standard strike building">
+                        <div class="shortcut-tag">9</div>
+                        <div class="icon">🚀</div>
+                        <div class="name">RL</div>
+                        <div class="cost">$225</div>
+                    </button>
+                    <button class="build-btn" data-type="AB" title="[0] Air Base: Heavy Interceptable Strike">
+                        <div class="shortcut-tag">0</div>
+                        <div class="icon">✈️</div>
+                        <div class="name">Air Base</div>
+                        <div class="cost">$350</div>
+                    </button>
+                    <button class="build-btn" data-type="ICBM" title="[I] ICBM Silo: strategic finisher. $5000, 90s recharge, 2500 dmg with 100% adjacent splash. Only Lv3 AAS / Lv3 AF can intercept.">
+                        <div class="shortcut-tag">I</div>
+                        <div class="icon">☢️</div>
+                        <div class="name">ICBM</div>
+                        <div class="cost">$5000</div>
+                    </button>
+                    <button class="build-btn" data-type="SU" title="[F2] Signature: faction-unique glass cannon. L3 doctrine depends on your nation — hover the unit to see active bonus.">
+                        <div class="shortcut-tag">F2</div>
+                        <div class="icon">🎯</div>
+                        <div class="name">Sig</div>
+                        <div class="cost">$158</div>
+                    </button>
+                </div>
+                <h3>GROUND</h3>
+                <div class="build-group">
+                    <button class="build-btn" data-type="B" title="[F3] Barracks: Ground Troops, Supply Hub">
+                        <div class="shortcut-tag">F3</div>
+                        <div class="icon">🪖</div>
+                        <div class="name">Barracks</div>
+                        <div class="cost">$425</div>
+                    </button>
+                    <button class="build-btn" data-type="M" title="[F4] Militia: Disrupt Enemy Ground">
+                        <div class="shortcut-tag">F4</div>
+                        <div class="icon">🔫</div>
+                        <div class="name">Militia</div>
+                        <div class="cost">$135</div>
+                    </button>
+                    <button class="build-btn" data-type="D" title="[F6] Drone: Saturation Fire">
+                        <div class="shortcut-tag">F6</div>
+                        <div class="icon">🚁</div>
+                        <div class="name">Drone</div>
+                        <div class="cost">$155</div>
+                    </button>
+                </div>
+                <h3>NAVY <span class="dim" style="font-size:0.7em">(water)</span></h3>
+                <div class="build-group">
+                    <button class="build-btn" data-type="CV" title="[F7] Carrier Group: naval air-projection. Long range, multi-sortie volleys. Built on owned water. L3 adds a stealth sortie.">
                         <div class="shortcut-tag">F7</div>
+                        <div class="icon">🛩️</div>
+                        <div class="name">Carrier</div>
+                        <div class="cost">$700</div>
+                    </button>
+                    <button class="build-btn" data-type="DDG" title="[F8] Destroyer: anti-ship missiles (sea)">
+                        <div class="shortcut-tag">F8</div>
                         <div class="icon">🛳️</div>
                         <div class="name">DDG</div>
                         <div class="cost">$270</div>
                     </button>
-                    <button class="build-btn" data-type="AF" title="[F8] Aegis (sea): intercept, sea AA">
-                        <div class="shortcut-tag">F8</div>
+                    <button class="build-btn" data-type="AF" title="[F9] Aegis (sea): intercept, sea AA">
+                        <div class="shortcut-tag">F9</div>
                         <div class="icon">📡</div>
                         <div class="name">Aegis</div>
                         <div class="cost">$250</div>
                     </button>
-                    <button class="build-btn" data-type="SSG" title="[F9] Cruise sub: heavy cruise strike">
-                        <div class="shortcut-tag">F9</div>
+                    <button class="build-btn" data-type="SSG" title="[F10] Cruise sub: heavy cruise strike">
+                        <div class="shortcut-tag">F10</div>
                         <div class="icon">🫧</div>
                         <div class="name">SSG</div>
                         <div class="cost">$430</div>
@@ -479,9 +485,25 @@
             <div id="notis"></div>
         </div>
 
-        <div id="instructions" class="glass">
-            <p><b>WASD</b> pan · <b>Scroll</b> zoom · <b>1–8</b> quick build · <b>Space</b> upgrade · <b>U</b> upgrade all · <b>X</b> demolish · <b>ESC</b> menu</p>
-            <p><b>Ctrl+Click</b> multi-select · Drag from attacker to assign target · <b>P</b> pause · <b>L</b> log · <b>]</b> cycle minimap intel</p>
+        <button id="help-toggle" class="glass" title="Keyboard shortcuts" aria-label="Keyboard shortcuts">?</button>
+        <div id="instructions" class="glass hidden">
+            <div class="help-section">
+                <div class="help-head">CAMERA</div>
+                <p><b>WASD</b> pan · <b>Scroll</b> zoom · <b>H</b> center on Gov · <b>J</b> last hit</p>
+            </div>
+            <div class="help-section">
+                <div class="help-head">BUILD</div>
+                <p><b>1–0</b> quick build (Economy → Offense) · <b>I</b> ICBM · <b>F2–F10</b> Sig &amp; Ground &amp; Navy</p>
+                <p><b>Space</b> upgrade · <b>U</b> upgrade all · <b>X</b> demolish</p>
+            </div>
+            <div class="help-section">
+                <div class="help-head">SELECT &amp; CONTROL</div>
+                <p><b>Q</b> select all of type · <b>Ctrl+Click</b> multi-select · Drag from attacker to assign target</p>
+            </div>
+            <div class="help-section">
+                <div class="help-head">GAME</div>
+                <p><b>P</b> pause · <b>+ / −</b> speed · <b>L</b> log · <b>]</b> cycle minimap intel · <b>ESC</b> menu</p>
+            </div>
         </div>
 
         <!-- PAUSE OVERLAY -->

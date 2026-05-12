@@ -49,7 +49,7 @@ export function getSpecialUnitBlurb(faction) {
     const icon = getSpecialUnitIcon(idx);
     const sig = s.signatureL3;
     const sigLine = sig ? ` Lv3 "${sig.label}": ${sig.desc}` : ' Lv3: area jam in range.';
-    return `${s.specialName} ${icon} — build with Sig (F10). Glass cannon chip damage, higher DPS/$ than the Drone line.${sigLine}`;
+    return `${s.specialName} ${icon} — build with Sig (F2). Glass cannon chip damage, higher DPS/$ than the Drone line.${sigLine}`;
 }
 
 /** 3 short flavor lines per faction, parallel to `leaders[]`. UI lists the
