@@ -1,4 +1,4 @@
-import { UNIT_STATS, GAME_CONFIG, govGoldForDistance } from './constants.js?v=naval2027';
+import { UNIT_STATS, GAME_CONFIG, govGoldForDistance } from './constants.js?v=cmpn3';
 
 export class Hex {
     constructor(q, r) {

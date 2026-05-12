@@ -28,8 +28,8 @@
 //         j. Demolish              — reclaim gold from trapped/redundant structures
 // ============================================================================
 
-import { UNIT_STATS, AI_DOCTRINES, GAME_CONFIG, DIPLOMACY } from './constants.js?v=naval2027';
-import { Hex } from './hexGrid.js?v=naval2027';
+import { UNIT_STATS, AI_DOCTRINES, GAME_CONFIG, DIPLOMACY } from './constants.js?v=cmpn3';
+import { Hex } from './hexGrid.js?v=cmpn3';
 
 const PHASES = { EXPAND: 0, FORTIFY: 1, PRESSURE: 2, DOMINATE: 3 };
 
@@ -39,6 +39,26 @@ const ATTACKER_TYPES = new Set(['RL', 'B', 'D', 'SU', 'AB', 'M', 'DDG', 'SSG']);
 const COMBAT_TYPES   = new Set(['RL', 'B', 'D', 'SU', 'AB', 'M', 'DDG', 'SSG']);
 
 const DOCTRINE_KEYS = Object.keys(AI_DOCTRINES);
+
+// ============================================================================
+//  DOCTRINE SOFTENING
+//  Doctrines are *flavor*, not destiny. Every AI must read the board and pick
+//  the right tool — doctrines only nudge ties in their preferred direction.
+//  `doctrineMult(raw, baseline, softness)` maps raw weights (1..4) onto a
+//  gentle multiplier centered on 1.0. With softness 0.22, the gap between
+//  the most and least preferred unit is ~±33% rather than 4x.
+// ============================================================================
+function doctrineMult(raw, baseline = 2, softness = 0.22) {
+    if (raw == null) return 1;
+    const r = clamp(raw / baseline, 0.35, 2.5);
+    return 1 + (r - 1) * softness;
+}
+
+/** Returns multiplier for a doctrine field, defaulting to neutral 1.0. */
+function dPref(doctrine, key, softness = 0.22) {
+    if (!doctrine) return 1;
+    return doctrineMult(doctrine[key], 2, softness);
+}
 
 // ============================================================================
 //  TINY HELPERS
@@ -282,10 +302,11 @@ function computeTargetGovCount(game, p, snap, shared) {
     return clamp(n, 2, MAX_TARGET_GOV);
 }
 
-/** Applies doctrine G preference (ECONOMIST builds more, baseline 2). */
+/** Applies doctrine G preference (soft — most weight comes from map state). */
 function effectiveTargetGovCount(game, p, snap, shared, doctrine) {
     const base = computeTargetGovCount(game, p, snap, shared);
-    const mult = clamp((doctrine?.G ?? 2) / 2, 0.75, 2);
+    // Soft doctrine influence: at most ±1 gov of variation from preference.
+    const mult = doctrineMult(doctrine?.G, 2, 0.18);
     return clamp(Math.round(base * mult), 2, MAX_TARGET_GOV);
 }
 
@@ -865,11 +886,14 @@ function tryOpeningBuildOrder(game, p, snap, shared, phase) {
     if (govs >= 2 && mfs >= 1 && totalStructures >= pr.exitOpeningMinStructures - 1) {
         const doctrine = p.doctrine;
         if (doctrine) {
+            // Adaptive base weights — every AI prefers Barracks first as a tanky front,
+            // RL for range pressure, Drones for AAS saturation. Doctrine only nudges.
+            const cMult = counterCompositionMults(snap, game);
             const options = [];
-            if (canAffordType(p, 'B') && p.missiles >= 0) options.push({ type: 'B', w: doctrine.B * 1.15 });
-            if (canAffordType(p, 'RL') && p.missiles >= 1) options.push({ type: 'RL', w: doctrine.RL * 1.1 });
-            if (canAffordType(p, 'D')) options.push({ type: 'D', w: doctrine.D * 1.1 });
-            if (canAffordType(p, 'SU')) options.push({ type: 'SU', w: doctrine.D * 0.42 });
+            if (canAffordType(p, 'B') && p.missiles >= 0) options.push({ type: 'B',  w: 1.20 * dPref(doctrine, 'B') * (cMult.B || 1) });
+            if (canAffordType(p, 'RL') && p.missiles >= 1) options.push({ type: 'RL', w: 1.10 * dPref(doctrine, 'RL') * (cMult.RL || 1) });
+            if (canAffordType(p, 'D'))  options.push({ type: 'D',  w: 1.05 * dPref(doctrine, 'D')  * (cMult.D || 1) });
+            if (canAffordType(p, 'SU')) options.push({ type: 'SU', w: 0.45 * dPref(doctrine, 'D')  * (cMult.D || 1) });
             if (options.length > 0) {
                 const weights = {};
                 for (const o of options) weights[o.type] = o.w;
@@ -1345,18 +1369,47 @@ function tryStrategicBuild(game, p, snap, shared, phase, doctrine) {
         if (humanPressure !== 1 && snap.visibleEnemies.some(e => e.owner === game.humanId)) {
             enemyBoost *= humanPressure;
         }
+        // ── ADAPTIVE BASE WEIGHTS ──
+        // Every AI uses the same situational base — doctrine only tilts the choice.
+        // The strategy described by players: Barracks = front-line tank that screens
+        // softer assets, then RL for range, Drones to crack AAS, AAS to screen our
+        // missile producers / Govs. We score each by *board state* first.
+        const enemyGround = (snap.visibleEnemyTypeCounts?.M || 0) + (snap.visibleEnemyTypeCounts?.B || 0);
+        const enemyAir    = (snap.visibleEnemyTypeCounts?.RL || 0) + (snap.visibleEnemyTypeCounts?.AB || 0);
+        const enemyAAS    = (snap.visibleEnemyTypeCounts?.AAS || 0) + (snap.visibleEnemyTypeCounts?.AF || 0);
+        const ownB        = have('B');
         const w = {
-            RL:  doctrine.RL  * (have('RL')  < 2 ? 1.75 : 1) * enemyBoost,
-            AB:  doctrine.AB  * (have('AB')  < 1 ? 1.55 : 1) * (phase >= PHASES.DOMINATE ? 1.85 : 1) * enemyBoost,
-            D:   doctrine.D   * (have('D')   < 2 ? 1.55 : 1) * enemyBoost,
-            B:   doctrine.B   * (have('B')   < 2 ? 1.85 : 1) * (snap.visibleEnemies.length ? 1 : 1.4),
-            AAS: doctrine.AAS * ((snap.aasCount < 2 || snap.visibleEnemies.some(e => e.structure.type === 'AB')) ? 1.55 : 0.6),
+            // Barracks: tank front + influence push. Always good when we have <2 or
+            // the enemy is grounding us, or we want to claim contested frontier.
+            B:   1.30 * (ownB < 2 ? 1.55 : 1)
+                     * (1 + Math.min(0.5, enemyGround * 0.15))
+                     * (snap.visibleEnemies.length ? 1 : 1.30)
+                     * dPref(doctrine, 'B'),
+            // Rocket Launcher: ranged pressure, scales with frontier visibility.
+            RL:  1.00 * (have('RL') < 2 ? 1.55 : 1)
+                     * enemyBoost
+                     * dPref(doctrine, 'RL'),
+            // Drones: cheap AAS-saturators. Scale up with visible AAS.
+            D:   1.00 * (have('D')  < 2 ? 1.40 : 1)
+                     * enemyBoost
+                     * (1 + Math.min(0.45, enemyAAS * 0.14))
+                     * dPref(doctrine, 'D'),
+            // Air Base: late-game alpha strike, weaker when we have no MF runway.
+            AB:  0.85 * (have('AB') < 1 ? 1.45 : 1)
+                     * (phase >= PHASES.DOMINATE ? 1.6 : 1)
+                     * enemyBoost
+                     * dPref(doctrine, 'AB'),
+            // AAS: shielded by need — surface threats and unprotected Govs/MFs drive it.
+            AAS: 1.00 * ((snap.aasCount < 2 || snap.visibleEnemies.some(e => e.structure.type === 'AB')) ? 1.45 : 0.6)
+                     * (1 + Math.min(0.5, enemyAir * 0.18))
+                     * dPref(doctrine, 'AAS'),
         };
+        // Playstyle: now only a faint personality knob (~±6%).
         const ps = doctrine.playstyle || 'mixed';
         if (ps === 'defend') {
-            w.AAS *= 1.15; w.B *= 1.25; w.RL *= 0.93; w.AB *= 0.92;
+            w.AAS *= 1.06; w.B *= 1.07; w.RL *= 0.97; w.AB *= 0.97;
         } else if (ps === 'raid') {
-            w.RL *= 1.06; w.AB *= 1.04; w.D *= 1.05; w.AAS *= 0.95;
+            w.RL *= 1.04; w.AB *= 1.03; w.D *= 1.03; w.AAS *= 0.97;
         }
 
         const cMult = counterCompositionMults(snap, game);
@@ -1390,10 +1443,9 @@ function tryStrategicBuild(game, p, snap, shared, phase, doctrine) {
         if (spot) return game.buildStructure(spot, type, p.id);
     }
 
-    // Militia push — doctrines / playstyle tune how much we still flood after expand phase.
-    // Route through tryExpandWithMilitia so the Gov save-up gate applies here too.
-    const dM = (doctrine.M || 2) / 2.2;
-    const psBoost = (doctrine.playstyle === 'raid') ? 1.2 : (doctrine.playstyle === 'defend' ? 0.75 : 1);
+    // Militia push — every AI floods when free land is open; doctrine only tilts.
+    const dM = dPref(doctrine, 'M', 0.20);
+    const psBoost = (doctrine.playstyle === 'raid') ? 1.08 : (doctrine.playstyle === 'defend' ? 0.94 : 1);
     const landBoost = 1 + Math.min(0.5, (snap.neutralAdjacentToFrontier || 0) * 0.06);
     const militiaWeight = (phase === PHASES.EXPAND ? 1 : pr.strategicMilitiaPhaseMult * dM * psBoost * landBoost)
         * (snap.visibleEnemies.length ? 0.8 : 1.05);
@@ -1525,16 +1577,18 @@ function tryBorderFortify(game, p, snap, phase, shared) {
 
 function tryNavyOpportunism(game, p, snap) {
     if (p.gold < 300) return false;
-    if (Math.random() > 0.034) return false;
-
-    // First: try to build a Port if none yet and a good coastal spot exists. Ports are infrastructure
-    // (sea influence + trade gold + supply for fleets) and pay for themselves quickly.
+    // Trigger rate scales with coastal opportunity — coastal AIs lean naval naturally,
+    // landlocked AIs rarely waste a tick on it.
+    const portRadius = UNIT_STATS.PT?.levels?.[0]?.radius ?? 4;
     const portCount = snap.ownByType.PT?.length || 0;
-    if (portCount === 0 && canAffordType(p, 'PT')) {
-        const portRadius = UNIT_STATS.PT?.levels?.[0]?.radius ?? 4;
-        const portSpot = findBestPortSpot(game, p.id, portRadius);
-        if (portSpot && game.buildStructure(portSpot, 'PT', p.id)) return true;
-    }
+    const candidatePort = portCount === 0 && canAffordType(p, 'PT')
+        ? findBestPortSpot(game, p.id, portRadius)
+        : null;
+    const coastalBoost = candidatePort ? 3.0 : 1.0;
+    if (Math.random() > 0.034 * coastalBoost) return false;
+
+    // Ports are infrastructure: sea influence + trade gold + supply for fleets — they pay back fast.
+    if (candidatePort && game.buildStructure(candidatePort, 'PT', p.id)) return true;
 
     if (p.missiles < 3) return false;
     const navyCount = (snap.ownByType.DDG?.length || 0) + (snap.ownByType.AF?.length || 0) + (snap.ownByType.SSG?.length || 0);
@@ -2154,8 +2208,8 @@ function tryExpandWithMilitia(game, p, snap, phase, shared) {
     const doctrine = p.doctrine;
     const mCost = m0Cost();
     const neutralNearby = snap.neutralAdjacentToFrontier || 0;
-    const docM = (doctrine?.M ?? 2) / 2;
-    const expandW = playstyleMilitiaExpandMult(doctrine) * clamp(docM, 0.75, 1.45);
+    // Soft doctrine tilt — every AI presses militia when free land is on offer.
+    const expandW = playstyleMilitiaExpandMult(doctrine) * dPref(doctrine, 'M', 0.28);
 
     // Tighter reserve when there is a lot of free land (tiles > doctrine — always scale the map)
     const landUrgency = neutralNearby >= 8 ? 0.55 : neutralNearby >= 4 ? 0.72 : neutralNearby >= 1 ? 0.9 : 1;
