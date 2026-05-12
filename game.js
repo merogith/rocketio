@@ -1,7 +1,7 @@
-import { UNIT_STATS, COLORS, GAME_CONFIG, DIFFICULTY, DIPLOMACY, govGoldForDistance } from './constants.js?v=naval2027';
-import { getPlayerMods, getSpecialUnitLabelForPlayer, getFactionSignatureL3 } from './factions.js?v=naval2027';
-import { Hex } from './hexGrid.js?v=naval2027';
-import { SFX } from './sfx.js?v=naval2027';
+import { UNIT_STATS, COLORS, GAME_CONFIG, DIFFICULTY, DIPLOMACY, govGoldForDistance } from './constants.js?v=units3';
+import { getPlayerMods, getSpecialUnitLabelForPlayer, getFactionSignatureL3 } from './factions.js?v=units3';
+import { Hex } from './hexGrid.js?v=units3';
+import { SFX } from './sfx.js?v=units3';
 
 function relKey(a, b) {
     const x = Math.min(a, b), y = Math.max(a, b);
@@ -113,7 +113,7 @@ export class Game {
             if (tile.structure.type === 'B' && tile.structure.level === 2) this._l3BarracksTiles.push(tile);
             if (tile.structure.type === 'G' && tile.structure.level === 2 && tile.owner) this._l3GovTiles.push(tile);
             if (tile.structure.type === 'D' && tile.structure.level === 2 && tile.structure.stats?.jamming) this._d3JamTiles.push(tile);
-            // SU3 only jams enemies if its faction's signature L3 doctrine is "jam" (legacy default).
+            // SU3 only jams enemies if its faction's signature L3 doctrine is the legacy "jam" id.
             // Faction-unique doctrines (USA shoot-scoot, RUS terminal, CHN saturation, etc.) replace jamming.
             if (tile.structure.type === 'SU' && tile.structure.level === 2 && tile.structure.stats?.signatureJam
                 && this._suSignatureId(tile) === 'jam') this._d3JamTiles.push(tile);
@@ -508,6 +508,8 @@ export class Game {
         this.projectiles = [];
         this._incomingThreatHumanRef.clear();
         this.incomingThreatHumanHexKeys.clear();
+        this._lastIncomingLog = new Map();
+        this._lastLowGoldLog = 0;
         this.particles = [];
         this.events = [];
         this.combatLog = [];
@@ -780,6 +782,54 @@ export class Game {
         this.recomputeFog();
         this.recomputeSupply();
         this.checkVictory();
+
+        // Low-gold warning: telegraphs an economy problem so new players know they're starving.
+        const human = this.players[this.humanId - 1];
+        if (human) {
+            const cheapestBuild = 135; // militia, the floor cost
+            if (human.gold < cheapestBuild && (human.goldRate || 0) < 1.5) {
+                if ((this.gameTime - (this._lastLowGoldLog || 0)) > 20000) {
+                    this._lastLowGoldLog = this.gameTime;
+                    this.logEvent(null, this.humanId, 'low-gold',
+                        `Low gold ($${Math.floor(human.gold)}) — build a Gov or capture territory`);
+                }
+            }
+        }
+    }
+
+    // ========================================================================
+    //  RUSH BUILD: spend gold to skip remaining build cooldown on a structure.
+    //  Pace lever — lets you decide between waiting for free and paying to act now.
+    // ========================================================================
+    rushBuildCooldown(tile, ownerId) {
+        if (!tile || !tile.structure) return false;
+        if (tile.owner !== ownerId) return false;
+        if (!tile.buildCooldownUntil || this.gameTime >= tile.buildCooldownUntil) return false;
+        const p = this.players[ownerId - 1];
+        if (!p) return false;
+
+        const remaining = tile.buildCooldownUntil - this.gameTime;
+        const cost = Math.max(20, Math.ceil(remaining / 30));
+        if (p.gold < cost) return false;
+
+        p.gold -= cost;
+        p.stats.goldSpent += cost;
+
+        // Fire immediately on next eligible tick by collapsing the cooldown.
+        tile.buildCooldownStart = 0;
+        tile.buildCooldownUntil = 0;
+        const def = UNIT_STATS[tile.structure.type];
+        const stats = tile.structure.stats;
+        const type = tile.structure.type;
+        const interval =
+            type === 'MF'  ? (stats.produceInterval  || 10000) :
+            type === 'AAS' || type === 'AF' ? (stats.rechargeInterval || 12000) :
+                             (stats.interval || 10000);
+        tile.lastAction = this.gameTime - interval;
+
+        const label = tile.structure.displayName || def?.name || type;
+        this.logEvent(ownerId, null, 'rush', `Rushed ${label} (-$${cost})`);
+        return cost;
     }
 
     // ========================================================================
@@ -1981,6 +2031,15 @@ export class Game {
         this._incomingThreatHumanRef.set(k, n);
         if (n === 1) this.incomingThreatHumanHexKeys.add(k);
         p._threatTrackedHuman = true;
+
+        // Telegraphs an incoming strike in the event feed — throttled per-target to avoid spam.
+        if (!this._lastIncomingLog) this._lastIncomingLog = new Map();
+        const lastT = this._lastIncomingLog.get(k) || 0;
+        if (this.gameTime - lastT > 3500) {
+            this._lastIncomingLog.set(k, this.gameTime);
+            const structName = tile.structure ? (UNIT_STATS[tile.structure.type]?.name || tile.structure.type) : 'tile';
+            this.logEvent(p.owner, this.humanId, 'incoming', `Incoming ${p.type} → ${structName}`);
+        }
     }
 
     _removeIncomingHumanThreat(p) {
@@ -2618,6 +2677,11 @@ export class Game {
     checkVictory() {
         const mode = this.victoryConfig.mode;
         this._ensureIndex();
+
+        // Campaign safety: while a build-tutorial is active the human is mid-setup, possibly
+        // between a forced teardown and the rebuild click. Don't let any victory condition fire
+        // during that window — it can hand the enemy an instant regime-change win.
+        if (this.campaign?.buildTutorial?.active) return;
 
         for (const p of this.players) {
             if (this.defeated.has(p.id)) continue;

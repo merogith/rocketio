@@ -1,17 +1,17 @@
-import { Hex, HexGrid, Camera } from './hexGrid.js?v=naval2027';
-import { Game } from './game.js?v=naval2027';
-import { Renderer } from './renderer.js?v=naval2027';
-import { UNIT_STATS, GAME_CONFIG, getEffectiveMapRadius, VICTORY_MODES, COLORS, DIPLOMACY, govGoldBandLinesHtml } from './constants.js?v=naval2027';
-import { getFactionSignatureL3, getSpecialUnitName } from './factions.js?v=naval2027';
-import { TUTORIAL_PAGES } from './tutorial.js?v=naval2027';
-import { getMissionById, CAMPAIGN_MISSIONS } from './campaignData.js?v=naval2027';
-import { loadCampaignProgress, canStartMission, markMissionBeaten } from './campaignProgress.js?v=naval2027';
-import { applyCampaignScenario, m1BuildTutorialCheckPlace, m1OnBuildPlaced } from './campaignScenarios.js?v=naval2027';
-import { Input } from './input.js?v=naval2027';
-import { updateAI } from './ai.js?v=naval2027';
-import { SFX } from './sfx.js?v=naval2027';
-import { FACTIONS, getFaction, describeModsList, getPlayerMods } from './factions.js?v=naval2027';
-import { FACTION_BANNERS, PLACEHOLDER_LEADER_PORTRAIT, getSpecialUnitBlurb, getLeaderPerkText } from './factionsDisplay.js?v=naval2027';
+import { Hex, HexGrid, Camera } from './hexGrid.js?v=units3';
+import { Game } from './game.js?v=units3';
+import { Renderer } from './renderer.js?v=units3';
+import { UNIT_STATS, GAME_CONFIG, getEffectiveMapRadius, VICTORY_MODES, COLORS, DIPLOMACY, govGoldBandLinesHtml } from './constants.js?v=units3';
+import { getFactionSignatureL3, getSpecialUnitName } from './factions.js?v=units3';
+import { TUTORIAL_PAGES } from './tutorial.js?v=units3';
+import { getMissionById, CAMPAIGN_MISSIONS } from './campaignData.js?v=units3';
+import { loadCampaignProgress, canStartMission, markMissionBeaten } from './campaignProgress.js?v=units3';
+import { applyCampaignScenario, m1BuildTutorialCheckPlace, m1OnBuildPlaced } from './campaignScenarios.js?v=units3';
+import { Input } from './input.js?v=units3';
+import { updateAI } from './ai.js?v=units3';
+import { SFX } from './sfx.js?v=units3';
+import { FACTIONS, getFaction, describeModsList, getPlayerMods } from './factions.js?v=units3';
+import { FACTION_BANNERS, PLACEHOLDER_LEADER_PORTRAIT, getSpecialUnitBlurb, getLeaderPerkText } from './factionsDisplay.js?v=units3';
 
 // ============================================================================
 //  DOM
@@ -36,6 +36,7 @@ const buildBtns = document.querySelectorAll('.build-btn');
 const infoPanel = document.getElementById('info-panel');
 const infoContent = document.getElementById('info-content');
 const upgradeBtn = document.getElementById('upgrade-btn');
+const rushBtn = document.getElementById('rush-btn');
 const demolishBtn = document.getElementById('demolish-btn');
 const closeInfoBtn = document.getElementById('close-info');
 const clearTargetBtn = document.getElementById('clear-target-btn');
@@ -138,7 +139,7 @@ function syncCampaignBuildQuestPanel() {
     if (!game?.campaign || !campaignQuestPrimary) return;
     const c = game.campaign;
     const bt = c.buildTutorial;
-    if (c.missionId === 1 && bt?.active) {
+    if (bt?.active) {
         const st = bt.steps[bt.step];
         if (st) {
             campaignQuestPrimary.innerHTML = campaignLineToHtml(st.questPrimary);
@@ -361,6 +362,35 @@ function initWorld(mapSize, mapStyle, playerCount, playerName, victoryConfig, di
                 _objectiveHint: m.objectiveHint
             };
             applyCampaignScenario(game, grid, m.id);
+
+            // Defensive guard: if the scenario somehow left the human player without a Government
+            // (e.g. an old/buggy scenario script destroyed the starter without rebuilding),
+            // restore a Gov L3 + adjacent MF L1 so we can't get instant-defeated by checkVictory.
+            const humanHasGov = Array.from(grid.tiles.values())
+                .some(t => t.owner === 1 && t.structure?.type === 'G');
+            if (!humanHasGov) {
+                console.warn('[RocketIO] Scenario left the human without a Government — restoring starter.');
+                const rebuildAt = Array.from(grid.tiles.values())
+                    .find(t => t.buildable && !t.structure
+                        && (t.owner === 1 || t.owner == null));
+                if (rebuildAt) {
+                    rebuildAt.owner = 1;
+                    rebuildAt.contested = false;
+                    game.buildStructure(rebuildAt, 'G', 1, 2, true);
+                    const neighbor = new Hex(rebuildAt.q, rebuildAt.r).getNeighbors()
+                        .map(h => grid.getTile(h.q, h.r))
+                        .find(t => t && t.buildable && !t.structure);
+                    if (neighbor) {
+                        neighbor.owner = 1;
+                        game.buildStructure(neighbor, 'MF', 1, 0, true, true);
+                    }
+                    if (game.campaign) game.campaign.buildTutorial = null;
+                    game._markStructuresDirty();
+                    game.updateBorders();
+                    game.recomputeSupply();
+                    game.recomputeFog();
+                }
+            }
         }
     }
 
@@ -1653,6 +1683,7 @@ function updateHoverChip(tile, mx, my) {
 // ============================================================================
 function selectTile(tile) {
     game.selectedTile = tile;
+    rushBtn?.classList.add('hidden');
 
     if (!game.isExploredBy(tile, 1) && tile.owner !== 1) {
         infoPanel.classList.add('hidden');
@@ -1858,6 +1889,26 @@ function selectTile(tile) {
     }
 
     if (isOwn) {
+        // RUSH: appears while the structure is still in its build cooldown.
+        // Cost scales with remaining time, so it gets cheaper the longer you wait.
+        if (rushBtn && tile.buildCooldownUntil && game.gameTime < tile.buildCooldownUntil) {
+            const remaining = tile.buildCooldownUntil - game.gameTime;
+            const cost = Math.max(20, Math.ceil(remaining / 30));
+            rushBtn.classList.remove('hidden');
+            rushBtn.innerText = `RUSH ($${cost} · ${(remaining / 1000).toFixed(1)}s)`;
+            rushBtn.onclick = () => {
+                const spent = game.rushBuildCooldown(tile, 1);
+                if (spent !== false) {
+                    showNoti(`Rushed (-$${spent})`, "success");
+                    selectTile(tile);
+                } else {
+                    showNoti("Can't rush", "error");
+                }
+            };
+        } else if (rushBtn) {
+            rushBtn.classList.add('hidden');
+        }
+
         upgradeAllBtn.classList.remove('hidden');
         upgradeAllBtn.onclick = () => {
             const count = game.upgradeAll(1);
@@ -2282,10 +2333,15 @@ function updateCombatLog() {
         let cls = 'build';
         if (entry.kind === 'hit' && entry.defenderId === humanId) cls = 'hit-own';
         else if (entry.kind === 'hit' && entry.attackerId === humanId) cls = 'hit-enemy';
+        else if (entry.kind === 'kill' && entry.defenderId === humanId) cls = 'lost-own';
         else if (entry.kind === 'kill') cls = 'kill';
         else if (entry.kind === 'intercepted') cls = 'intercepted';
         else if (entry.kind === 'upgrade') cls = 'upgrade';
         else if (entry.kind === 'demolish') cls = 'demolish';
+        else if (entry.kind === 'incoming') cls = 'incoming';
+        else if (entry.kind === 'low-gold') cls = 'low-gold';
+        else if (entry.kind === 'build-ready') cls = 'build-ready';
+        else if (entry.kind === 'rush') cls = 'rush';
 
         div.className = `log-entry ${cls}`;
         div.textContent = `[${timeStr}] ${entry.message}`;

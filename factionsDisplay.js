@@ -33,8 +33,9 @@ export const FACTION_BANNERS = [
     { flag: '🦅', accent: 'linear-gradient(120deg, #14080a 0%, #3a0e10 50%, #dc143c 100%)' },
     // 12. Vietnam — gold star on red field
     { flag: '⭐', accent: 'linear-gradient(120deg, #14080a 0%, #5a0a0a 50%, #ffcd00 100%)' },
-    // 13. United Kingdom — anchor, royal blue → Union flag red
-    { flag: '⚓', accent: 'linear-gradient(120deg, #0a0e1c 0%, #112050 50%, #c8102e 100%)' },
+    // 13. United Kingdom — royal lion, royal blue → Union flag red
+    //    (was ⚓; changed to avoid menu↔map conflict with the Port structure icon)
+    { flag: '🦁', accent: 'linear-gradient(120deg, #0a0e1c 0%, #112050 50%, #c8102e 100%)' },
     // 14. Italy — gem, dark → green/gold (Renaissance gold accent)
     { flag: '💎', accent: 'linear-gradient(120deg, #0a140a 0%, #0a3a1a 50%, #d4af37 100%)' },
 ];
@@ -48,7 +49,7 @@ export function getSpecialUnitBlurb(faction) {
     const icon = getSpecialUnitIcon(idx);
     const sig = s.signatureL3;
     const sigLine = sig ? ` Lv3 "${sig.label}": ${sig.desc}` : ' Lv3: area jam in range.';
-    return `${s.specialName} — build with Sig (F10). Glass cannon chip damage, higher DPS/$ than the Drone line.${sigLine} Distinct ${icon} map icon.`;
+    return `${s.specialName} ${icon} — build with Sig (F10). Glass cannon chip damage, higher DPS/$ than the Drone line.${sigLine}`;
 }
 
 /** 3 short flavor lines per faction, parallel to `leaders[]`. UI lists the

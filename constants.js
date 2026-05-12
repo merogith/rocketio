@@ -180,7 +180,9 @@ export const GAME_CONFIG = {
     AB_L3_STEALTH_MISSILES: 2,
     /** Enemy L3 Drone: military + AAS in range get this mult on interval/recharge (slower fire). MF excluded. */
     DRONE_L3_RECHARGE_DEBUFF_MULT: 1.25,
-    /** Enemy Lv3 Signature (SU): default weaker jam — only used by factions whose signatureL3.id === 'jam'. */
+    /** Enemy Lv3 Signature (SU): legacy weaker-jam fallback — only applies when
+     *  a faction's `signatureL3.id === 'jam'`. The 14 built-in faction doctrines
+     *  use their own dispatch and never fall through to this. */
     SIGNATURE_L3_RECHARGE_DEBUFF_MULT: 1.12,
     /** All Missile Factories: missiles produced × this (1.0 = honest base numbers, no hidden nerf). */
     MF_GLOBAL_PRODUCTION_MULT: 1.0,

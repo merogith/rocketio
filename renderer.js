@@ -1,5 +1,5 @@
-import { COLORS, UNIT_STATS, PROJECTILE_VISUAL_PRESETS } from './constants.js?v=naval2027';
-import { getSpecialUnitIcon } from './factions.js?v=naval2027';
+import { COLORS, UNIT_STATS, PROJECTILE_VISUAL_PRESETS } from './constants.js?v=sig3';
+import { getSpecialUnitIcon } from './factions.js?v=sig3';
 
 const TARGETABLE_TYPES = new Set(['RL', 'B', 'D', 'SU', 'M', 'AB', 'DDG', 'SSG']);
 const NAVY_BUILD_GHOST = new Set(['DDG', 'AF', 'SSG', 'CV']);
@@ -139,11 +139,19 @@ export class Renderer {
             ctx.fillStyle = `rgba(30, 100, 180, ${wave.toFixed(3)})`;
             ctx.fill();
 
+            let waterStructure = tile.structure;
+            let waterHp = tile.hp, waterMax = tile.maxHp;
             if (fog.explored) {
                 let ro = tile.owner, rc = tile.contested;
                 if (!fog.visible && fog.human) {
                     const mem = fog.human.memory.get(`${tile.q},${tile.r}`);
-                    if (mem) { ro = mem.owner; rc = mem.contested; }
+                    if (mem) {
+                        ro = mem.owner; rc = mem.contested;
+                        waterStructure = mem.type ? { type: mem.type, level: mem.level, stats: {} } : null;
+                        waterHp = mem.hp; waterMax = mem.maxHp;
+                    } else {
+                        waterStructure = null;
+                    }
                 }
                 const ownerColor = rc ? COLORS.CONTESTED
                     : (ro ? (COLORS[`PLAYER${ro}`] || null) : null);
@@ -153,8 +161,13 @@ export class Renderer {
                     ctx.globalAlpha = ro ? (fog.visible ? 0.38 : 0.2) : 0.2;
                     ctx.fill();
                 }
+            } else {
+                waterStructure = null;
             }
             ctx.globalAlpha = 1;
+            if (waterStructure) {
+                this.drawStructure(x, y, size, tile, waterStructure, waterHp, waterMax, fog.visible, gameState);
+            }
             return;
         }
 
@@ -306,8 +319,29 @@ export class Renderer {
         if (structure.type === 'B') {
             this.drawBarracksBunker(x, y, size, tile, structure, isVisible, gameState);
         } else {
+            const isNavy = structure.type === 'DDG' || structure.type === 'AF' || structure.type === 'SSG';
+            const isPort = structure.type === 'PT';
+
+            // Contrast backdrop for naval icons (dark water) and Ports (coastal).
+            // Ensures the emoji stands out and gives a strong owner cue even
+            // when the platform-default emoji renders thin or low-contrast.
+            if (isNavy || isPort) {
+                const owner = COLORS[`PLAYER${tile.owner}`] || '#00e5ff';
+                ctx.save();
+                ctx.globalAlpha = isVisible ? 0.78 : 0.4;
+                ctx.fillStyle = 'rgba(8, 14, 24, 0.78)';
+                ctx.beginPath();
+                ctx.arc(x, y, size * 0.55, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.lineWidth = Math.max(1.2, size * 0.06);
+                ctx.strokeStyle = owner;
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            const iconPx = Math.max(10, size * 0.8);
             ctx.fillStyle = "white";
-            ctx.font = `${size * 0.8}px Arial`;
+            ctx.font = `${iconPx}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",Arial,sans-serif`;
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
 
@@ -326,7 +360,7 @@ export class Renderer {
                 }
                 case 'AB':  icon = "✈️"; break;
                 case 'PT':  icon = "⚓"; break;
-                case 'DDG': icon = "🛳️"; break;
+                case 'DDG': icon = "🚢"; break;
                 case 'AF':  icon = "📡"; break;
                 case 'SSG': icon = "🫧"; break;
                 case 'BUNK': icon = "🧱"; break;
@@ -351,6 +385,37 @@ export class Renderer {
             ctx.globalAlpha = isVisible ? 1 : 0.55;
             ctx.fillText(icon, x, y);
             ctx.globalAlpha = 1;
+
+            // Naval procedural marks: a tiny hull line under icon for DDG,
+            // a periscope tick for SSG, a sweep arc badge for AF — guarantees
+            // a recognizable silhouette even if the emoji font is missing.
+            if (isNavy) {
+                ctx.save();
+                ctx.globalAlpha = isVisible ? 0.9 : 0.5;
+                ctx.strokeStyle = '#e8f4ff';
+                ctx.lineWidth = Math.max(1, size * 0.06);
+                ctx.lineCap = 'round';
+                if (structure.type === 'DDG') {
+                    ctx.beginPath();
+                    ctx.moveTo(x - size * 0.42, y + size * 0.38);
+                    ctx.quadraticCurveTo(x, y + size * 0.55, x + size * 0.42, y + size * 0.38);
+                    ctx.stroke();
+                } else if (structure.type === 'SSG') {
+                    ctx.beginPath();
+                    ctx.moveTo(x - size * 0.42, y + size * 0.30);
+                    ctx.lineTo(x + size * 0.42, y + size * 0.30);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(x, y + size * 0.30);
+                    ctx.lineTo(x, y + size * 0.05);
+                    ctx.stroke();
+                } else if (structure.type === 'AF') {
+                    ctx.beginPath();
+                    ctx.arc(x, y, size * 0.42, -Math.PI * 0.85, -Math.PI * 0.15);
+                    ctx.stroke();
+                }
+                ctx.restore();
+            }
         }
 
         // Level pips
@@ -1070,24 +1135,58 @@ export class Renderer {
             ctx.restore();
         }
 
-        // Incoming projectile threat preview (one ring per threatened tile; O(hexes) via game refcount)
-        const incomingHumanTargets = gameState.incomingThreatHumanHexKeys;
-        if (incomingHumanTargets) for (const key of incomingHumanTargets) {
-            const [q, r] = key.split(',').map(Number);
-            const tile = grid.getTile(q, r);
-            if (!tile) continue;
-            const pos = grid.hexToPixel(tile.q, tile.r);
-            const sp = camera.worldToScreen(pos.x, pos.y, this._cw, this._ch);
+        // Incoming projectile threat preview — directional arrows from each projectile to its human-owned target.
+        // Telegraphs WHO is being hit and FROM WHERE, so the player has a couple seconds to react.
+        const projectiles = gameState.projectiles;
+        if (projectiles && projectiles.length) {
+            const pulse = 0.55 + Math.sin(now * 0.012) * 0.35;
+            for (const p of projectiles) {
+                if (!p.targetQR) continue;
+                const tile = grid.getTile(p.targetQR.q, p.targetQR.r);
+                if (!tile || tile.owner !== humanId) continue;
 
-            ctx.save();
-            ctx.strokeStyle = "rgba(255, 61, 0, 0.3)";
-            ctx.lineWidth = 1.5;
-            ctx.setLineDash([4, 4]);
-            ctx.beginPath();
-            ctx.arc(sp.x, sp.y, sz * 1.1, 0, Math.PI * 2);
-            ctx.stroke();
-            ctx.setLineDash([]);
-            ctx.restore();
+                const targetScreen = camera.worldToScreen(p.targetX, p.targetY, this._cw, this._ch);
+                const projScreen   = camera.worldToScreen(p.x, p.y, this._cw, this._ch);
+
+                const dx = targetScreen.x - projScreen.x;
+                const dy = targetScreen.y - projScreen.y;
+                const dist = Math.hypot(dx, dy);
+                if (dist < 4) continue;
+
+                // Pull the arrow tip slightly off the target so it points AT the hex, not into it.
+                const ux = dx / dist, uy = dy / dist;
+                const tipX = targetScreen.x - ux * sz * 0.6;
+                const tipY = targetScreen.y - uy * sz * 0.6;
+
+                ctx.save();
+                ctx.strokeStyle = `rgba(255, 80, 40, ${0.85 * pulse})`;
+                ctx.fillStyle   = `rgba(255, 80, 40, ${0.85 * pulse})`;
+                ctx.lineWidth = 2.5;
+                ctx.setLineDash([8, 5]);
+                ctx.beginPath();
+                ctx.moveTo(projScreen.x, projScreen.y);
+                ctx.lineTo(tipX, tipY);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // Arrowhead
+                const head = Math.max(8, sz * 0.35);
+                const ang = Math.atan2(uy, ux);
+                ctx.beginPath();
+                ctx.moveTo(tipX, tipY);
+                ctx.lineTo(tipX - Math.cos(ang - 0.45) * head, tipY - Math.sin(ang - 0.45) * head);
+                ctx.lineTo(tipX - Math.cos(ang + 0.45) * head, tipY - Math.sin(ang + 0.45) * head);
+                ctx.closePath();
+                ctx.fill();
+
+                // Target hex pulse outline
+                ctx.strokeStyle = `rgba(255, 80, 40, ${0.5 * pulse})`;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(targetScreen.x, targetScreen.y, sz * 1.12, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.restore();
+            }
         }
     }
 
