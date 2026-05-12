@@ -6,10 +6,13 @@ const keysDown = new Set();
 const keysPressed = new Set();
 let rebinding = null;
 
+// v2: palette regrouped (Economy/Defense/Offense/Ground/Navy) — old build_* bindings invalidated.
+const KEYBINDS_STORAGE_KEY = 'rocketio.keybinds.v2';
+
 function loadKeybinds() {
     Object.assign(keybinds, DEFAULT_KEYBINDS);
     try {
-        const stored = JSON.parse(localStorage.getItem('rocketio.keybinds'));
+        const stored = JSON.parse(localStorage.getItem(KEYBINDS_STORAGE_KEY));
         if (stored && typeof stored === 'object') {
             Object.assign(keybinds, stored);
         }
@@ -17,7 +20,7 @@ function loadKeybinds() {
 }
 
 function saveKeybinds() {
-    localStorage.setItem('rocketio.keybinds', JSON.stringify(keybinds));
+    localStorage.setItem(KEYBINDS_STORAGE_KEY, JSON.stringify(keybinds));
 }
 
 function loadSettings() {
