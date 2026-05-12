@@ -319,8 +319,29 @@ export class Renderer {
         if (structure.type === 'B') {
             this.drawBarracksBunker(x, y, size, tile, structure, isVisible, gameState);
         } else {
+            const isNavy = structure.type === 'DDG' || structure.type === 'AF' || structure.type === 'SSG';
+            const isPort = structure.type === 'PT';
+
+            // Contrast backdrop for naval icons (dark water) and Ports (coastal).
+            // Ensures the emoji stands out and gives a strong owner cue even
+            // when the platform-default emoji renders thin or low-contrast.
+            if (isNavy || isPort) {
+                const owner = COLORS[`PLAYER${tile.owner}`] || '#00e5ff';
+                ctx.save();
+                ctx.globalAlpha = isVisible ? 0.85 : 0.45;
+                ctx.fillStyle = 'rgba(8, 14, 24, 0.85)';
+                ctx.beginPath();
+                ctx.arc(x, y, size * 0.55, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.lineWidth = Math.max(1.2, size * 0.06);
+                ctx.strokeStyle = owner;
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            const iconPx = Math.max(10, size * 0.8);
             ctx.fillStyle = "white";
-            ctx.font = `${size * 0.8}px Arial`;
+            ctx.font = `${iconPx}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",Arial,sans-serif`;
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
 
@@ -339,9 +360,9 @@ export class Renderer {
                 }
                 case 'AB':  icon = "✈️"; break;
                 case 'PT':  icon = "⚓"; break;
-                case 'DDG': icon = "🛳️"; break;
+                case 'DDG': icon = "🚢"; break;
                 case 'AF':  icon = "📡"; break;
-                case 'SSG': icon = "🫧"; break;
+                case 'SSG': icon = "🌊"; break;
             }
             // Signature (SU): dashed ring under icon (distinct from Drone)
             if (structure.type === 'SU') {
@@ -358,6 +379,37 @@ export class Renderer {
             ctx.globalAlpha = isVisible ? 1 : 0.55;
             ctx.fillText(icon, x, y);
             ctx.globalAlpha = 1;
+
+            // Naval procedural marks: a tiny hull line under icon for DDG,
+            // a periscope tick for SSG, a sweep arc badge for AF — guarantees
+            // a recognizable silhouette even if the emoji font is missing.
+            if (isNavy) {
+                ctx.save();
+                ctx.globalAlpha = isVisible ? 0.9 : 0.5;
+                ctx.strokeStyle = '#e8f4ff';
+                ctx.lineWidth = Math.max(1, size * 0.06);
+                ctx.lineCap = 'round';
+                if (structure.type === 'DDG') {
+                    ctx.beginPath();
+                    ctx.moveTo(x - size * 0.42, y + size * 0.38);
+                    ctx.quadraticCurveTo(x, y + size * 0.55, x + size * 0.42, y + size * 0.38);
+                    ctx.stroke();
+                } else if (structure.type === 'SSG') {
+                    ctx.beginPath();
+                    ctx.moveTo(x - size * 0.42, y + size * 0.30);
+                    ctx.lineTo(x + size * 0.42, y + size * 0.30);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(x, y + size * 0.30);
+                    ctx.lineTo(x, y + size * 0.05);
+                    ctx.stroke();
+                } else if (structure.type === 'AF') {
+                    ctx.beginPath();
+                    ctx.arc(x, y, size * 0.42, -Math.PI * 0.85, -Math.PI * 0.15);
+                    ctx.stroke();
+                }
+                ctx.restore();
+            }
         }
 
         // Level pips
