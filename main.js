@@ -2813,7 +2813,7 @@ function refreshHomeFactionBrief() {
     const effLines = describeModsList({ ...comb, startMissiles: comb.startMissiles });
     const mrg = document.getElementById('fb-merged');
     if (mrg) {
-        mrg.textContent = 'Effective (nation×leader, undertuned): ' + (effLines.length ? effLines.join(' · ') : 'no extra modifiers beyond baseline.');
+        mrg.textContent = effLines.length ? ('Combined: ' + effLines.join(' · ')) : 'Combined: baseline (no modifiers).';
     }
 }
 

@@ -48,8 +48,8 @@ export function getSpecialUnitBlurb(faction) {
     const idx = typeof faction === 'number' ? faction : FACTIONS.indexOf(s);
     const icon = getSpecialUnitIcon(idx);
     const sig = s.signatureL3;
-    const sigLine = sig ? ` Lv3 "${sig.label}": ${sig.desc}` : ' Lv3: area jam in range.';
-    return `${s.specialName} ${icon} — build with Sig (F2). Glass cannon chip damage, higher DPS/$ than the Drone line.${sigLine}`;
+    const sigLine = sig ? `Lv3 "${sig.label}" — ${sig.desc}` : 'Lv3 — area jam in range.';
+    return `${s.specialName} ${icon} · built with Sig (F2). Glass cannon: chip damage, but better DPS/$ than the Drone line.\n${sigLine}`;
 }
 
 /** 3 short flavor lines per faction, parallel to `leaders[]`. UI lists the
@@ -57,87 +57,87 @@ export function getSpecialUnitBlurb(faction) {
 const LEADER_FLAVOR = {
     // 1. USA — Biden, Trump, Obama
     USA: [
-        'Bidenomics — broad tax base widens your gold pipeline.',
-        'Maximum Pressure — volleys land harder, but the response invites blowback.',
-        'Drone-Era Doctrine — your shooters cycle visibly faster.',
+        'Bidenomics — broader tax base lifts gold income.',
+        'Maximum Pressure — harder hits, slightly thinner skin.',
+        'Drone-Era Doctrine — faster fire cycles across the board.',
     ],
     // 2. Russia — Putin, Medvedev, Shoigu
     RUS: [
-        'Vertical of Power — opens the game with extra missiles in the tube.',
+        'Vertical of Power — starts loaded with extra missiles.',
         'Mobilization Decree — factories surge into overproduction.',
-        'General Winter — out-of-supply penalties barely sting.',
+        'General Winter — out-of-supply barely hurts.',
     ],
     // 3. China — Xi, Li, Wang
     CHN: [
-        'Centralized Command — volleys land cleaner under unified fire control.',
-        'State Capitalism — clears the austerity drag and then some.',
-        'Belt & Road — softens out-of-supply slowdowns across the map.',
+        'Centralized Command — unified fire control lands cleaner hits.',
+        'State Capitalism — clears the austerity drag on gold.',
+        'Belt & Road — supply lines hold across the map.',
     ],
     // 4. Japan — Kishida, Abe, Ishiba
     JPN: [
-        '"New Capitalism" — government rings pay out more reliably.',
-        'Abenomics & Rearm — punchier volleys to back up the shield.',
-        'SDF Reform — even thicker armor on every structure.',
+        'New Capitalism — government revenue runs steadier.',
+        'Abenomics & Rearm — punchier volleys behind the shield.',
+        'SDF Reform — thicker armor on every structure.',
     ],
     // 5. Türkiye — Erdoğan, Kılıçdaroğlu, Akar
     TUR: [
-        '"Sultan\'s Push" — sharper damage cancels the swarm\'s chip-shot weakness.',
-        'Civic Economy — strong gold for a war of drones and dollars.',
-        'Combined Arms — cycle times tighten even further.',
+        'Sultan\'s Push — sharper damage cures the swarm\'s chip-shot problem.',
+        'Civic Economy — strong gold for a drone-and-dollars war.',
+        'Combined Arms — tighter fire-cycle tempo.',
     ],
     // 6. Iran — Khamenei, Pezeshkian, Salami
     IRN: [
         'Supreme Leader — revolutionary doctrine gives volleys real bite.',
-        'Reformist Wing — eases the embargo and unfreezes your economy.',
-        'Quds Force — out-of-supply is barely a problem; raid anywhere.',
+        'Reformist Wing — eases sanctions, unfreezes the economy.',
+        'Quds Force — operate anywhere; supply barely matters.',
     ],
     // 7. Finland — Stubb, Marin, Niinistö
     FIN: [
-        'NATO Integration — sharper volleys for the new alliance era.',
+        'NATO Integration — alliance training sharpens every volley.',
         'Social-Democrat Budget — civic spending lifts gold income.',
-        'Cold Doctrine — drilled crews cycle perceptibly faster.',
+        'Cold Doctrine — drilled crews cycle faster.',
     ],
     // 8. Indonesia — Prabowo, Jokowi, SBY
     IDN: [
-        'Force Buildup — opens the game with +2 missiles on the rack.',
-        'Infrastructure Drive — factories pump out a markedly bigger stream.',
-        'Naval Doctrine — fixes the chip-damage problem with real punch.',
+        'Force Buildup — opens with +2 missiles loaded.',
+        'Infrastructure Drive — factories scale up output.',
+        'Naval Doctrine — finally puts real punch behind the volley.',
     ],
     // 9. Switzerland — Amherd, Cassis, Berset
     SUI: [
-        'Defense Reform — clears the bureaucratic sluggishness completely.',
-        'Neutral Diplomacy — out-of-supply turns into a minor inconvenience.',
-        'Private Banking — gold piles up faster than anyone else\'s.',
+        'Defense Reform — clears the bureaucratic sluggishness.',
+        'Neutral Diplomacy — out-of-supply becomes a minor issue.',
+        'Private Banking — gold piles up faster than anyone\'s.',
     ],
     // 10. Saudi Arabia — Salman, MBS, Faisal
     KSA: [
-        'Royal Coordination — measured fires for measured damage.',
-        'Vision 2030 — sharp pivot, cycles snap into a real tempo.',
+        'Royal Coordination — measured volleys land harder.',
+        'Vision 2030 — reform pivot snaps fire cycles into tempo.',
         'Oil Diplomacy — out-of-supply pain greatly reduced.',
     ],
     // 11. Poland — Duda, Tusk, Morawiecki
     POL: [
-        'NATO Anchor — alliance dollars boost your gold income.',
-        'EU Integration — defense industry rolls out missiles in bulk.',
-        'Defense Industry — sharper volleys on top of the opening salvo.',
+        'NATO Anchor — alliance funding lifts gold income.',
+        'EU Integration — defense industry rolls missiles in bulk.',
+        'Defense Industry — sharper hits on top of the opening salvo.',
     ],
     // 12. Vietnam — Tô Lâm, Phạm Minh Chính, Nguyễn Phú Trọng
     VNM: [
-        'Doi Moi Military — modernization speeds up every cycle.',
-        'Industrial Drive — clears the poverty trap and lifts gold income.',
-        'People\'s War — ambushes hit with real ferocity.',
+        'Doi Moi Military — modernization tightens every cycle.',
+        'Industrial Drive — clears the poverty trap on gold.',
+        'People\'s War — ambushes hit with ferocity.',
     ],
     // 13. UK — Starmer, Sunak, Johnson
     GBR: [
-        'Treasury First — civilian planning lifts gold income further.',
+        'Treasury First — careful planning lifts gold income.',
         'Defense Spend — Treasury surge loads +2 missiles at start.',
-        '"Get It Done" — harder hits and a tougher hide.',
+        '"Get It Done" — harder hits, tougher hide.',
     ],
     // 14. Italy — Meloni, Mattarella, Draghi
     ITA: [
-        'Assertive Doctrine — Aster batteries put real teeth in your shots.',
-        'Institutional Stability — factories hum on uninterrupted schedules.',
-        '"Whatever It Takes" — Draghi opens the spigot on your treasury.',
+        'Assertive Doctrine — Aster batteries put real teeth in shots.',
+        'Institutional Stability — factories hum on schedule.',
+        '"Whatever It Takes" — Draghi opens the treasury spigot.',
     ],
 };
 
@@ -146,7 +146,8 @@ const LEADER_FLAVOR = {
  * @param {number} leaderIdx
  */
 export function getLeaderPerkText(factionIdx, leaderIdx) {
-    const f = FACTIONS[((factionIdx | 0) + 900) % FACTIONS.length] || FACTIONS[0];
-    const a = LEADER_FLAVOR[f.id] || ['Leader bonus active.', 'Stacks with nation.', 'Undertuned.'];
-    return a[((leaderIdx | 0) + 9) % 3] || a[0];
+    const len = FACTIONS.length;
+    const f = FACTIONS[(((factionIdx | 0) % len) + len) % len] || FACTIONS[0];
+    const a = LEADER_FLAVOR[f.id] || ['Leader bonus active.', 'Stacks with nation.', 'Leader bonus active.'];
+    return a[(((leaderIdx | 0) % 3) + 3) % 3] || a[0];
 }
