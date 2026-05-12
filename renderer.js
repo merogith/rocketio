@@ -2,7 +2,7 @@ import { COLORS, UNIT_STATS, PROJECTILE_VISUAL_PRESETS } from './constants.js?v=
 import { getSpecialUnitIcon } from './factions.js?v=naval2027';
 
 const TARGETABLE_TYPES = new Set(['RL', 'B', 'D', 'SU', 'M', 'AB', 'DDG', 'SSG']);
-const NAVY_BUILD_GHOST = new Set(['DDG', 'AF', 'SSG']);
+const NAVY_BUILD_GHOST = new Set(['DDG', 'AF', 'SSG', 'CV']);
 
 export class Renderer {
     constructor(canvas, grid, camera) {
@@ -667,11 +667,17 @@ export class Renderer {
         ctx.stroke();
         ctx.setLineDash([]);
 
-        if (valid && (this.buildGhostType === 'G' || this.buildGhostType === 'B' || this.buildGhostType === 'PT')) {
+        if (valid) {
             const ghostDef = UNIT_STATS[this.buildGhostType];
-            const r = ghostDef?.levels?.[this.buildGhostLevel ?? 0]?.radius;
-            if (r) {
-                this.drawHexRing(tile.q, tile.r, r, "rgba(0, 229, 255, 0.08)");
+            const lv = ghostDef?.levels?.[this.buildGhostLevel ?? 0];
+            // Influence-radius structures show their inf-range ring.
+            const auraTypes = new Set(['G', 'B', 'PT']);
+            if (auraTypes.has(this.buildGhostType) && lv?.radius) {
+                this.drawHexRing(tile.q, tile.r, lv.radius, "rgba(0, 229, 255, 0.08)");
+            }
+            // EW jammer uses `range` instead of `radius`; show its soft-kill coverage at placement time.
+            if (this.buildGhostType === 'EW' && lv?.range) {
+                this.drawHexRing(tile.q, tile.r, lv.range, "rgba(180, 120, 255, 0.10)");
             }
         }
     }

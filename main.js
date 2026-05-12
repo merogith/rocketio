@@ -80,7 +80,7 @@ const diplomacyCloseBtn = document.getElementById('diplomacy-close');
 const playerPortraitEl = document.getElementById('player-portrait');
 
 const TARGETABLE_TYPES = new Set(['RL', 'B', 'D', 'SU', 'M', 'AB', 'DDG', 'SSG']);
-const NAVY_BUILD_TYPES_UI = new Set(['DDG', 'AF', 'SSG']);
+const NAVY_BUILD_TYPES_UI = new Set(['DDG', 'AF', 'SSG', 'CV']);
 
 // ============================================================================
 //  WORLD

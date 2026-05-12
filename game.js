@@ -103,6 +103,8 @@ export class Game {
         this._l3PortTiles.length = 0;
         if (!this._aegisAuraTiles) this._aegisAuraTiles = [];
         this._aegisAuraTiles.length = 0;
+        if (!this._ewTiles) this._ewTiles = [];
+        this._ewTiles.length = 0;
         this._govCount = new Array(this.players.length).fill(0);
         for (const tile of this.grid.tiles.values()) {
             if (!tile.structure) continue;
@@ -121,6 +123,7 @@ export class Game {
                 this._aegisAuraTiles.push(tile);
             }
             if (tile.structure.type === 'PT' && tile.structure.level === 2 && tile.structure.stats?.navyAura) this._l3PortTiles.push(tile);
+            if (tile.structure.type === 'EW') this._ewTiles.push(tile);
             if (tile.structure.type === 'G' && tile.owner) {
                 this._govTiles.push(tile);
                 this._govCount[tile.owner - 1] = (this._govCount[tile.owner - 1] || 0) + 1;
@@ -202,11 +205,12 @@ export class Game {
     _ewCoverageFor(defTile, ownerId) {
         if (!defTile || !ownerId) return null;
         this._ensureIndex();
+        const list = this._ewTiles;
+        if (!list || list.length === 0) return null;
         let bestMult = 1;
         let bestCancel = 0;
-        for (const t of this._structureTiles) {
+        for (const t of list) {
             if (t.owner !== ownerId || t.contested) continue;
-            if (t.structure?.type !== 'EW') continue;
             const r = t.structure.stats?.range ?? 0;
             if (Hex.distance(defTile, t) > r) continue;
             const mult = t.structure.stats?.ewDmgMult ?? 1;
@@ -2127,6 +2131,7 @@ export class Game {
                 if (ew) {
                     if (ew.cancelChance > 0 && Math.random() < ew.cancelChance) {
                         // Spoofed: missile passes harmlessly. Skip damage entirely.
+                        this.logEvent(proj.owner, tile.owner, 'defense', `EW jammer spoofed incoming ${proj.type}`);
                         return;
                     }
                     if (ew.mult < 1) dmg *= ew.mult;
@@ -2181,13 +2186,14 @@ export class Game {
             }
         }
 
-        // Splash: RL3 (rocket) uses RL_L3_SPLASH_MULT; IRN kamikaze drones 40%; ICBM 100% (full damage to all adjacent).
+        // Splash: RL3 (rocket) uses RL_L3_SPLASH_MULT; IRN kamikaze drones 28% (3 projectiles per volley
+        // means the expected per-volley splash is already large); ICBM 100% (full damage to all adjacent).
         if (proj.splash && (proj.type === 'rocket' || proj.type === 'icbm' || (proj.type === 'drone' && proj.suL3 === 'kamikaze'))) {
             const origin = new Hex(proj.targetQR.q, proj.targetQR.r);
             const splashFrac =
                 proj.type === 'icbm'   ? GAME_CONFIG.ICBM_SPLASH_MULT :
                 proj.type === 'rocket' ? GAME_CONFIG.RL_L3_SPLASH_MULT :
-                                         0.4;
+                                         0.28;
             let splashBase = proj.damage * splashFrac;
             for (const n of origin.getNeighbors()) {
                 const nt = this.grid.getTile(n.q, n.r);
@@ -2230,9 +2236,15 @@ export class Game {
         if (!proj || !proj.suL3) return;
         if (proj.suL3 === 'shoot_scoot') {
             const src = this.grid.getTile(proj.fromQR?.q, proj.fromQR?.r);
+            // Source may have been destroyed/replaced between fire and impact; silently skip if not matching.
             if (src?.structure?.type === 'SU' && src.structure.level === 2 && src.owner === proj.owner) {
-                const interval = src.structure.stats?.interval ?? 0;
-                src.lastAction = (src.lastAction || 0) - interval * 0.4;
+                // Throttle: a single HIMARS can only trigger the speed-up once every 10s (anti-cheese vs M1 spam).
+                const SHOOT_SCOOT_COOLDOWN_MS = 10_000;
+                if (this.gameTime - (src.structure._lastScootAt || -Infinity) >= SHOOT_SCOOT_COOLDOWN_MS) {
+                    const interval = src.structure.stats?.interval ?? 0;
+                    src.lastAction = (src.lastAction || 0) - interval * 0.4;
+                    src.structure._lastScootAt = this.gameTime;
+                }
             }
         } else if (proj.suL3 === 'gilded') {
             const attacker = this.players?.[proj.owner - 1];

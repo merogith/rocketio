@@ -145,7 +145,7 @@ export const FACTIONS = [
     { id: 'USA', code: 'USA', name: 'United States', specialName: 'HIMARS Battery', specialIcon: '🚀',
       nation: { effMult: 0.96, dealtMult: 1.03 },
       signatureL3: { id: 'shoot_scoot', label: 'Shoot & Scoot',
-        desc: 'L3 HIMARS: after a confirmed kill, next salvo is ready 40% sooner. Rewards relentless pressure.' },
+        desc: 'L3 HIMARS: after a confirmed kill, next salvo is ready 40% sooner (one trigger per 10s per silo). Rewards relentless pressure.' },
       leaders: [
         { name: 'Joe Biden',     mods: { goldMult: 1.06 } },                       // Bidenomics
         { name: 'Donald Trump',  mods: { dealtMult: 1.05, takenMult: 1.02 } },     // Maximum Pressure — hits harder, takes a bit more
@@ -210,7 +210,7 @@ export const FACTIONS = [
     { id: 'IRN', code: 'IRN', name: 'Islamic Republic of Iran', specialName: 'Shahed Swarm', specialIcon: '🦂',
       nation: { startMissiles: 3, takenMult: 0.95, goldMult: 0.95 },               // opens loaded; sanctions bite gold
       signatureL3: { id: 'kamikaze', label: 'Kamikaze Swarm',
-        desc: 'L3 Shahed: +30% damage and on hit splashes 40% to adjacent enemies. Cheap, lethal, expendable.' },
+        desc: 'L3 Shahed: +30% damage and on hit splashes 28% to adjacent enemies. Cheap, lethal, expendable.' },
       leaders: [
         { name: 'Ali Khamenei',      mods: { dealtMult: 1.06 } },                  // Supreme Leader
         { name: 'Masoud Pezeshkian', mods: { goldMult: 1.06 } },                   // Reformist — eases the embargo

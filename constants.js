@@ -484,7 +484,7 @@ export const UNIT_STATS = {
         levels: [
             { id: "RC1", hp: 70,  cost: 175, vision: 9 },
             { id: "RC2", hp: 140, cost: 275, vision: 12 },
-            { id: "RC3", hp: 260, cost: 400, vision: 16, scouting: true }
+            { id: "RC3", hp: 260, cost: 400, vision: 14, scouting: true }
         ]
     },
     /**
@@ -527,7 +527,7 @@ export const UNIT_STATS = {
         levels: [
             { id: "CV1", hp: 280,  range: 9,  damage: 110, cost: 700,  interval: 12000, missilesPerShot: 1, projectiles: 2, interceptable: true,  projectileSpeed: 4.8, vision: 7 },
             { id: "CV2", hp: 720,  range: 11, damage: 165, cost: 1300, interval: 9000,  missilesPerShot: 1, projectiles: 3, interceptable: true,  projectileSpeed: 5.4, vision: 9 },
-            { id: "CV3", hp: 1700, range: 14, damage: 220, cost: 2300, interval: 7000,  missilesPerShot: 2, projectiles: 4, interceptable: true,  projectileSpeed: 6.0, vision: 12, airWing: true }
+            { id: "CV3", hp: 1700, range: 14, damage: 190, cost: 2300, interval: 7000,  missilesPerShot: 2, projectiles: 4, interceptable: true,  projectileSpeed: 6.0, vision: 12, airWing: true }
         ]
     },
     /**
