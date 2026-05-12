@@ -928,6 +928,7 @@ h3 {
     position: fixed; inset: 0; z-index: 2000;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     background: rgba(0,0,0,0.5); backdrop-filter: blur(2px);
+    pointer-events: none;
 }
 .pause-text { font-family: var(--font-title); font-size: 3rem; color: var(--accent-blue); letter-spacing: 8px; }
 .pause-sub { color: rgba(255,255,255,0.4); margin-top: 12px; font-size: 0.9rem; }
