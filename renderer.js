@@ -328,8 +328,8 @@ export class Renderer {
             if (isNavy || isPort) {
                 const owner = COLORS[`PLAYER${tile.owner}`] || '#00e5ff';
                 ctx.save();
-                ctx.globalAlpha = isVisible ? 0.85 : 0.45;
-                ctx.fillStyle = 'rgba(8, 14, 24, 0.85)';
+                ctx.globalAlpha = isVisible ? 0.78 : 0.4;
+                ctx.fillStyle = 'rgba(8, 14, 24, 0.78)';
                 ctx.beginPath();
                 ctx.arc(x, y, size * 0.55, 0, Math.PI * 2);
                 ctx.fill();
