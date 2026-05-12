@@ -19,7 +19,7 @@ function intervalEff(tile) {
 const ATTACK_TYPES = new Set(['RL', 'B', 'D', 'SU', 'M', 'AB', 'DDG', 'SSG']);
 /** Structures that may be placed on owned water only (see `canBuildNavyOn`). */
 const NAVY_BUILD_TYPES = new Set();
-['DDG', 'AF', 'SSG'].forEach(t => NAVY_BUILD_TYPES.add(t));
+['DDG', 'AF', 'SSG', 'CV'].forEach(t => NAVY_BUILD_TYPES.add(t));
 
 function isInfluencer(structure) {
     if (!structure) return false;
@@ -1081,7 +1081,7 @@ export class Game {
             if (tile.contested && !m3Insurgent) continue;
 
             const s = tile.structure;
-            if (s.type === 'RL' || s.type === 'AB' || s.type === 'DDG' || s.type === 'SSG') continue;
+            if (s.type === 'RL' || s.type === 'AB' || s.type === 'DDG' || s.type === 'SSG' || s.type === 'CV') continue;
 
             const stats = s.stats;
             const p = this.players[tile.owner - 1];
@@ -1150,7 +1150,7 @@ export class Game {
             if (!tile.structure) continue;
             if (tile.contested) continue;
             const s = tile.structure;
-            if (s.type !== 'RL' && s.type !== 'AB' && s.type !== 'DDG' && s.type !== 'SSG') continue;
+            if (s.type !== 'RL' && s.type !== 'AB' && s.type !== 'DDG' && s.type !== 'SSG' && s.type !== 'CV') continue;
             const stats = s.stats;
             const p = this.players[tile.owner - 1];
             const eff = this.effFor(tile);
@@ -1205,6 +1205,8 @@ export class Game {
                     if (this.fireNavyDDG(tile)) tile.lastAction = time;
                 } else if (s.type === 'SSG') {
                     if (this.fireNavySSG(tile)) tile.lastAction = time;
+                } else if (s.type === 'CV') {
+                    if (this.fireNavyCV(tile)) tile.lastAction = time;
                 }
             }
             this._autoTargetAllocMap = null;
@@ -1762,6 +1764,48 @@ export class Game {
             });
         }
         this.spawnMuzzleFlash(tile, target, { color: '#7aa0c0', size: 1.2, count: 3 });
+        this._fireSfx(tile, 'launch_airstrike');
+        return true;
+    }
+
+    /**
+     * Carrier Group volley — naval air sortie. Multi-projectile, missile-consuming.
+     * Lv3 "Air Wing" adds one extra stealth (non-interceptable) projectile per volley.
+     */
+    fireNavyCV(tile) {
+        const p = this.players[tile.owner - 1];
+        const s = tile.structure;
+        const stats = s.stats;
+        const { target, fromManual } = this._resolveTargetWithFlags(tile, stats, {
+            missileSmart: true,
+            allocMap: this._autoTargetAllocMap,
+        });
+        if (!target) return false;
+        if (p.missiles < stats.missilesPerShot) return false;
+        let dmg = stats.damage;
+        if (this._inFriendlyL3PortAura(tile, tile.owner)) {
+            dmg *= GAME_CONFIG.PORT_L3_NAVY_DAMAGE_MULT;
+        }
+        p.missiles -= stats.missilesPerShot;
+        s.lastFiredAt = this.gameTime;
+        if (this._autoTargetAllocMap && !fromManual) {
+            const k = `${s.type}:${target.q},${target.r}`;
+            this._autoTargetAllocMap.set(k, (this._autoTargetAllocMap.get(k) || 0) + 1);
+        }
+        const baseProj = stats.projectiles || 1;
+        const isCv3 = s.level === 2 && stats.airWing;
+        const totalProj = baseProj + (isCv3 ? 1 : 0);
+        for (let i = 0; i < totalProj; i++) {
+            const stealth = isCv3 && i === totalProj - 1; // last sortie is the stealth wing
+            this.spawnProjectile(tile, target, {
+                type: 'airstrike',
+                damage: dmg,
+                speed: stats.projectileSpeed || 5.5,
+                interceptable: stealth ? false : (stats.interceptable !== false),
+                trail: true,
+            });
+        }
+        this.spawnMuzzleFlash(tile, target, { color: '#bcd6e8', size: 1.4, count: 5 });
         this._fireSfx(tile, 'launch_airstrike');
         return true;
     }

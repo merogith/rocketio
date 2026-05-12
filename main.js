@@ -1166,7 +1166,7 @@ function handleInput() {
     if (Input.consumePress('settings')) openSettings();
 
     // Build hotkeys
-    const buildTypes = ['G', 'RL', 'AAS', 'MF', 'B', 'M', 'D', 'SU', 'AB', 'BUNK', 'RC', 'TH', 'EW', 'PT', 'DDG', 'AF', 'SSG'];
+    const buildTypes = ['G', 'RL', 'AAS', 'MF', 'B', 'M', 'D', 'SU', 'AB', 'BUNK', 'RC', 'TH', 'EW', 'PT', 'DDG', 'AF', 'SSG', 'CV'];
     buildTypes.forEach((type, i) => {
         if (Input.consumePress(`build_${type}`)) {
             if (game.campaign?.buildTutorial?.active) {
@@ -1412,6 +1412,8 @@ function structureL3PerkHtml(type, levelIdx, opts = {}) {
             return `<p class="info-perk"><b>Lv3 — Trade Network</b> · +$${UNIT_STATS.TH.levels[2].tradeBase}/s base, +$${UNIT_STATS.TH.levels[2].tradePerGov} per other Gov, +$${UNIT_STATS.TH.levels[2].tradePerPort} per Port. Also <b>+${Math.round(UNIT_STATS.TH.levels[2].tradeGovBonus * 100)}% gold</b> to all your Govs (capped 20%).</p>`;
         case 'EW':
             return `<p class="info-perk"><b>Lv3 — Spoofing</b> · Friendly tiles in range take ${Math.round((1 - UNIT_STATS.EW.levels[2].ewDmgMult) * 100)}% less damage from interceptable missiles, and ${Math.round(UNIT_STATS.EW.levels[2].ewCancelChance * 100)}% of incoming missiles are fully spoofed (no damage).</p>`;
+        case 'CV':
+            return `<p class="info-perk"><b>Lv3 — Air Wing</b> · Volley adds one extra non-interceptable stealth sortie. Combined with the base ${UNIT_STATS.CV.levels[2].projectiles} interceptable sorties, an L3 Carrier launches ${UNIT_STATS.CV.levels[2].projectiles + 1} projectiles per shot.</p>`;
         default:
             return '';
     }
@@ -1574,6 +1576,10 @@ function showBuildTooltip(btn) {
     if (type === 'EW') {
         const l1 = def.levels[0];
         html += `<div class="tt-upgrade dim">Soft-kill defense. Friendly tiles in range ${l1.range} hex take ${Math.round((1 - l1.ewDmgMult) * 100)}% less damage from interceptable missiles. Non-stacking (best aura wins). Distinct from AAS/AF physical intercept.</div>`;
+    }
+
+    if (type === 'CV') {
+        html += `<div class="tt-upgrade dim">Naval air-projection. Built on owned water. Long range, multi-sortie volleys, missile-consuming. Lv3 "Air Wing": +1 stealth sortie per volley.</div>`;
     }
 
     buildTooltip.innerHTML = html;

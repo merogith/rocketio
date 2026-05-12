@@ -95,6 +95,7 @@ export const GAME_CONFIG = {
         RC: 12,
         TH: 50,
         EW: 38,
+        CV: 55,
     },
     /**
      * Optional per-**source** structure type weights: `bySource[RL|AB][G|MF|…]`.
@@ -155,6 +156,7 @@ export const GAME_CONFIG = {
         AF:   3200,
         SSG:  6000,
         SU:   5000,
+        CV:   7000,
     },
     // Lv3 Barracks: friendly structures on hexes within its influence radius (stats.radius) deal +10% damage
     // and take −10% damage from projectiles. Overlapping L3 Barracks do not stack (single application).
@@ -507,6 +509,20 @@ export const UNIT_STATS = {
             { id: "EW2", hp: 480,  cost: 625, range: 5, vision: 6, ewDmgMult: 0.78, ewCancelChance: 0 },
             { id: "EW3", hp: 1050, cost: 950, range: 6, vision: 7, ewDmgMult: 0.70, ewCancelChance: 0.15 }
         ]
+    },
+    /**
+     * Carrier Group — naval air-projection. Long-range, expensive, launches multi-projectile
+     * air sorties from sea. Built on owned water (NAVY_BUILD_TYPES). Each volley consumes
+     * `missilesPerShot` missiles regardless of projectile count, so missile economy matters.
+     * Lv3 "Air Wing": each volley fires one extra stealth (non-interceptable) sortie.
+     */
+    CV: {
+        name: "Carrier Group",
+        levels: [
+            { id: "CV1", hp: 280,  range: 9,  damage: 110, cost: 700,  interval: 12000, missilesPerShot: 1, projectiles: 2, interceptable: true,  projectileSpeed: 4.8, vision: 7 },
+            { id: "CV2", hp: 720,  range: 11, damage: 165, cost: 1300, interval: 9000,  missilesPerShot: 1, projectiles: 3, interceptable: true,  projectileSpeed: 5.4, vision: 9 },
+            { id: "CV3", hp: 1700, range: 14, damage: 220, cost: 2300, interval: 7000,  missilesPerShot: 2, projectiles: 4, interceptable: true,  projectileSpeed: 6.0, vision: 12, airWing: true }
+        ]
     }
 };
 
@@ -572,6 +588,7 @@ export const DEFAULT_KEYBINDS = {
     build_RC:   'Digit0',
     build_TH:   'F2',
     build_EW:   'F3',
+    build_CV:   'F4',
     upgrade:    'Space',
     cancel:     'Escape',
     pan_up:     'KeyW',
