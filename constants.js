@@ -170,7 +170,25 @@ export const GAME_CONFIG = {
     /** Enemy L3 Drone: military + AAS in range get this mult on interval/recharge (slower fire). MF excluded. */
     DRONE_L3_RECHARGE_DEBUFF_MULT: 1.25,
     /** Enemy Lv3 Signature (SU): same jam class as Drone, weaker debuff. */
-    SIGNATURE_L3_RECHARGE_DEBUFF_MULT: 1.12,
+    /** Enemy Lv3 Signature (SU) with EW archetype: same jam class as Drone, weaker
+     *  debuff. Bumped 1.12 → 1.15 so EW factions feel meaningfully different from
+     *  baseline SU while still sitting below Drone L3's dedicated 1.25 ceiling. */
+    SIGNATURE_L3_RECHARGE_DEBUFF_MULT: 1.15,
+    // --- Signature (SU) L3 archetype magnitudes ---
+    // Each faction's L3 signature carries one archetype effect (see factions.js).
+    // Magnitudes are tuned to sit ABOVE baseline SU but BELOW the dedicated
+    // structure (RL/AAS/D/B) that fills the same niche — signature is a faction-
+    // flavored side-grade, not a strict upgrade.
+    /** 'strike' archetype: SU3 projectiles roll splash with this probability (RL3 splash = 0.30). */
+    SIG_STRIKE_SPLASH_CHANCE: 0.25,
+    /** 'artillery' archetype: SU3 fires this many extra projectiles per volley (base SU3 = 3 → with 1 extra = 4). */
+    SIG_ARTILLERY_EXTRA_PROJECTILES: 1,
+    /** 'antiship' archetype: SU3 damage × this when target is naval (DDG/AF/SSG). DDG natural anti-ship = 1.25. */
+    SIG_ANTISHIP_DAMAGE_MULT: 1.30,
+    /** 'airdef' archetype: friendly AAS/AF in SU3 range have rechargeInterval × this (lower = faster). */
+    SIG_AIRDEF_AURA_MULT: 0.92,
+    /** 'bastion' archetype: SU3 base HP × this on build (one-time, applied at structure creation). */
+    SIG_BASTION_HP_MULT: 1.40,
     /** All Missile Factories: missiles produced × this (1.0 = honest base numbers, no hidden nerf). */
     MF_GLOBAL_PRODUCTION_MULT: 1.0,
     /** Non–MF3 factory adjacent (hex 1) to a friendly MF3: production × this; MF3 does not buff itself. Non-stack. */
