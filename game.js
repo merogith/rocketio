@@ -194,6 +194,30 @@ export class Game {
             && NAVY_BUILD_TYPES.has(targetTile.structure.type));
     }
 
+    /**
+     * Best (lowest) EW jammer damage multiplier covering `defTile` for `ownerId`. Non-stacking.
+     * Returns `{ mult, cancelChance }` — caller decides whether to roll cancel and how to apply mult.
+     * Only applies to interceptable projectile types (rocket / airstrike / navy / cruise / drone).
+     */
+    _ewCoverageFor(defTile, ownerId) {
+        if (!defTile || !ownerId) return null;
+        this._ensureIndex();
+        let bestMult = 1;
+        let bestCancel = 0;
+        for (const t of this._structureTiles) {
+            if (t.owner !== ownerId || t.contested) continue;
+            if (t.structure?.type !== 'EW') continue;
+            const r = t.structure.stats?.range ?? 0;
+            if (Hex.distance(defTile, t) > r) continue;
+            const mult = t.structure.stats?.ewDmgMult ?? 1;
+            if (mult < bestMult) bestMult = mult;
+            const c = t.structure.stats?.ewCancelChance ?? 0;
+            if (c > bestCancel) bestCancel = c;
+        }
+        if (bestMult >= 1 && bestCancel <= 0) return null;
+        return { mult: bestMult, cancelChance: bestCancel };
+    }
+
     /** Count friendly Ports anywhere on the map (for PT3 "Free Trade" stacking). */
     _countFriendlyPorts(ownerId) {
         this._ensureIndex();
@@ -2011,6 +2035,21 @@ export class Game {
 
         if (tile && tile.structure) {
             let dmg = proj.damage;
+            // EW Jammer (soft-kill defense): for interceptable projectile types, friendly EW coverage
+            // reduces damage and (L3 only) has a chance to fully spoof the missile.
+            const ewElig = proj.interceptable !== false
+                && (proj.type === 'rocket' || proj.type === 'airstrike' || proj.type === 'navy'
+                    || proj.type === 'cruise' || proj.type === 'drone');
+            if (ewElig) {
+                const ew = this._ewCoverageFor(tile, tile.owner);
+                if (ew) {
+                    if (ew.cancelChance > 0 && Math.random() < ew.cancelChance) {
+                        // Spoofed: missile passes harmlessly. Skip damage entirely.
+                        return;
+                    }
+                    if (ew.mult < 1) dmg *= ew.mult;
+                }
+            }
             // POL "first_strike": +50% versus full-HP targets (snapshot BEFORE applying this hit).
             if (proj.suL3 === 'first_strike' && tile.hp >= tile.maxHp - 0.01) dmg *= 1.5;
             // GBR "bunker_buster": +50% versus high-value structures (G, B, PT, M3 = M with radius).

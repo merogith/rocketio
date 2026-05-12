@@ -332,6 +332,7 @@ export class Renderer {
                 case 'BUNK': icon = "🧱"; break;
                 case 'RC':  icon = "🛰️"; break;
                 case 'TH':  icon = "💰"; break;
+                case 'EW':  icon = "📶"; break;
             }
             // Signature (SU): dashed ring under icon (distinct from Drone)
             if (structure.type === 'SU') {

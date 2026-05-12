@@ -1166,7 +1166,7 @@ function handleInput() {
     if (Input.consumePress('settings')) openSettings();
 
     // Build hotkeys
-    const buildTypes = ['G', 'RL', 'AAS', 'MF', 'B', 'M', 'D', 'SU', 'AB', 'BUNK', 'RC', 'TH', 'PT', 'DDG', 'AF', 'SSG'];
+    const buildTypes = ['G', 'RL', 'AAS', 'MF', 'B', 'M', 'D', 'SU', 'AB', 'BUNK', 'RC', 'TH', 'EW', 'PT', 'DDG', 'AF', 'SSG'];
     buildTypes.forEach((type, i) => {
         if (Input.consumePress(`build_${type}`)) {
             if (game.campaign?.buildTutorial?.active) {
@@ -1410,6 +1410,8 @@ function structureL3PerkHtml(type, levelIdx, opts = {}) {
             return `<p class="info-perk"><b>Lv3 — Aerial Surveillance</b> · Largest vision radius in the game (${UNIT_STATS.RC.levels[2].vision} hex). Spots stealth strikes, deep enemy movements, and ambushes before they land.</p>`;
         case 'TH':
             return `<p class="info-perk"><b>Lv3 — Trade Network</b> · +$${UNIT_STATS.TH.levels[2].tradeBase}/s base, +$${UNIT_STATS.TH.levels[2].tradePerGov} per other Gov, +$${UNIT_STATS.TH.levels[2].tradePerPort} per Port. Also <b>+${Math.round(UNIT_STATS.TH.levels[2].tradeGovBonus * 100)}% gold</b> to all your Govs (capped 20%).</p>`;
+        case 'EW':
+            return `<p class="info-perk"><b>Lv3 — Spoofing</b> · Friendly tiles in range take ${Math.round((1 - UNIT_STATS.EW.levels[2].ewDmgMult) * 100)}% less damage from interceptable missiles, and ${Math.round(UNIT_STATS.EW.levels[2].ewCancelChance * 100)}% of incoming missiles are fully spoofed (no damage).</p>`;
         default:
             return '';
     }
@@ -1567,6 +1569,11 @@ function showBuildTooltip(btn) {
     if (type === 'TH') {
         const l1 = def.levels[0];
         html += `<div class="tt-upgrade dim">Pays $${l1.tradeBase}/s base + $${l1.tradePerGov} per OTHER friendly Gov on the map (network income, no range). Lv3 also pays per Port and buffs all your Govs.</div>`;
+    }
+
+    if (type === 'EW') {
+        const l1 = def.levels[0];
+        html += `<div class="tt-upgrade dim">Soft-kill defense. Friendly tiles in range ${l1.range} hex take ${Math.round((1 - l1.ewDmgMult) * 100)}% less damage from interceptable missiles. Non-stacking (best aura wins). Distinct from AAS/AF physical intercept.</div>`;
     }
 
     buildTooltip.innerHTML = html;

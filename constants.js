@@ -94,6 +94,7 @@ export const GAME_CONFIG = {
         BUNK: 8,
         RC: 12,
         TH: 50,
+        EW: 38,
     },
     /**
      * Optional per-**source** structure type weights: `bySource[RL|AB][G|MF|…]`.
@@ -491,6 +492,21 @@ export const UNIT_STATS = {
             { id: "TH2", hp: 520, cost: 700, vision: 5, tradeBase: 0.60, tradePerGov: 0.40, tradePerPort: 0.0 },
             { id: "TH3", hp: 1180, cost: 1100, vision: 6, tradeBase: 0.90, tradePerGov: 0.50, tradePerPort: 0.30, tradeGovBonus: 0.05 }
         ]
+    },
+    /**
+     * EW Jammer — soft-kill defensive structure. Friendly tiles within `range` take reduced damage
+     * from interceptable enemy projectiles (rockets, airstrikes, navy, cruise, drones, signature).
+     * Distinct from AAS/AF which physically intercepts: EW is a passive damage reduction aura.
+     * Lv3 "Spoofing": adds a chance to fully cancel an interceptable projectile (soft-intercept).
+     * `ewDmgMult` is per-level; non-stacking (best aura wins).
+     */
+    EW: {
+        name: "EW Jammer",
+        levels: [
+            { id: "EW1", hp: 200,  cost: 375, range: 4, vision: 5, ewDmgMult: 0.85, ewCancelChance: 0 },
+            { id: "EW2", hp: 480,  cost: 625, range: 5, vision: 6, ewDmgMult: 0.78, ewCancelChance: 0 },
+            { id: "EW3", hp: 1050, cost: 950, range: 6, vision: 7, ewDmgMult: 0.70, ewCancelChance: 0.15 }
+        ]
     }
 };
 
@@ -555,6 +571,7 @@ export const DEFAULT_KEYBINDS = {
     build_BUNK: 'Digit9',
     build_RC:   'Digit0',
     build_TH:   'F2',
+    build_EW:   'F3',
     upgrade:    'Space',
     cancel:     'Escape',
     pan_up:     'KeyW',
