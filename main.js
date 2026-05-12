@@ -1166,7 +1166,7 @@ function handleInput() {
     if (Input.consumePress('settings')) openSettings();
 
     // Build hotkeys
-    const buildTypes = ['G', 'RL', 'AAS', 'MF', 'B', 'M', 'D', 'SU', 'AB', 'PT', 'DDG', 'AF', 'SSG'];
+    const buildTypes = ['G', 'RL', 'AAS', 'MF', 'B', 'M', 'D', 'SU', 'AB', 'BUNK', 'PT', 'DDG', 'AF', 'SSG'];
     buildTypes.forEach((type, i) => {
         if (Input.consumePress(`build_${type}`)) {
             if (game.campaign?.buildTutorial?.active) {
@@ -1404,6 +1404,8 @@ function structureL3PerkHtml(type, levelIdx, opts = {}) {
             return `<p class="info-perk"><b>Lv3 — Bastion</b> · +${Math.round((GAME_CONFIG.SSG3_BASTION_DMG_MULT - 1) * 100)}% damage vs <b>enemy ships</b> with friendly navy adjacent. <b>${Math.round(GAME_CONFIG.SSG_L3_STEALTH_CHANCE * 100)}% of cruise missiles fire as stealth</b> (non-interceptable).</p>`;
         case 'PT':
             return `<p class="info-perk"><b>Lv3 — Free Trade &amp; Fleet Command</b> · Navy in influence: +${Math.round((GAME_CONFIG.PORT_L3_NAVY_DAMAGE_MULT - 1) * 100)}% damage, −${Math.round((1 - GAME_CONFIG.PORT_L3_NAVY_INTERVAL_MULT) * 100)}% fire interval. Port sea income +${Math.round(GAME_CONFIG.PORT_L3_TRADE_PER_OTHER_PORT * 100)}% per OTHER friendly Port (cap +${Math.round(GAME_CONFIG.PORT_L3_TRADE_CAP * 100)}%).</p>`;
+        case 'BUNK':
+            return `<p class="info-perk"><b>Lv3 — Hardened</b> · Takes ${Math.round((1 - GAME_CONFIG.BUNK_L3_TAKEN_MULT) * 100)}% less damage from all sources. No attack, no income — pure HP wall.</p>`;
         default:
             return '';
     }
@@ -1548,6 +1550,10 @@ function showBuildTooltip(btn) {
 
     if (type === 'SU') {
         html += `<div class="tt-upgrade dim">Lv3: <b>faction-unique doctrine</b> — your signature unit gains a bonus tied to your nation. Hover the unit in-game to see the active effect.</div>`;
+    }
+
+    if (type === 'BUNK') {
+        html += `<div class="tt-upgrade dim">No attack, no influence, no income. Pure HP wall — anchor chokepoints. Lv3 "Hardened": takes ${Math.round((1 - GAME_CONFIG.BUNK_L3_TAKEN_MULT) * 100)}% less damage.</div>`;
     }
 
     buildTooltip.innerHTML = html;

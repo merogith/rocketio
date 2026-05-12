@@ -1973,6 +1973,10 @@ export class Game {
             }
             // ITA "aegis_aura": friendly L3 Aster Battery within 3 hex reduces incoming damage by 15%.
             if (this._inFriendlyAegisAura(tile, tile.owner)) dmg *= 0.85;
+            // Bunker Lv3 "Hardened": the bunker itself takes 25% less damage from all sources.
+            if (tile.structure.type === 'BUNK' && tile.structure.level === 2) {
+                dmg *= GAME_CONFIG.BUNK_L3_TAKEN_MULT;
+            }
             dmg *= this.getPlayerModsForOwner(tile.owner).takenMult ?? 1;
             tile.hp -= dmg;
             tile.lastDamageTime = this.gameTime;

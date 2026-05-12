@@ -91,6 +91,7 @@ export const GAME_CONFIG = {
         D: 22,
         SU: 21,
         M: 18,
+        BUNK: 8,
     },
     /**
      * Optional per-**source** structure type weights: `bySource[RL|AB][G|MF|…]`.
@@ -198,6 +199,8 @@ export const GAME_CONFIG = {
     PORT_L3_TRADE_PER_OTHER_PORT: 0.05,
     /** Cap on PT3 trade bonus regardless of Port count (caps at +20%, i.e. ~4 partner Ports). */
     PORT_L3_TRADE_CAP: 0.20,
+    /** Bunker Lv3 "Hardened": damage taken multiplier applied at impact when defender is a BUNK3. */
+    BUNK_L3_TAKEN_MULT: 0.75,
     // --- Navy ---
     /** In missileTargetPriority: DDG/SSG add this when target is an enemy **naval** (sea) unit. */
     NAVY_FIRST_TARGET_BONUS: 310_000,
@@ -445,6 +448,19 @@ export const UNIT_STATS = {
             { id: "PT2", hp: 580,  radius: 6, cost: 1050, influence: 1700, vision: 9,  seaGoldPerTile: 0.28 },
             { id: "PT3", hp: 1450, radius: 8, cost: 1600, influence: 2400, vision: 12, seaGoldPerTile: 0.38, navyAura: true }
         ]
+    },
+    /**
+     * Bunker — pure HP wall. No attack, no influence, no income. Placed on owned land,
+     * soaks damage to anchor chokepoints. Lv3 "Hardened" reduces damage taken to itself by 25%.
+     * Cheap-per-HP relative to combat structures because it does nothing offensive.
+     */
+    BUNK: {
+        name: "Bunker",
+        levels: [
+            { id: "BUNK1", hp: 1200, cost: 300, vision: 3 },
+            { id: "BUNK2", hp: 2800, cost: 500, vision: 4 },
+            { id: "BUNK3", hp: 6500, cost: 900, vision: 5, hardened: true }
+        ]
     }
 };
 
@@ -506,6 +522,7 @@ export const DEFAULT_KEYBINDS = {
     build_AF:   'F8',
     build_SSG:  'F9',
     build_PT:   'F6',
+    build_BUNK: 'Digit9',
     upgrade:    'Space',
     cancel:     'Escape',
     pan_up:     'KeyW',
