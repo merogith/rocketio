@@ -35,6 +35,7 @@ const buildBtns = document.querySelectorAll('.build-btn');
 const infoPanel = document.getElementById('info-panel');
 const infoContent = document.getElementById('info-content');
 const upgradeBtn = document.getElementById('upgrade-btn');
+const rushBtn = document.getElementById('rush-btn');
 const demolishBtn = document.getElementById('demolish-btn');
 const closeInfoBtn = document.getElementById('close-info');
 const clearTargetBtn = document.getElementById('clear-target-btn');
@@ -1613,6 +1614,7 @@ function updateHoverChip(tile, mx, my) {
 // ============================================================================
 function selectTile(tile) {
     game.selectedTile = tile;
+    rushBtn?.classList.add('hidden');
 
     if (!game.isExploredBy(tile, 1) && tile.owner !== 1) {
         infoPanel.classList.add('hidden');
@@ -1817,6 +1819,26 @@ function selectTile(tile) {
     }
 
     if (isOwn) {
+        // RUSH: appears while the structure is still in its build cooldown.
+        // Cost scales with remaining time, so it gets cheaper the longer you wait.
+        if (rushBtn && tile.buildCooldownUntil && game.gameTime < tile.buildCooldownUntil) {
+            const remaining = tile.buildCooldownUntil - game.gameTime;
+            const cost = Math.max(20, Math.ceil(remaining / 30));
+            rushBtn.classList.remove('hidden');
+            rushBtn.innerText = `RUSH ($${cost} · ${(remaining / 1000).toFixed(1)}s)`;
+            rushBtn.onclick = () => {
+                const spent = game.rushBuildCooldown(tile, 1);
+                if (spent !== false) {
+                    showNoti(`Rushed (-$${spent})`, "success");
+                    selectTile(tile);
+                } else {
+                    showNoti("Can't rush", "error");
+                }
+            };
+        } else if (rushBtn) {
+            rushBtn.classList.add('hidden');
+        }
+
         upgradeAllBtn.classList.remove('hidden');
         upgradeAllBtn.onclick = () => {
             const count = game.upgradeAll(1);
@@ -2241,10 +2263,15 @@ function updateCombatLog() {
         let cls = 'build';
         if (entry.kind === 'hit' && entry.defenderId === humanId) cls = 'hit-own';
         else if (entry.kind === 'hit' && entry.attackerId === humanId) cls = 'hit-enemy';
+        else if (entry.kind === 'kill' && entry.defenderId === humanId) cls = 'lost-own';
         else if (entry.kind === 'kill') cls = 'kill';
         else if (entry.kind === 'intercepted') cls = 'intercepted';
         else if (entry.kind === 'upgrade') cls = 'upgrade';
         else if (entry.kind === 'demolish') cls = 'demolish';
+        else if (entry.kind === 'incoming') cls = 'incoming';
+        else if (entry.kind === 'low-gold') cls = 'low-gold';
+        else if (entry.kind === 'build-ready') cls = 'build-ready';
+        else if (entry.kind === 'rush') cls = 'rush';
 
         div.className = `log-entry ${cls}`;
         div.textContent = `[${timeStr}] ${entry.message}`;
