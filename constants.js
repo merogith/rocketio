@@ -271,11 +271,15 @@ export const VICTORY_MODES = {
 };
 
 export const MAP_STYLES = {
-    PANGAEA:     { id: 'pangaea',     name: 'Pangaea',     desc: 'One connected landmass' },
-    CONTINENTS:  { id: 'continents',  name: 'Continents',  desc: 'Land blobs separated by water' },
-    ARCHIPELAGO: { id: 'archipelago', name: 'Archipelago', desc: 'Many small islands' },
-    INLAND_SEA:  { id: 'inland_sea',  name: 'Inland Sea',  desc: 'Ring of land around central water' },
-    FRACTAL:     { id: 'fractal',     name: 'Fractal',     desc: 'Noise-based random coasts' },
+    PANGAEA:       { id: 'pangaea',       name: 'Pangaea',       desc: 'One connected landmass' },
+    CONTINENTS:    { id: 'continents',    name: 'Continents',    desc: 'Land blobs separated by water' },
+    ARCHIPELAGO:   { id: 'archipelago',   name: 'Archipelago',   desc: 'Many small islands' },
+    INLAND_SEA:    { id: 'inland_sea',    name: 'Inland Sea',    desc: 'Ring of land around central water' },
+    FRACTAL:       { id: 'fractal',       name: 'Fractal',       desc: 'Noise-based random coasts' },
+    MEDITERRANEAN: { id: 'mediterranean', name: 'Mediterranean', desc: 'Hand-authored Mediterranean basin' },
+    BRITISH_ISLES: { id: 'british_isles', name: 'British Isles', desc: 'Hand-authored Britain & Ireland' },
+    JAPAN:         { id: 'japan',         name: 'Japan',         desc: 'Hand-authored Japanese archipelago' },
+    CARIBBEAN:     { id: 'caribbean',     name: 'Caribbean',     desc: 'Hand-authored Caribbean island chain' },
 };
 
 /** Inclusive hex disk: radius R → 1 + 3R(R+1) cells. */

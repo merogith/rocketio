@@ -1,4 +1,5 @@
 import { UNIT_STATS, GAME_CONFIG, govGoldForDistance } from './constants.js?v=sig3';
+import { REAL_WORLD_MAPS, parseTemplate, isRealWorldMap } from './realWorldMaps.js?v=rw1';
 
 export class Hex {
     constructor(q, r) {
@@ -185,6 +186,13 @@ function carveFractal(tiles, radius, rng) {
 
     cellularAutomataPass(tiles, 2);
     removeSmallIslands(tiles, 8);
+}
+
+function carveFromTemplate(tiles, template) {
+    const { land } = parseTemplate(template.rows);
+    for (const tile of tiles.values()) {
+        tile.buildable = land.has(`${tile.q},${tile.r}`);
+    }
 }
 
 function cellularAutomataPass(tiles, passes = 1) {
@@ -414,26 +422,35 @@ export class HexGrid {
                 tile.buildable = true;
             }
 
-            switch (style) {
-                case 'continents':
-                    carveContinents(this.tiles, radius, rng, playerCount);
-                    break;
-                case 'archipelago':
-                    carveArchipelago(this.tiles, radius, rng);
-                    break;
-                case 'inland_sea':
-                    carveInlandSea(this.tiles, radius, rng);
-                    break;
-                case 'fractal':
-                    carveFractal(this.tiles, radius, rng);
-                    break;
-                case 'pangaea':
-                default:
-                    carvePangaea(this.tiles, radius, rng);
-                    break;
+            if (isRealWorldMap(style)) {
+                carveFromTemplate(this.tiles, REAL_WORLD_MAPS[style]);
+            } else {
+                switch (style) {
+                    case 'continents':
+                        carveContinents(this.tiles, radius, rng, playerCount);
+                        break;
+                    case 'archipelago':
+                        carveArchipelago(this.tiles, radius, rng);
+                        break;
+                    case 'inland_sea':
+                        carveInlandSea(this.tiles, radius, rng);
+                        break;
+                    case 'fractal':
+                        carveFractal(this.tiles, radius, rng);
+                        break;
+                    case 'pangaea':
+                    default:
+                        carvePangaea(this.tiles, radius, rng);
+                        break;
+                }
             }
 
             this.islands = computeIslands(this.tiles);
+
+            if (isRealWorldMap(style)) {
+                assignTerrain(this.tiles, rng, radius);
+                break;
+            }
 
             if (this.islands.length > 0 && this.islands[0].length >= 12) {
                 assignTerrain(this.tiles, rng, radius);

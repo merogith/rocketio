@@ -1,4 +1,5 @@
 import { Hex, HexGrid, Camera } from './hexGrid.js?v=units3';
+import { getRealWorldMap, parseTemplate } from './realWorldMaps.js?v=rw1';
 import { Game } from './game.js?v=units3';
 import { Renderer } from './renderer.js?v=units3';
 import { UNIT_STATS, GAME_CONFIG, getEffectiveMapRadius, VICTORY_MODES, COLORS, DIPLOMACY, govGoldBandLinesHtml } from './constants.js?v=units3';
@@ -343,7 +344,8 @@ if (campaignScreenEl && !campaignScreenEl.classList.contains('hidden')) {
 }
 
 function initWorld(mapSize, mapStyle, playerCount, playerName, victoryConfig, difficulty = 'normal', campaign = null, playerOptions = null) {
-    const radius = getEffectiveMapRadius(mapSize, playerCount);
+    const rwMap = getRealWorldMap(mapStyle);
+    const radius = rwMap ? parseTemplate(rwMap.rows).naturalRadius : getEffectiveMapRadius(mapSize, playerCount);
     grid = new HexGrid(radius, 30, mapStyle, playerCount);
     game = new Game(grid);
     game.aiDifficulty = difficulty;
