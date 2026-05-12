@@ -1,16 +1,16 @@
-import { Hex, HexGrid, Camera } from './hexGrid.js?v=cmpn3';
-import { Game } from './game.js?v=cmpn3';
-import { Renderer } from './renderer.js?v=cmpn3';
-import { UNIT_STATS, GAME_CONFIG, getEffectiveMapRadius, VICTORY_MODES, COLORS, DIPLOMACY, govGoldBandLinesHtml } from './constants.js?v=cmpn3';
-import { TUTORIAL_PAGES } from './tutorial.js?v=cmpn3';
-import { getMissionById, CAMPAIGN_MISSIONS } from './campaignData.js?v=cmpn3';
-import { loadCampaignProgress, canStartMission, markMissionBeaten } from './campaignProgress.js?v=cmpn3';
-import { applyCampaignScenario, m1BuildTutorialCheckPlace, m1OnBuildPlaced } from './campaignScenarios.js?v=cmpn3';
-import { Input } from './input.js?v=cmpn3';
-import { updateAI } from './ai.js?v=cmpn3';
-import { SFX } from './sfx.js?v=cmpn3';
-import { FACTIONS, getFaction, describeModsList, getPlayerMods } from './factions.js?v=cmpn3';
-import { FACTION_BANNERS, PLACEHOLDER_LEADER_PORTRAIT, getSpecialUnitBlurb, getLeaderPerkText } from './factionsDisplay.js?v=cmpn3';
+import { Hex, HexGrid, Camera } from './hexGrid.js?v=sig3';
+import { Game } from './game.js?v=sig3';
+import { Renderer } from './renderer.js?v=sig3';
+import { UNIT_STATS, GAME_CONFIG, getEffectiveMapRadius, VICTORY_MODES, COLORS, DIPLOMACY, govGoldBandLinesHtml } from './constants.js?v=sig3';
+import { TUTORIAL_PAGES } from './tutorial.js?v=sig3';
+import { getMissionById, CAMPAIGN_MISSIONS } from './campaignData.js?v=sig3';
+import { loadCampaignProgress, canStartMission, markMissionBeaten } from './campaignProgress.js?v=sig3';
+import { applyCampaignScenario, m1BuildTutorialCheckPlace, m1OnBuildPlaced } from './campaignScenarios.js?v=sig3';
+import { Input } from './input.js?v=sig3';
+import { updateAI } from './ai.js?v=sig3';
+import { SFX } from './sfx.js?v=sig3';
+import { FACTIONS, getFaction, describeModsList, getPlayerMods } from './factions.js?v=sig3';
+import { FACTION_BANNERS, PLACEHOLDER_LEADER_PORTRAIT, getSpecialUnitBlurb, getLeaderPerkText } from './factionsDisplay.js?v=sig3';
 
 // ============================================================================
 //  DOM

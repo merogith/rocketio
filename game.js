@@ -1,7 +1,7 @@
-import { UNIT_STATS, COLORS, GAME_CONFIG, DIFFICULTY, DIPLOMACY, govGoldForDistance } from './constants.js?v=cmpn3';
-import { getPlayerMods, getSpecialUnitLabelForPlayer } from './factions.js?v=cmpn3';
-import { Hex } from './hexGrid.js?v=cmpn3';
-import { SFX } from './sfx.js?v=cmpn3';
+import { UNIT_STATS, COLORS, GAME_CONFIG, DIFFICULTY, DIPLOMACY, govGoldForDistance } from './constants.js?v=sig3';
+import { getPlayerMods, getSpecialUnitLabelForPlayer, getSigArchetype } from './factions.js?v=sig3';
+import { Hex } from './hexGrid.js?v=sig3';
+import { SFX } from './sfx.js?v=sig3';
 
 function relKey(a, b) {
     const x = Math.min(a, b), y = Math.max(a, b);
@@ -101,6 +101,8 @@ export class Game {
         this._d3JamTiles.length = 0;
         if (!this._l3PortTiles) this._l3PortTiles = [];
         this._l3PortTiles.length = 0;
+        if (!this._l3SigAirdefTiles) this._l3SigAirdefTiles = [];
+        this._l3SigAirdefTiles.length = 0;
         this._govCount = new Array(this.players.length).fill(0);
         for (const tile of this.grid.tiles.values()) {
             if (!tile.structure) continue;
@@ -109,7 +111,11 @@ export class Game {
             if (tile.structure.type === 'B' && tile.structure.level === 2) this._l3BarracksTiles.push(tile);
             if (tile.structure.type === 'G' && tile.structure.level === 2 && tile.owner) this._l3GovTiles.push(tile);
             if (tile.structure.type === 'D' && tile.structure.level === 2 && tile.structure.stats?.jamming) this._d3JamTiles.push(tile);
-            if (tile.structure.type === 'SU' && tile.structure.level === 2 && tile.structure.stats?.signatureJam) this._d3JamTiles.push(tile);
+            if (tile.structure.type === 'SU' && tile.structure.level === 2 && tile.structure.stats?.signatureJam) {
+                // Route SU3 into either the EW jam pool or the airdef aura pool based on faction archetype.
+                if (this._sigArchetypeForTile(tile) === 'ew') this._d3JamTiles.push(tile);
+                else if (this._sigArchetypeForTile(tile) === 'airdef') this._l3SigAirdefTiles.push(tile);
+            }
             if (tile.structure.type === 'PT' && tile.structure.level === 2 && tile.structure.stats?.navyAura) this._l3PortTiles.push(tile);
             if (tile.structure.type === 'G' && tile.owner) {
                 this._govTiles.push(tile);
@@ -318,6 +324,25 @@ export class Game {
             return { goldMult: 1, effMult: 1, mfMult: 1, dealtMult: 1, takenMult: 1, outSupplyMult: 1, startMissiles: 0 };
         }
         return getPlayerMods(p.factionId ?? 0, p.leaderIdx ?? 0);
+    }
+
+    /** Signature L3 archetype for the SU at `tile`'s owner (defaults 'ew'). */
+    _sigArchetypeForTile(tile) {
+        if (!tile?.owner) return 'ew';
+        const p = this.players[tile.owner - 1];
+        return getSigArchetype(p?.factionId ?? 0);
+    }
+
+    /** True if `tile` is in range of any friendly SU L3 with the 'airdef' archetype. */
+    _inFriendlyL3SigAirdefAura(tile, ownerId) {
+        if (!ownerId) return false;
+        this._ensureIndex();
+        for (const sTile of this._l3SigAirdefTiles || []) {
+            if (sTile.owner !== ownerId) continue;
+            const r = sTile.structure.stats.range ?? 0;
+            if (Hex.distance(tile, sTile) <= r) return true;
+        }
+        return false;
     }
 
     /**
@@ -927,6 +952,10 @@ export class Game {
         const t = tile.structure?.type;
         if ((t === 'DDG' || t === 'AF' || t === 'SSG') && this._inFriendlyL3PortAura(tile, tile.owner)) {
             mul *= GAME_CONFIG.PORT_L3_NAVY_INTERVAL_MULT;
+        }
+        // L3 Signature 'airdef': friendly AAS/AF in range reload faster (lower mult).
+        if ((t === 'AAS' || t === 'AF') && this._inFriendlyL3SigAirdefAura(tile, tile.owner)) {
+            mul *= GAME_CONFIG.SIG_AIRDEF_AURA_MULT;
         }
         return mul;
     }
@@ -1643,14 +1672,24 @@ export class Game {
         if (!target) return false;
 
         tile.structure.lastFiredAt = this.gameTime;
-        const count = stats.projectiles || 1;
+        // Signature (SU) archetype effects only kick in at L3 (level === 2).
+        const isSigL3 = tile.structure.type === 'SU' && tile.structure.level === 2;
+        const archetype = isSigL3 ? this._sigArchetypeForTile(tile) : null;
+        let count = stats.projectiles || 1;
+        if (archetype === 'artillery') {
+            count += GAME_CONFIG.SIG_ARTILLERY_EXTRA_PROJECTILES;
+        }
+        const strikeSplash = archetype === 'strike' && Math.random() < GAME_CONFIG.SIG_STRIKE_SPLASH_CHANCE;
+        const antishipMult = archetype === 'antiship' ? GAME_CONFIG.SIG_ANTISHIP_DAMAGE_MULT : 1;
         for (let i = 0; i < count; i++) {
             this.spawnProjectile(tile, target, {
                 type: 'drone',
                 damage: stats.damage,
                 speed: 3.5,
                 interceptable: stats.interceptable !== false,
-                trail: true
+                trail: true,
+                splash: strikeSplash,
+                antishipMult,
             });
         }
         this.spawnMuzzleFlash(tile, target, { color: '#78c8ff', size: 0.8, count: 3 });
@@ -1671,6 +1710,14 @@ export class Game {
         }
         if (fromTile?.structure && this._inFriendlyL3BarracksCommandAura(fromTile, atkOwner)) {
             dmg *= GAME_CONFIG.BARRACKS_L3_COMMAND_OUT_MULT;
+        }
+        // 'antiship' archetype: SU3 hits naval targets harder. Applied at projectile
+        // spawn based on the target tile's structure type.
+        if (opts.antishipMult && opts.antishipMult !== 1) {
+            const tStruct = toTile?.structure?.type;
+            if (tStruct === 'DDG' || tStruct === 'AF' || tStruct === 'SSG') {
+                dmg *= opts.antishipMult;
+            }
         }
         this.projectiles.push({
             type: opts.type,
@@ -1871,7 +1918,8 @@ export class Game {
             if (tile.hp <= 0) this.destroyStructure(tile, proj.owner);
         }
 
-        if (proj.splash && proj.type === 'rocket') {
+        // Splash also fires for SU 'strike' archetype (drone-type projectile with splash flag).
+        if (proj.splash && (proj.type === 'rocket' || proj.type === 'drone')) {
             const origin = new Hex(proj.targetQR.q, proj.targetQR.r);
             let splashBase = proj.damage * GAME_CONFIG.RL_L3_SPLASH_MULT;
             for (const n of origin.getNeighbors()) {
@@ -2002,6 +2050,12 @@ export class Game {
         }
         tile.owner = ownerId;
         tile.hp = stats.hp || 100;
+        // Signature L3 'bastion' archetype: dug-in site gets a one-time HP boost
+        // on build. Applied here so upgrades to L3 also benefit (build-site path).
+        if (type === 'SU' && levelIdx === 2
+            && getSigArchetype(this.players[ownerId - 1]?.factionId ?? 0) === 'bastion') {
+            tile.hp = Math.round(tile.hp * GAME_CONFIG.SIG_BASTION_HP_MULT);
+        }
         tile.maxHp = tile.hp;
 
         // Apply initial build cooldown: offset lastAction so the first action fires at T + cooldown.

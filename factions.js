@@ -106,6 +106,11 @@ export function getSpecialUnitIcon(factionId) {
     return getFaction(factionId).specialIcon || '🎯';
 }
 
+/** @returns {'ew'|'strike'|'artillery'|'antiship'|'airdef'|'bastion'} default 'ew' */
+export function getSigArchetype(factionId) {
+    return getFaction(factionId).sigArchetype || 'ew';
+}
+
 /** @param {{ players: Array<{ factionId?: number }> }} game */
 export function getSpecialUnitLabelForPlayer(game, ownerId) {
     const p = game?.players?.[ownerId - 1];
@@ -126,7 +131,9 @@ export const FACTIONS = [
     // 1. USA — Joint Targeting Cell
     //    Identity: networked precision; balanced shooter with no glaring hole.
     //    Real signature: M142 HIMARS — guided rocket artillery.
-    { id: 'USA', code: 'USA', name: 'United States', specialName: 'HIMARS Battery', specialIcon: '🚀',
+    //    L3 archetype: strike — guided rockets splash on impact.
+    { id: 'USA', code: 'USA', name: 'United States', specialName: 'HIMARS Battery', specialIcon: '🎯',
+      sigArchetype: 'strike',
       nation: { effMult: 0.96, dealtMult: 1.03 },
       leaders: [
         { name: 'Joe Biden',     mods: { goldMult: 1.06 } },                       // Bidenomics
@@ -137,7 +144,9 @@ export const FACTIONS = [
     // 2. Russia — Iskander Brigade
     //    Identity: heavy fires, deep mag, cold-hardened — but slow tempo.
     //    Real signature: 9K720 Iskander short-range ballistic missile.
-    { id: 'RUS', code: 'RUS', name: 'Russian Federation', specialName: 'Iskander Brigade', specialIcon: '⚙️',
+    //    L3 archetype: strike — terminal warhead splashes on impact.
+    { id: 'RUS', code: 'RUS', name: 'Russian Federation', specialName: 'Iskander Brigade', specialIcon: '☢️',
+      sigArchetype: 'strike',
       nation: { dealtMult: 1.07, takenMult: 0.94, effMult: 1.03 },                 // hits hard, takes hits, but slow
       leaders: [
         { name: 'Vladimir Putin',   mods: { startMissiles: 2 } },                  // Vertical of Power — opens loaded
@@ -148,7 +157,9 @@ export const FACTIONS = [
     // 3. China — Rocket Force
     //    Identity: industrial juggernaut; mass-producing missiles on austerity.
     //    Real signature: DF-26 "carrier killer" intermediate-range ballistic missile.
-    { id: 'CHN', code: 'CHN', name: 'People’s Republic of China', specialName: 'DF-26 Brigade', specialIcon: '🐉',
+    //    L3 archetype: strike — IRBM splashes on impact.
+    { id: 'CHN', code: 'CHN', name: 'People’s Republic of China', specialName: 'DF-26 Brigade', specialIcon: '🛰️',
+      sigArchetype: 'strike',
       nation: { mfMult: 1.12, effMult: 0.97, goldMult: 0.96 },                     // factory monster, austerity ethic
       leaders: [
         { name: 'Xi Jinping',  mods: { dealtMult: 1.05 } },                        // Centralized Command
@@ -159,7 +170,9 @@ export const FACTIONS = [
     // 4. Japan — Self-Defense Force
     //    Identity: defensive, high-quality, lower throughput.
     //    Real signature: Type 12 Surface-to-Ship Missile (extended-range).
-    { id: 'JPN', code: 'JPN', name: 'Japan', specialName: 'Type 12 SSM', specialIcon: '🌊',
+    //    L3 archetype: antiship — coastal AShM bonus damage vs naval targets.
+    { id: 'JPN', code: 'JPN', name: 'Japan', specialName: 'Type 12 SSM', specialIcon: '🛩️',
+      sigArchetype: 'antiship',
       nation: { takenMult: 0.93, effMult: 0.97, mfMult: 0.94 },                    // tough + fast cycle, but lean magazine
       leaders: [
         { name: 'Fumio Kishida',  mods: { goldMult: 1.05 } },                      // New Capitalism
@@ -170,7 +183,9 @@ export const FACTIONS = [
     // 5. Türkiye — Bayraktar Wing
     //    Identity: cheap drone volume; fast cycles, chip damage, factory-rich.
     //    Real signature: Bayraktar TB2/Akıncı UCAV wing.
+    //    L3 archetype: ew — UCAVs jam enemy reload cycles in their patrol area.
     { id: 'TUR', code: 'TUR', name: 'Türkiye', specialName: 'Bayraktar Wing', specialIcon: '🛸',
+      sigArchetype: 'ew',
       nation: { mfMult: 1.08, effMult: 0.95, dealtMult: 0.97 },                    // swarm, not punch
       leaders: [
         { name: 'Recep Tayyip Erdoğan', mods: { dealtMult: 1.05 } },               // Sultan's Push — fixes the chip damage
@@ -181,7 +196,9 @@ export const FACTIONS = [
     // 6. Iran — IRGC Doctrine
     //    Identity: loaded from turn one, sanctions-hard, but starved economy.
     //    Real signature: Shahed-136 loitering munition.
-    { id: 'IRN', code: 'IRN', name: 'Islamic Republic of Iran', specialName: 'Shahed Swarm', specialIcon: '🦂',
+    //    L3 archetype: ew — loitering swarms disrupt enemy fire control.
+    { id: 'IRN', code: 'IRN', name: 'Islamic Republic of Iran', specialName: 'Shahed Swarm', specialIcon: '🪁',
+      sigArchetype: 'ew',
       nation: { startMissiles: 3, takenMult: 0.95, goldMult: 0.95 },               // opens loaded; sanctions bite gold
       leaders: [
         { name: 'Ali Khamenei',      mods: { dealtMult: 1.06 } },                  // Supreme Leader
@@ -192,7 +209,9 @@ export const FACTIONS = [
     // 7. Finland — Sisu Total Defense
     //    Identity: late-game supply god; quiet economy and lean factories.
     //    Real signature: K9 "Moukari" 155mm SPH (Finnish nickname for K9 Thunder).
+    //    L3 archetype: artillery — battery fires an extra projectile per volley.
     { id: 'FIN', code: 'FIN', name: 'Finland', specialName: 'K9 Moukari', specialIcon: '🔨',
+      sigArchetype: 'artillery',
       nation: { outSupplyMult: 0.55, takenMult: 0.95, mfMult: 0.95 },              // best supply mod in the game
       leaders: [
         { name: 'Alexander Stubb', mods: { dealtMult: 1.05 } },                    // NATO Integration
@@ -202,8 +221,10 @@ export const FACTIONS = [
 
     // 8. Indonesia — Garuda Doctrine
     //    Identity: archipelago economy; gold-driven, tempo-light.
-    //    Real signature: Yakhont (P-800 Onyx) coastal anti-ship missile.
-    { id: 'IDN', code: 'IDN', name: 'Indonesia', specialName: 'Yakhont Coastal', specialIcon: '🐅',
+    //    Real signature: Garuda Strike — national-symbol naming for coastal AShM.
+    //    L3 archetype: antiship — coastal volley bonus vs ships.
+    { id: 'IDN', code: 'IDN', name: 'Indonesia', specialName: 'Garuda Strike', specialIcon: '🌪️',
+      sigArchetype: 'antiship',
       nation: { goldMult: 1.07, effMult: 0.95, dealtMult: 0.97 },                  // rich + fast, but chip damage
       leaders: [
         { name: 'Prabowo Subianto',          mods: { startMissiles: 2 } },         // Force Buildup
@@ -214,7 +235,9 @@ export const FACTIONS = [
     // 9. Switzerland — Réduit Doctrine
     //    Identity: alpine fortress and bank vault; turtle hard, but sluggish.
     //    Real signature: the "Réduit" — WWII National Redoubt fortress system.
-    { id: 'SUI', code: 'SUI', name: 'Swiss Confederation', specialName: 'Réduit Bastion', specialIcon: '🛡️',
+    //    L3 archetype: bastion — dug-in fortified site gets +40% HP at L3.
+    { id: 'SUI', code: 'SUI', name: 'Swiss Confederation', specialName: 'Réduit Bastion', specialIcon: '🪖',
+      sigArchetype: 'bastion',
       nation: { takenMult: 0.92, goldMult: 1.04, effMult: 1.03 },                  // tough + rich, but slow
       leaders: [
         { name: 'Viola Amherd',  mods: { effMult: 0.95 } },                        // Defense Reform — clears the sluggishness
@@ -222,10 +245,14 @@ export const FACTIONS = [
         { name: 'Alain Berset',   mods: { goldMult: 1.05 } },                      // Private Banking
       ] },
 
-    // 10. Saudi Arabia — Royal Saqr
+    // 10. Saudi Arabia — Royal Patriot Wing
     //     Identity: petrodollar arsenal; rich and deep, but bureaucratic.
-    //     Real signature: Saqr ("Falcon") family of Royal Saudi strike systems.
-    { id: 'KSA', code: 'KSA', name: 'Saudi Arabia', specialName: 'Saqr Battery', specialIcon: '🏜️',
+    //     Real signature: PAC-3 (MIM-104F) — Saudi Arabia operates the largest
+    //     Patriot fleet outside the United States; combat-tested vs Houthi
+    //     ballistic missiles repeatedly throughout 2015–2024.
+    //     L3 archetype: airdef — friendly AAS/AF in range reload faster.
+    { id: 'KSA', code: 'KSA', name: 'Saudi Arabia', specialName: 'PAC-3 Battery', specialIcon: '🏹',
+      sigArchetype: 'airdef',
       nation: { goldMult: 1.08, mfMult: 1.08, effMult: 1.02 },                     // wealthy & well-stocked, slow
       leaders: [
         { name: 'King Salman',           mods: { dealtMult: 1.05 } },              // Royal Coordination
@@ -236,7 +263,9 @@ export const FACTIONS = [
     // 11. Poland — Hussars Reborn
     //     Identity: aggressive opening, NATO frontline, glassy.
     //     Real signature: AHS Krab 155mm self-propelled howitzer.
+    //     L3 archetype: artillery — battery fires an extra projectile per volley.
     { id: 'POL', code: 'POL', name: 'Poland', specialName: 'Krab Battery', specialIcon: '🦀',
+      sigArchetype: 'artillery',
       nation: { startMissiles: 2, dealtMult: 1.04, takenMult: 1.03 },              // opens with charge; glass cannon
       leaders: [
         { name: 'Andrzej Duda',        mods: { goldMult: 1.06 } },                 // NATO Anchor
@@ -247,7 +276,9 @@ export const FACTIONS = [
     // 12. Vietnam — People's War
     //     Identity: trench-and-tunnel; tough and supply-hardened, poor economy.
     //     Real signature: K-300P Bastion-P mobile coastal defense system.
-    { id: 'VNM', code: 'VNM', name: 'Vietnam', specialName: 'Bastion-P', specialIcon: '🌿',
+    //     L3 archetype: antiship — coastal volley bonus vs ships.
+    { id: 'VNM', code: 'VNM', name: 'Vietnam', specialName: 'Bastion-P', specialIcon: '🌋',
+      sigArchetype: 'antiship',
       nation: { takenMult: 0.93, outSupplyMult: 0.65, goldMult: 0.95 },            // attrition specialist
       leaders: [
         { name: 'Tô Lâm',           mods: { effMult: 0.95 } },                     // Doi Moi Military
@@ -258,7 +289,9 @@ export const FACTIONS = [
     // 13. United Kingdom — Royal Strike
     //     Identity: expeditionary, lean and lethal, well-funded.
     //     Real signature: Storm Shadow / SCALP-EG cruise missile.
+    //     L3 archetype: strike — deep-strike cruise missile splashes on impact.
     { id: 'GBR', code: 'GBR', name: 'United Kingdom', specialName: 'Storm Shadow', specialIcon: '⚡',
+      sigArchetype: 'strike',
       nation: { goldMult: 1.04, mfMult: 1.04, effMult: 0.97 },                     // small bonuses everywhere
       leaders: [
         { name: 'Keir Starmer',   mods: { goldMult: 1.04 } },                      // Treasury First
@@ -269,7 +302,9 @@ export const FACTIONS = [
     // 14. Italy — Renaissance Concord
     //     Identity: wealth-driven economy, air-defense specialist, low damage output.
     //     Real signature: Aster 30 surface-to-air missile (Eurosam, Italian-French).
+    //     L3 archetype: airdef — friendly AAS/AF in range reload faster.
     { id: 'ITA', code: 'ITA', name: 'Italy', specialName: 'Aster Battery', specialIcon: '✨',
+      sigArchetype: 'airdef',
       nation: { goldMult: 1.06, takenMult: 0.95, dealtMult: 0.97 },                // rich and durable; punches light
       leaders: [
         { name: 'Giorgia Meloni',     mods: { dealtMult: 1.05 } },                 // Assertive Doctrine
