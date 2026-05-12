@@ -808,7 +808,10 @@ document.addEventListener('fullscreenchange', () => {
 //  INPUT
 // ============================================================================
 canvas.addEventListener('mousedown', (e) => {
-    if (!game || game.paused) return;
+    if (!game) return;
+    // While paused, allow build placement (and right-click to cancel build mode);
+    // construction progress is naturally frozen because game.gameTime doesn't advance.
+    if (game.paused && !selectedBuildType && !(e.button === 2)) return;
     if (e.button === 0) {
         const worldPos = camera.screenToWorld(e.clientX, e.clientY, canvas.clientWidth, canvas.clientHeight);
         const hex = grid.pixelToHex(worldPos.x, worldPos.y);
