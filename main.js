@@ -338,6 +338,7 @@ function initWorld(mapSize, mapStyle, playerCount, playerName, victoryConfig, di
     renderer.settings.threatRings = Input.getSetting('threatRings') !== false;
     renderer.settings.hoverRange = Input.getSetting('hoverRange') !== false;
     renderer.settings.projectileVisual = getProjectileVisualSetting();
+    game.setProjectileVisual(renderer.settings.projectileVisual);
 
     camera.x = 0; camera.y = 0; camera.scale = 0.6;
 
@@ -645,7 +646,7 @@ document.getElementById('reset-keybinds-btn')?.addEventListener('click', () => {
 
 function getProjectileVisualSetting() {
     const v = Input.getSetting('projectileVisual');
-    if (v === 'low' || v === 'medium' || v === 'high' || v === 'unlimited') return v;
+    if (v === 'minimal' || v === 'low' || v === 'medium' || v === 'high' || v === 'unlimited') return v;
     return 'medium';
 }
 
@@ -707,6 +708,7 @@ function syncSettingsToggles() {
             renderer.settings.hoverRange = Input.getSetting('hoverRange') !== false;
             renderer.settings.projectileVisual = getProjectileVisualSetting();
         }
+        if (game) game.setProjectileVisual(getProjectileVisualSetting());
         if (key === 'diplomacyEnabled' && game) {
             game.setDiplomacyEnabled(el.checked);
             updateDiplomacyBtnVisibility();
@@ -737,6 +739,7 @@ _wireVolumeSlider('opt-music-volume', 'musicVolume', v => SFX.setMusicVolume(v))
             Input.setSetting('projectileVisual', v);
             const sel = getProjectileVisualSetting();
             if (renderer) renderer.settings.projectileVisual = sel;
+            if (game) game.setProjectileVisual(sel);
             row.querySelectorAll('.option-btn').forEach(b => {
                 b.classList.toggle('selected', b.dataset.value === sel);
             });

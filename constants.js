@@ -514,16 +514,28 @@ export const DEFAULT_SETTINGS = {
     musicEnabled: true,
     sfxVolume: 0.7,
     musicVolume: 0.7,
-    /** Visual-only cap: low / medium / high, or unlimited (no culling). */
+    /** Visual-only cap: minimal / low / medium / high / unlimited. Simulation keeps every projectile. */
     projectileVisual: 'medium',
 };
 
-/** Renderer-only limits; simulation keeps all projectiles. */
+/**
+ * Renderer-only limits; simulation keeps all projectiles.
+ *
+ * - global / perTargetType: caps on how many missiles are *drawn* (and which trails are accumulated).
+ *   Use Infinity to disable culling entirely.
+ * - trailMax: max trail points retained per projectile. Heavy-load adaptation halves this further.
+ * - glow: whether 'lighter' composite glow halos are drawn around projectile heads.
+ * - lowTierTrail: whether drone/militia get trails. False = those low-impact projectiles render as bare dots.
+ *
+ * Higher tiers keep more, but the culling itself is score-weighted so high-tier weapons and
+ * near-impact projectiles ("the successful hits") survive culling first at every tier.
+ */
 export const PROJECTILE_VISUAL_PRESETS = {
-    low: { global: 45, perTargetType: 2 },
-    medium: { global: 100, perTargetType: 3 },
-    high: { global: 180, perTargetType: 5 },
-    unlimited: null,
+    minimal:   { global: 20,       perTargetType: 1,        trailMax: 0,  glow: false, lowTierTrail: false },
+    low:       { global: 45,       perTargetType: 2,        trailMax: 6,  glow: false, lowTierTrail: false },
+    medium:    { global: 100,      perTargetType: 3,        trailMax: 10, glow: true,  lowTierTrail: true  },
+    high:      { global: 180,      perTargetType: 5,        trailMax: 16, glow: true,  lowTierTrail: true  },
+    unlimited: { global: Infinity, perTargetType: Infinity, trailMax: 22, glow: true,  lowTierTrail: true  },
 };
 
 export const COLORS = {

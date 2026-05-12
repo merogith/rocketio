@@ -723,64 +723,81 @@ export class Renderer {
         ctx.restore();
     }
 
+    /** Weight by impact significance: rockets/cruise > airstrike > navy > drone > ground > militia. */
+    static _PROJ_TYPE_WEIGHT = {
+        rocket: 4.0, cruise: 4.0, airstrike: 3.5,
+        navy: 3.0, drone: 1.6, ground: 1.0, militia: 0.7,
+    };
+
+    _projectileScore(p, humanId) {
+        const tw = Renderer._PROJ_TYPE_WEIGHT[p.type] ?? 1.0;
+        // Near-impact projectiles dominate — these are the "successful hits about to land".
+        const remain = Math.hypot(p.targetX - p.x, p.targetY - p.y);
+        const proximity = 1 + 80 / (remain + 40);
+        // Threats heading at the player matter more visually.
+        let threat = 1;
+        if (humanId && p.owner !== humanId && p.targetQR) {
+            const t = this.grid?.getTile?.(p.targetQR.q, p.targetQR.r);
+            if (t && t.owner === humanId) threat = 1.6;
+        }
+        return tw * proximity * threat;
+    }
+
     /**
-     * Visual-only subset: thins same-target same-type stacks and caps global draw count.
-     * Game logic still uses full `gameState.projectiles`.
+     * Visual-only subset: keeps the highest-significance projectiles first, thins same-target
+     * same-type stacks, then enforces the global cap with round-robin across targets so the
+     * scene doesn't collapse to a single hex. Game logic still uses full `gameState.projectiles`.
      */
     _visibleProjectilesForRender(gameState) {
         const projs = gameState.projectiles;
+        if (!projs.length) return projs;
         const mode = (this.settings.projectileVisual
             && Object.prototype.hasOwnProperty.call(PROJECTILE_VISUAL_PRESETS, this.settings.projectileVisual))
             ? this.settings.projectileVisual
             : 'medium';
         const preset = PROJECTILE_VISUAL_PRESETS[mode];
-        if (preset == null) return projs;
+        if (!Number.isFinite(preset.global) && !Number.isFinite(preset.perTargetType)) return projs;
 
         const { global: G, perTargetType: K } = preset;
+        const humanId = gameState.humanId;
+
         const groupKey = (p) => `${p.targetQR.q},${p.targetQR.r}|${p.type}`;
         const groups = new Map();
         for (const p of projs) {
             const k = groupKey(p);
+            const score = this._projectileScore(p, humanId);
             if (!groups.has(k)) groups.set(k, []);
-            groups.get(k).push(p);
+            groups.get(k).push({ p, score });
         }
 
         const picked = [];
         for (const arr of groups.values()) {
-            const n = arr.length;
-            if (n <= K) {
+            if (arr.length <= K) {
                 picked.push(...arr);
                 continue;
             }
-            const byProgress = arr.slice().sort((a, b) => {
-                const da = Math.hypot(a.targetX - a.x, a.targetY - a.y);
-                const db = Math.hypot(b.targetX - b.x, b.targetY - b.y);
-                return da - db;
-            });
-            if (K === 1) {
-                picked.push(byProgress[Math.floor((n - 1) / 2)]);
-                continue;
-            }
-            for (let j = 0; j < K; j++) {
-                const idx = Math.round((j * (n - 1)) / (K - 1));
-                picked.push(byProgress[idx]);
-            }
+            arr.sort((a, b) => b.score - a.score);
+            for (let i = 0; i < K; i++) picked.push(arr[i]);
         }
 
-        if (picked.length <= G) return picked;
+        if (picked.length <= G) return picked.map(s => s.p);
 
+        // Global cap: round-robin across targets so we never starve any active hex,
+        // but each target's queue is score-ordered so heavy weapons & near-impact pop first.
         const byTarget = new Map();
-        for (const p of picked) {
-            const tk = `${p.targetQR.q},${p.targetQR.r}`;
+        for (const s of picked) {
+            const tk = `${s.p.targetQR.q},${s.p.targetQR.r}`;
             if (!byTarget.has(tk)) byTarget.set(tk, []);
-            byTarget.get(tk).push(p);
+            byTarget.get(tk).push(s);
         }
-        const queues = Array.from(byTarget.values());
+        for (const q of byTarget.values()) q.sort((a, b) => b.score - a.score);
+        // Targets sorted by their top-scoring projectile so prime hexes get the first slots.
+        const queues = Array.from(byTarget.values()).sort((a, b) => b[0].score - a[0].score);
         const out = [];
         let qi = 0;
         while (out.length < G && queues.some(q => q.length)) {
             const q = queues[qi % queues.length];
-            if (q.length) out.push(q.shift());
+            if (q.length) out.push(q.shift().p);
             qi++;
         }
         return out;
@@ -789,13 +806,24 @@ export class Renderer {
     // ------------------------------------------------------------------ PROJECTILES (per-type visuals)
     drawProjectiles(gameState) {
         const { ctx, camera, canvas } = this;
+        const mode = (this.settings.projectileVisual
+            && Object.prototype.hasOwnProperty.call(PROJECTILE_VISUAL_PRESETS, this.settings.projectileVisual))
+            ? this.settings.projectileVisual
+            : 'medium';
+        const preset = PROJECTILE_VISUAL_PRESETS[mode];
+        const glowOn = preset.glow !== false;
+        const lowTierTrailOn = preset.lowTierTrail !== false;
         const visible = this._visibleProjectilesForRender(gameState);
         for (const p of visible) {
             const sp = camera.worldToScreen(p.x, p.y, this._cw, this._ch);
             const sc = camera.scale;
 
+            const drawTrail = p.trail
+                && p.trailPts.length > 1
+                && (lowTierTrailOn || (p.type !== 'drone' && p.type !== 'militia'));
+
             // Trail
-            if (p.trail && p.trailPts.length > 1) {
+            if (drawTrail) {
                 ctx.save();
                 for (let i = 0; i < p.trailPts.length - 1; i++) {
                     const a = p.trailPts[i], b = p.trailPts[i + 1];
@@ -845,12 +873,13 @@ export class Renderer {
                 ctx.lineTo(-len * 0.3, w);
                 ctx.closePath();
                 ctx.fill();
-                // Orange glow
-                ctx.globalCompositeOperation = 'lighter';
-                ctx.fillStyle = "rgba(255, 120, 0, 0.3)";
-                ctx.beginPath();
-                ctx.arc(0, 0, 5 * sc, 0, Math.PI * 2);
-                ctx.fill();
+                if (glowOn) {
+                    ctx.globalCompositeOperation = 'lighter';
+                    ctx.fillStyle = "rgba(255, 120, 0, 0.3)";
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 5 * sc, 0, Math.PI * 2);
+                    ctx.fill();
+                }
             } else if (p.type === 'airstrike') {
                 // Fast streak with white tip
                 const dx = p.targetX - p.x, dy = p.targetY - p.y;
@@ -871,11 +900,13 @@ export class Renderer {
                 ctx.ellipse(-len * 0.3, 0, len * 0.4, w * 0.8, 0, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.globalAlpha = 1;
-                ctx.globalCompositeOperation = 'lighter';
-                ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
-                ctx.beginPath();
-                ctx.arc(0, 0, 6 * sc, 0, Math.PI * 2);
-                ctx.fill();
+                if (glowOn) {
+                    ctx.globalCompositeOperation = 'lighter';
+                    ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 6 * sc, 0, Math.PI * 2);
+                    ctx.fill();
+                }
             } else if (p.type === 'navy' || p.type === 'cruise') {
                 const dx = p.targetX - p.x, dy = p.targetY - p.y;
                 const angle = Math.atan2(dy, dx);
@@ -897,11 +928,13 @@ export class Renderer {
                 ctx.beginPath();
                 ctx.arc(sp.x + jitter, sp.y, 2.5 * sc, 0, Math.PI * 2);
                 ctx.fill();
-                ctx.globalCompositeOperation = 'lighter';
-                ctx.fillStyle = "rgba(120, 200, 255, 0.2)";
-                ctx.beginPath();
-                ctx.arc(sp.x + jitter, sp.y, 5 * sc, 0, Math.PI * 2);
-                ctx.fill();
+                if (glowOn) {
+                    ctx.globalCompositeOperation = 'lighter';
+                    ctx.fillStyle = "rgba(120, 200, 255, 0.2)";
+                    ctx.beginPath();
+                    ctx.arc(sp.x + jitter, sp.y, 5 * sc, 0, Math.PI * 2);
+                    ctx.fill();
+                }
             } else if (p.type === 'militia') {
                 // Scrappy, dim tracer (deterministic — avoids RNG cost + flicker with many shots)
                 const jitter = (Math.sin(this.time * 0.02 + p.x * 0.11 + p.y * 0.09) - 0.5) * 2 * sc;
@@ -921,11 +954,13 @@ export class Renderer {
                 ctx.beginPath();
                 ctx.ellipse(0, 0, 4 * sc, 1.5 * sc, 0, 0, Math.PI * 2);
                 ctx.fill();
-                ctx.globalCompositeOperation = 'lighter';
-                ctx.fillStyle = "rgba(255, 200, 100, 0.25)";
-                ctx.beginPath();
-                ctx.arc(0, 0, 4 * sc, 0, Math.PI * 2);
-                ctx.fill();
+                if (glowOn) {
+                    ctx.globalCompositeOperation = 'lighter';
+                    ctx.fillStyle = "rgba(255, 200, 100, 0.25)";
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 4 * sc, 0, Math.PI * 2);
+                    ctx.fill();
+                }
             }
             ctx.restore();
         }

@@ -29,7 +29,7 @@ function loadSettings() {
         }
     } catch (_) { /* use defaults */ }
     const pv = settings.projectileVisual;
-    if (pv !== 'low' && pv !== 'medium' && pv !== 'high' && pv !== 'unlimited') {
+    if (pv !== 'minimal' && pv !== 'low' && pv !== 'medium' && pv !== 'high' && pv !== 'unlimited') {
         settings.projectileVisual = DEFAULT_SETTINGS.projectileVisual;
     }
 }

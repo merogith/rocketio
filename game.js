@@ -1,4 +1,4 @@
-import { UNIT_STATS, COLORS, GAME_CONFIG, DIFFICULTY, DIPLOMACY, govGoldForDistance } from './constants.js?v=naval2027';
+import { UNIT_STATS, COLORS, GAME_CONFIG, DIFFICULTY, DIPLOMACY, PROJECTILE_VISUAL_PRESETS, govGoldForDistance } from './constants.js?v=naval2027';
 import { getPlayerMods, getSpecialUnitLabelForPlayer } from './factions.js?v=naval2027';
 import { Hex } from './hexGrid.js?v=naval2027';
 import { SFX } from './sfx.js?v=naval2027';
@@ -66,6 +66,8 @@ export class Game {
 
         this.screenShake = 0;
         this.supplyByPlayer = new Map();
+        /** Mirror of the projectile-visual setting so trailPts buffers aren't grown past what the renderer uses. */
+        this.projectileVisual = 'medium';
 
         this.victoryConfig = { mode: 'conquest', param: null };
         this.aiDifficulty = 'normal';
@@ -1665,9 +1667,16 @@ export class Game {
         }
     }
 
+    setProjectileVisual(mode) {
+        if (PROJECTILE_VISUAL_PRESETS[mode]) this.projectileVisual = mode;
+    }
+
     updateProjectiles() {
+        const preset = PROJECTILE_VISUAL_PRESETS[this.projectileVisual] || PROJECTILE_VISUAL_PRESETS.medium;
         const heavy = this.projectiles.length > 90;
-        const trailCap = heavy ? 8 : 18;
+        const baseTrail = preset.trailMax ?? 18;
+        // Heavy load compounds the preset — already-thin tiers degrade further only if there's something to cut.
+        const trailCap = heavy ? Math.max(0, Math.floor(baseTrail * 0.5)) : baseTrail;
         for (let i = this.projectiles.length - 1; i >= 0; i--) {
             const p = this.projectiles[i];
             const dx = p.targetX - p.x;
@@ -1679,9 +1688,11 @@ export class Game {
                 this.impact(p);
                 this.projectiles.splice(i, 1);
             } else {
-                if (p.trail) {
+                if (p.trail && trailCap > 0) {
                     p.trailPts.push({ x: p.x, y: p.y });
                     if (p.trailPts.length > trailCap) p.trailPts.shift();
+                } else if (p.trailPts.length) {
+                    p.trailPts.length = 0;
                 }
                 p._prevX = p.x;
                 p._prevY = p.y;
