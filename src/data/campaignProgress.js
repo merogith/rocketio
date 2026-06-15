@@ -2,7 +2,7 @@
 //  Same-PC campaign progress (localStorage)
 // ============================================================================
 
-import { CAMPAIGN_MISSIONS } from './campaignData.js?v=sig3';
+import { CAMPAIGN_MISSIONS } from './campaignData.js';
 
 const STORAGE_KEY = 'rocketio_campaign_v1';
 const MAX_ID = 10;
@@ -37,7 +37,9 @@ export function loadCampaignProgress() {
 function saveCampaignProgress(state) {
     try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch { /* private mode / quota */ }
+    } catch {
+        /* private mode / quota */
+    }
 }
 
 /**
@@ -80,11 +82,13 @@ export function markMissionBeaten(missionId) {
 export function clearCampaignProgress() {
     try {
         localStorage.removeItem(STORAGE_KEY);
-    } catch { /* */ }
+    } catch {
+        /* */
+    }
 }
 
 export function getAllMissionMetas() {
-    return CAMPAIGN_MISSIONS.map(m => ({
+    return CAMPAIGN_MISSIONS.map((m) => ({
         id: m.id,
         codename: m.codename,
         act: m.act,

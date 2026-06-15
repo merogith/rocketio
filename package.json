@@ -1,14 +1,26 @@
 {
-  "name": "rocketio",
-  "private": true,
-  "version": "0.0.0",
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
-  },
-  "devDependencies": {
-    "vite": "^5.0.0"
-  }
+    "name": "rocketio",
+    "private": true,
+    "version": "1.0.0",
+    "type": "module",
+    "description": "A real-time hex-grid strategy game built with vanilla JavaScript and Canvas.",
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "preview": "vite preview",
+        "lint": "eslint .",
+        "format": "prettier --write \"**/*.{js,css,html,json,md}\"",
+        "format:check": "prettier --check \"**/*.{js,css,html,json,md}\"",
+        "test": "vitest run"
+    },
+    "devDependencies": {
+        "@eslint/js": "^10.0.1",
+        "eslint": "^10.5.0",
+        "eslint-config-prettier": "^10.1.8",
+        "globals": "^17.6.0",
+        "jsdom": "^29.1.1",
+        "prettier": "^3.8.4",
+        "vite": "^5.0.0",
+        "vitest": "^4.1.9"
+    }
 }

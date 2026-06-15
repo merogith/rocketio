@@ -210,9 +210,9 @@ export const FACTION_UNIT_STATS = {
         ] },
     IRN_NAV: { name: 'Houdong Swarm Flotilla', icon: '⛵', factionCode: 'IRN', category: 'nav',
         levels: [
-            { id: 'IRN_NAV1', hp: 100, cost: 220, range: 4, damage: 22, interval: 7000, projectiles: 3, vision: 4 },
-            { id: 'IRN_NAV2', hp: 200, cost: 310, range: 5, damage: 32, interval: 5500, projectiles: 4, vision: 5 },
-            { id: 'IRN_NAV3', hp: 320, cost: 420, range: 6, damage: 42, interval: 4000, projectiles: 5, vision: 6 }
+            { id: 'IRN_NAV1', hp: 100, cost: 240, range: 4, damage: 22, interval: 7000, projectiles: 2, vision: 4 },
+            { id: 'IRN_NAV2', hp: 200, cost: 400, range: 5, damage: 28, interval: 5500, projectiles: 3, vision: 5 },
+            { id: 'IRN_NAV3', hp: 320, cost: 580, range: 6, damage: 34, interval: 4000, projectiles: 4, vision: 6 }
         ] },
 
     // ─── FINLAND ──────────────────────────────────────────────────────────

@@ -1,11 +1,29 @@
-import { UNIT_STATS, COLORS, GAME_CONFIG, DIFFICULTY, DIPLOMACY, govGoldForDistance } from './constants.js?v=units3';
-import { getPlayerMods, getSpecialUnitLabelForPlayer, getFactionSignatureL3 } from './factions.js?v=units3';
-import { FACTION_UNIT_STATS, FACTION_UNITS_BY_CODE, isFactionUnit, factionUnitCategory } from './factionUnits.js?v=fu1';
-import { Hex } from './hexGrid.js?v=units3';
-import { SFX } from './sfx.js?v=units3';
+// ============================================================================
+//  GAME — the authoritative simulation.
+//
+//  The Game class owns all mutable game state and advances it one frame at a
+//  time. update() drives the major sections below (search the banners to jump):
+//    UPDATE / TICK ........ gold income, missile production, militia, regen
+//    SUPPLY ............... missile stockpiles vs consumption
+//    FOG OF WAR ........... visibility + remembered enemy positions
+//    DIPLOMACY ............ alliances, peace, co-victory
+//    STRUCTURE TICK LOGIC . per-structure behaviour (factories, AA, auras)
+//    FIRING ............... target selection, damage model, faction mechanics
+//    PROJECTILES .......... movement, interception, impact resolution
+//    VICTORY .............. per-mode win/lose evaluation
+//
+//  Has no DOM/Canvas dependencies, so it runs headless (see tests/smoke.test.js
+//  and tools/balance-harness.html).
+// ============================================================================
+import { UNIT_STATS, COLORS, GAME_CONFIG, DIFFICULTY, DIPLOMACY, govGoldForDistance } from './constants.js';
+import { getPlayerMods, getSpecialUnitLabelForPlayer, getFactionSignatureL3 } from '../data/factions.js';
+import { FACTION_UNIT_STATS, FACTION_UNITS_BY_CODE, isFactionUnit, factionUnitCategory } from '../data/factionUnits.js';
+import { Hex } from './hexGrid.js';
+import { SFX } from '../render/sfx.js';
 
 function relKey(a, b) {
-    const x = Math.min(a, b), y = Math.max(a, b);
+    const x = Math.min(a, b),
+        y = Math.max(a, b);
     return `${x}:${y}`;
 }
 
@@ -13,7 +31,7 @@ function intervalEff(tile) {
     if (!tile.maxHp) return 1;
     const ratio = tile.hp / tile.maxHp;
     if (ratio < 0.5) return 2;
-    if (ratio < 1)   return 1.25;
+    if (ratio < 1) return 1.25;
     return 1;
 }
 
@@ -26,7 +44,7 @@ for (const [tid, def] of Object.entries(FACTION_UNIT_STATS)) {
 }
 /** Structures that may be placed on owned water only (see `canBuildNavyOn`). */
 const NAVY_BUILD_TYPES = new Set();
-['DDG', 'AF', 'SSG', 'CV'].forEach(t => NAVY_BUILD_TYPES.add(t));
+['DDG', 'AF', 'SSG', 'CV'].forEach((t) => NAVY_BUILD_TYPES.add(t));
 // Add faction NAV units to the water-only set.
 for (const [tid, def] of Object.entries(FACTION_UNIT_STATS)) {
     if (def.category === 'nav') NAVY_BUILD_TYPES.add(tid);
@@ -98,11 +116,11 @@ export class Game {
 
         // --- Diplomacy ---
         this.diplomacyEnabled = true;
-        this.relations = {};           // relKey(a,b) -> { a, b, status, formedAt, lastRequestFrom, lastRequestAt, rejectedBy, rejectedAt }
-        this.diploCooldowns = {};      // `${fromId}:${toId}` -> gameTime when they can send again
-        this.metPlayers = {};          // playerId -> Set<otherId>
-        this.coWinners = null;         // array of playerIds on co-victory
-        this.diploEvents = [];         // transient events for UI: {kind, a, b, t}
+        this.relations = {}; // relKey(a,b) -> { a, b, status, formedAt, lastRequestFrom, lastRequestAt, rejectedBy, rejectedAt }
+        this.diploCooldowns = {}; // `${fromId}:${toId}` -> gameTime when they can send again
+        this.metPlayers = {}; // playerId -> Set<otherId>
+        this.coWinners = null; // array of playerIds on co-victory
+        this.diploEvents = []; // transient events for UI: {kind, a, b, t}
 
         /** @type {{ missionId: number, mission: object, freezeEnemyAi?: boolean } | null} */
         this.campaign = null;
@@ -125,20 +143,36 @@ export class Game {
         for (const tile of this.grid.tiles.values()) {
             if (!tile.structure) continue;
             this._structureTiles.push(tile);
-            if (tile.structure.type === 'AAS' || tile.structure.type === 'AF' || FACTION_INTERCEPT_TYPES.has(tile.structure.type)) this._aasTiles.push(tile);
+            if (
+                tile.structure.type === 'AAS' ||
+                tile.structure.type === 'AF' ||
+                FACTION_INTERCEPT_TYPES.has(tile.structure.type)
+            )
+                this._aasTiles.push(tile);
             if (tile.structure.type === 'B' && tile.structure.level === 2) this._l3BarracksTiles.push(tile);
             if (tile.structure.type === 'G' && tile.structure.level === 2 && tile.owner) this._l3GovTiles.push(tile);
-            if (tile.structure.type === 'D' && tile.structure.level === 2 && tile.structure.stats?.jamming) this._d3JamTiles.push(tile);
+            if (tile.structure.type === 'D' && tile.structure.level === 2 && tile.structure.stats?.jamming)
+                this._d3JamTiles.push(tile);
             // SU3 only jams enemies if its faction's signature L3 doctrine is the legacy "jam" id.
             // Faction-unique doctrines (USA shoot-scoot, RUS terminal, CHN saturation, etc.) replace jamming.
-            if (tile.structure.type === 'SU' && tile.structure.level === 2 && tile.structure.stats?.signatureJam
-                && this._suSignatureId(tile) === 'jam') this._d3JamTiles.push(tile);
+            if (
+                tile.structure.type === 'SU' &&
+                tile.structure.level === 2 &&
+                tile.structure.stats?.signatureJam &&
+                this._suSignatureId(tile) === 'jam'
+            )
+                this._d3JamTiles.push(tile);
             // ITA "aegis_aura": index L3 SU3 tiles owned by a faction whose signatureL3.id === 'aegis_aura'.
-            if (tile.structure.type === 'SU' && tile.structure.level === 2 && this._suSignatureId(tile) === 'aegis_aura') {
+            if (
+                tile.structure.type === 'SU' &&
+                tile.structure.level === 2 &&
+                this._suSignatureId(tile) === 'aegis_aura'
+            ) {
                 if (!this._aegisAuraTiles) this._aegisAuraTiles = [];
                 this._aegisAuraTiles.push(tile);
             }
-            if (tile.structure.type === 'PT' && tile.structure.level === 2 && tile.structure.stats?.navyAura) this._l3PortTiles.push(tile);
+            if (tile.structure.type === 'PT' && tile.structure.level === 2 && tile.structure.stats?.navyAura)
+                this._l3PortTiles.push(tile);
             if (tile.structure.type === 'EW') this._ewTiles.push(tile);
             if (tile.structure.type === 'G' && tile.owner) {
                 this._govTiles.push(tile);
@@ -148,9 +182,13 @@ export class Game {
         this._structuresDirty = false;
     }
 
-    _markStructuresDirty() { this._structuresDirty = true; }
+    _markStructuresDirty() {
+        this._structuresDirty = true;
+    }
 
-    _ensureIndex() { if (this._structuresDirty) this._rebuildStructureIndex(); }
+    _ensureIndex() {
+        if (this._structuresDirty) this._rebuildStructureIndex();
+    }
 
     /** True if `tile` (structure hex) lies within a friendly Lv3 Barracks influence radius (non-stacking). */
     _inFriendlyL3BarracksCommandAura(tile, ownerId) {
@@ -226,9 +264,13 @@ export class Game {
 
     /** True if `targetTile` currently holds an enemy navy structure (DDG/AF/SSG) from `ownerId`'s perspective. */
     _isEnemyNavyTarget(targetTile, ownerId) {
-        return !!(targetTile?.structure && targetTile.owner && targetTile.owner !== ownerId
-            && !this.areAllied(targetTile.owner, ownerId)
-            && NAVY_BUILD_TYPES.has(targetTile.structure.type));
+        return !!(
+            targetTile?.structure &&
+            targetTile.owner &&
+            targetTile.owner !== ownerId &&
+            !this.areAllied(targetTile.owner, ownerId) &&
+            NAVY_BUILD_TYPES.has(targetTile.structure.type)
+        );
     }
 
     /**
@@ -356,7 +398,10 @@ export class Game {
             const r = s._lockedRadius ?? s.stats.radius ?? 0;
             if (s.level === 2) {
                 const others = Math.max(0, (portsByOwner.get(tile.owner) || 1) - 1);
-                const bonus = Math.min(GAME_CONFIG.PORT_L3_TRADE_CAP, others * GAME_CONFIG.PORT_L3_TRADE_PER_OTHER_PORT);
+                const bonus = Math.min(
+                    GAME_CONFIG.PORT_L3_TRADE_CAP,
+                    others * GAME_CONFIG.PORT_L3_TRADE_PER_OTHER_PORT
+                );
                 rate *= 1 + bonus;
             }
             out.push({ tile, owner: tile.owner, radius: r, rate });
@@ -377,7 +422,7 @@ export class Game {
         if (effs.length === 0) return 0;
         effs.sort((a, b) => b - a);
         let bonus = 0;
-        for (let i = 0; i < effs.length; i++) bonus += effs[i] / (2 ** i);
+        for (let i = 0; i < effs.length; i++) bonus += effs[i] / 2 ** i;
         const isAi = tile.owner !== this.humanId;
         const diffMult = isAi ? (this._difficulty || DIFFICULTY.normal).goldMult : 1;
         const gm = this.getPlayerModsForOwner(tile.owner).goldMult;
@@ -422,7 +467,7 @@ export class Game {
         if (effs.length === 0) return 0;
         effs.sort((a, b) => b - a);
         let bonus = 0;
-        for (let i = 0; i < effs.length; i++) bonus += effs[i] / (2 ** i);
+        for (let i = 0; i < effs.length; i++) bonus += effs[i] / 2 ** i;
         bonus *= mult;
         if (bonus > 0 && this._inFriendlyG3GoldAura(tile, tile.owner)) {
             bonus *= GAME_CONFIG.GOV_L3_GOLD_AURA_MULT;
@@ -430,7 +475,7 @@ export class Game {
         // L3 Trade Hub "Trade Network": passive +5% (per L3 TH, capped) Gov-gold buff for the owner.
         if (bonus > 0) {
             const thBoost = this._tradeHubGovBonusFor(tile.owner);
-            if (thBoost > 0) bonus *= (1 + thBoost);
+            if (thBoost > 0) bonus *= 1 + thBoost;
         }
         const gm = this.getPlayerModsForOwner(tile.owner).goldMult;
         return bonus * gm;
@@ -446,7 +491,7 @@ export class Game {
             if (t.structure?.type !== 'TH' || t.structure.level !== 2) continue;
             b += t.structure.stats?.tradeGovBonus || 0;
         }
-        return Math.min(0.20, b);
+        return Math.min(0.2, b);
     }
 
     /** Navy structure tile within a friendly Lv3 Port radius (non-stacking — used for navy damage/fire-rate buff). */
@@ -479,7 +524,15 @@ export class Game {
     getPlayerModsForOwner(ownerId) {
         const p = this.players[ownerId - 1];
         if (!p) {
-            return { goldMult: 1, effMult: 1, mfMult: 1, dealtMult: 1, takenMult: 1, outSupplyMult: 1, startMissiles: 0 };
+            return {
+                goldMult: 1,
+                effMult: 1,
+                mfMult: 1,
+                dealtMult: 1,
+                takenMult: 1,
+                outSupplyMult: 1,
+                startMissiles: 0,
+            };
         }
         return getPlayerMods(p.factionId ?? 0, p.leaderIdx ?? 0);
     }
@@ -490,7 +543,18 @@ export class Game {
     _enemyJamRechargeMult(tile) {
         if (!tile?.structure) return 1;
         const t = tile.structure.type;
-        if (t !== 'RL' && t !== 'AB' && t !== 'B' && t !== 'M' && t !== 'D' && t !== 'SU' && t !== 'AAS' && t !== 'DDG' && t !== 'SSG' && t !== 'AF') {
+        if (
+            t !== 'RL' &&
+            t !== 'AB' &&
+            t !== 'B' &&
+            t !== 'M' &&
+            t !== 'D' &&
+            t !== 'SU' &&
+            t !== 'AAS' &&
+            t !== 'DDG' &&
+            t !== 'SSG' &&
+            t !== 'AF'
+        ) {
             return 1;
         }
         const owner = tile.owner;
@@ -505,8 +569,12 @@ export class Game {
             const st = dTile.structure;
             if (st.type === 'D' && st.level === 2 && st.stats?.jamming) {
                 best = Math.max(best, GAME_CONFIG.DRONE_L3_RECHARGE_DEBUFF_MULT);
-            } else if (st.type === 'SU' && st.level === 2 && st.stats?.signatureJam
-                       && this._suSignatureId(dTile) === 'jam') {
+            } else if (
+                st.type === 'SU' &&
+                st.level === 2 &&
+                st.stats?.signatureJam &&
+                this._suSignatureId(dTile) === 'jam'
+            ) {
                 best = Math.max(best, GAME_CONFIG.SIGNATURE_L3_RECHARGE_DEBUFF_MULT);
             }
         }
@@ -532,12 +600,12 @@ export class Game {
         return GAME_CONFIG.MILITIA_BASE_CAP + Math.max(0, govs - 1) * GAME_CONFIG.MILITIA_PER_EXTRA_GOV;
     }
 
-    start(playerCount = 4, humanName = "COMMANDER", victoryConfig = null, startOptions = {}) {
+    start(playerCount = 4, humanName = 'COMMANDER', victoryConfig = null, startOptions = {}) {
         this.playerCount = playerCount;
         this.humanName = humanName;
         const opt = startOptions && typeof startOptions === 'object' ? startOptions : {};
-        const humanFactionId = opt.humanFactionId != null ? (opt.humanFactionId | 0) : 0;
-        const humanLeaderIdx = opt.humanLeaderIdx != null ? (opt.humanLeaderIdx | 0) : 0;
+        const humanFactionId = opt.humanFactionId != null ? opt.humanFactionId | 0 : 0;
+        const humanLeaderIdx = opt.humanLeaderIdx != null ? opt.humanLeaderIdx | 0 : 0;
         this.players = [];
         this.projectiles = [];
         this._incomingThreatHumanRef.clear();
@@ -568,12 +636,8 @@ export class Game {
         for (let i = 1; i <= playerCount; i++) {
             const isAi = i !== this.humanId;
             const startGold = GAME_CONFIG.STARTING_GOLD + (isAi ? diff.startGoldDelta : 0);
-            const factionId = i === this.humanId
-                ? ((humanFactionId % 14) + 14) % 14
-                : ((i * 3) % 14 + 14) % 14;
-            const leaderIdx = i === this.humanId
-                ? ((humanLeaderIdx % 3) + 3) % 3
-                : (i % 3);
+            const factionId = i === this.humanId ? ((humanFactionId % 14) + 14) % 14 : (((i * 3) % 14) + 14) % 14;
+            const leaderIdx = i === this.humanId ? ((humanLeaderIdx % 3) + 3) % 3 : i % 3;
             const m0 = getPlayerMods(factionId, leaderIdx);
             this.players.push({
                 id: i,
@@ -623,9 +687,10 @@ export class Game {
             if (tile) {
                 tile.owner = p.id;
                 this.buildStructure(tile, 'G', p.id, GAME_CONFIG.STARTER_GOV_LEVEL, true);
-                const neighbor = new Hex(tile.q, tile.r).getNeighbors()
-                    .map(h => this.grid.getTile(h.q, h.r))
-                    .find(t => t && t.buildable && !t.structure);
+                const neighbor = new Hex(tile.q, tile.r)
+                    .getNeighbors()
+                    .map((h) => this.grid.getTile(h.q, h.r))
+                    .find((t) => t && t.buildable && !t.structure);
                 if (neighbor) {
                     neighbor.owner = p.id;
                     this.buildStructure(neighbor, 'MF', p.id, 0, true, true);
@@ -761,7 +826,7 @@ export class Game {
         if (thByOwner.size > 0) {
             // Pre-count friendly Govs / Ports per owner (Trade Hubs scale with the wider empire).
             const govCount = new Array(this.players.length).fill(0);
-            const ptCount  = new Array(this.players.length).fill(0);
+            const ptCount = new Array(this.players.length).fill(0);
             for (const tile of this.grid.tiles.values()) {
                 if (!tile.owner || tile.contested || !tile.structure) continue;
                 if (tile.structure.type === 'G') govCount[tile.owner - 1]++;
@@ -776,7 +841,8 @@ export class Game {
                 const diffMult = isAi ? (this._difficulty || DIFFICULTY.normal).goldMult : 1;
                 for (const t of hubs) {
                     const st = t.structure.stats;
-                    const income = (st.tradeBase + st.tradePerGov * others + (st.tradePerPort || 0) * ports) * gm * diffMult;
+                    const income =
+                        (st.tradeBase + st.tradePerGov * others + (st.tradePerPort || 0) * ports) * gm * diffMult;
                     if (income > 0) {
                         this.players[oi].gold += income;
                         this.players[oi].stats.goldEarned += income;
@@ -914,10 +980,14 @@ export class Game {
         if (human) {
             const cheapestBuild = 135; // militia, the floor cost
             if (human.gold < cheapestBuild && (human.goldRate || 0) < 1.5) {
-                if ((this.gameTime - (this._lastLowGoldLog || 0)) > 20000) {
+                if (this.gameTime - (this._lastLowGoldLog || 0) > 20000) {
                     this._lastLowGoldLog = this.gameTime;
-                    this.logEvent(null, this.humanId, 'low-gold',
-                        `Low gold ($${Math.floor(human.gold)}) — build a Gov or capture territory`);
+                    this.logEvent(
+                        null,
+                        this.humanId,
+                        'low-gold',
+                        `Low gold ($${Math.floor(human.gold)}) — build a Gov or capture territory`
+                    );
                 }
             }
         }
@@ -948,9 +1018,11 @@ export class Game {
         const stats = tile.structure.stats;
         const type = tile.structure.type;
         const interval =
-            type === 'MF'  ? (stats.produceInterval  || 10000) :
-            type === 'AAS' || type === 'AF' ? (stats.rechargeInterval || 12000) :
-                             (stats.interval || 10000);
+            type === 'MF'
+                ? stats.produceInterval || 10000
+                : type === 'AAS' || type === 'AF'
+                  ? stats.rechargeInterval || 12000
+                  : stats.interval || 10000;
         tile.lastAction = this.gameTime - interval;
 
         const label = tile.structure.displayName || def?.name || type;
@@ -967,7 +1039,10 @@ export class Game {
             if (!isInfluencer(tile.structure) || !tile.owner) continue;
             const radius = tile.structure._lockedRadius ?? tile.structure.stats.radius ?? 0;
             let set = byPlayer.get(tile.owner);
-            if (!set) { set = new Set(); byPlayer.set(tile.owner, set); }
+            if (!set) {
+                set = new Set();
+                byPlayer.set(tile.owner, set);
+            }
             for (let dq = -radius; dq <= radius; dq++) {
                 for (let dr = Math.max(-radius, -dq - radius); dr <= Math.min(radius, -dq + radius); dr++) {
                     const key = `${tile.q + dq},${tile.r + dr}`;
@@ -1055,7 +1130,7 @@ export class Game {
 
     haveMet(a, b) {
         if (a === b) return false;
-        return !!(this.metPlayers[a]?.has(b));
+        return !!this.metPlayers[a]?.has(b);
     }
 
     getRelation(a, b) {
@@ -1169,7 +1244,7 @@ export class Game {
     canForfeit(a, b) {
         const rel = this.getRelation(a, b);
         if (!rel || rel.status !== 'peace') return false;
-        return (this.gameTime - rel.formedAt) >= DIPLOMACY.PEACE_LOCK_MS;
+        return this.gameTime - rel.formedAt >= DIPLOMACY.PEACE_LOCK_MS;
     }
 
     forfeitPeace(byId, otherId) {
@@ -1227,8 +1302,8 @@ export class Game {
     effFor(tile) {
         // JPN "precision": L3 Signature ignores its own intervalEff penalty (always fires at full cadence
         // regardless of HP). Skip the interval scaling that damaged structures suffer.
-        const suId = (tile.structure?.type === 'SU' && tile.structure?.level === 2) ? this._suSignatureId(tile) : null;
-        let mul = (suId === 'precision') ? 1 : intervalEff(tile);
+        const suId = tile.structure?.type === 'SU' && tile.structure?.level === 2 ? this._suSignatureId(tile) : null;
+        let mul = suId === 'precision' ? 1 : intervalEff(tile);
         const inSupply = this.isInSupply(tile, tile.owner);
         // FIN "sisu": L3 Signature ignores out-of-supply slowdown entirely.
         if (!inSupply && suId !== 'sisu') {
@@ -1245,7 +1320,7 @@ export class Game {
         }
         // China HQ-9 Magazine Park: adjacent friendly launchers (RL/AB/SU/CV/SSG/B) fire faster.
         const rofMult = this._launcherRofBoostFor(tile, tile.owner);
-        if (rofMult > 1) mul *= (1 / rofMult);
+        if (rofMult > 1) mul *= 1 / rofMult;
         // FIN NASAMS Sisu Bastion — its own recharge accelerates with match time (1 / (1 + cap * minutes)).
         const tsr = tile.structure?.stats?.timeScaleHpRange;
         if (tsr) {
@@ -1254,13 +1329,13 @@ export class Game {
             mul *= 1 / acc;
         }
         // ITA Bersaglieri "Concord" L3 — adjacent friendlies fire 10% faster.
-        if (this._adjBersaglieriHasteAura(tile, tile.owner)) mul *= 0.90;
+        if (this._adjBersaglieriHasteAura(tile, tile.owner)) mul *= 0.9;
         // JPN Mogami stealthIntervalBonus — while no enemy is within reveal range, fire faster.
         const stats0 = tile.structure?.stats;
         if (stats0?.stealthIntervalBonus && stats0?.lowProfile) {
             const reveal = stats0.lowProfileRevealRange ?? 2;
             const exposed = this._enemyWithinHexes(tile, tile.owner, reveal);
-            if (!exposed) mul *= (1 - stats0.stealthIntervalBonus);
+            if (!exposed) mul *= 1 - stats0.stealthIntervalBonus;
         }
         return mul;
     }
@@ -1295,12 +1370,24 @@ export class Game {
         for (const tile of this.grid.tiles.values()) {
             if (!tile.structure) continue;
             // M3 "Insurgency": Lv3 Militia HQ may continue to operate (fire, regen, influence) on contested tiles.
-            const m3Insurgent = tile.contested && GAME_CONFIG.MILITIA_HQ_L3_OPERATES_CONTESTED
-                && tile.structure.type === 'M' && tile.structure.level === 2 && tile.structure.stats?.radius;
+            const m3Insurgent =
+                tile.contested &&
+                GAME_CONFIG.MILITIA_HQ_L3_OPERATES_CONTESTED &&
+                tile.structure.type === 'M' &&
+                tile.structure.level === 2 &&
+                tile.structure.stats?.radius;
             if (tile.contested && !m3Insurgent) continue;
 
             const s = tile.structure;
-            if (s.type === 'RL' || s.type === 'AB' || s.type === 'DDG' || s.type === 'SSG' || s.type === 'CV' || s.type === 'ICBM') continue;
+            if (
+                s.type === 'RL' ||
+                s.type === 'AB' ||
+                s.type === 'DDG' ||
+                s.type === 'SSG' ||
+                s.type === 'CV' ||
+                s.type === 'ICBM'
+            )
+                continue;
 
             const stats = s.stats;
             const p = this.players[tile.owner - 1];
@@ -1339,7 +1426,11 @@ export class Game {
             if (s.type === 'AAS' || s.type === 'AF') {
                 if (time - tile.lastAction > stats.rechargeInterval * eff) {
                     let add = stats.missilesRecharged;
-                    if (s.type === 'AAS' && tile.structure.level === 2 && Math.random() < GAME_CONFIG.AAS_L3_BONUS_RECHARGE_CHANCE) {
+                    if (
+                        s.type === 'AAS' &&
+                        tile.structure.level === 2 &&
+                        Math.random() < GAME_CONFIG.AAS_L3_BONUS_RECHARGE_CHANCE
+                    ) {
                         add += 1;
                     }
                     // USA Patriot Targeting Cell — bonus charge cap (and range) on adjacent AAS.
@@ -1413,18 +1504,31 @@ export class Game {
             if (!tile.structure) continue;
             if (tile.contested) continue;
             const s = tile.structure;
-            const isFactionOffOrNav = isFactionUnit(s.type)
-                && (factionUnitCategory(s.type) === 'off' || factionUnitCategory(s.type) === 'nav');
-            if (s.type !== 'RL' && s.type !== 'AB' && s.type !== 'DDG' && s.type !== 'SSG' && s.type !== 'CV' && s.type !== 'ICBM' && !isFactionOffOrNav) continue;
+            const isFactionOffOrNav =
+                isFactionUnit(s.type) &&
+                (factionUnitCategory(s.type) === 'off' || factionUnitCategory(s.type) === 'nav');
+            if (
+                s.type !== 'RL' &&
+                s.type !== 'AB' &&
+                s.type !== 'DDG' &&
+                s.type !== 'SSG' &&
+                s.type !== 'CV' &&
+                s.type !== 'ICBM' &&
+                !isFactionOffOrNav
+            )
+                continue;
             const stats = s.stats;
             const p = this.players[tile.owner - 1];
             const eff = this.effFor(tile);
             if (time - tile.lastAction <= stats.interval * eff) continue;
             // Pre-stocked silos (Iran Fateh) carry their own ammo and don't consume player missiles.
             const usesPreStock = stats.preStock != null;
-            const minMissiles = (s.type === 'AB' && tile.structure.level === 2)
-                ? Math.min(GAME_CONFIG.AB_L3_STEALTH_MISSILES, stats.missilesPerShot)
-                : (isFactionOffOrNav ? (stats.missilesPerShot ?? 1) : stats.missilesPerShot);
+            const minMissiles =
+                s.type === 'AB' && tile.structure.level === 2
+                    ? Math.min(GAME_CONFIG.AB_L3_STEALTH_MISSILES, stats.missilesPerShot)
+                    : isFactionOffOrNav
+                      ? (stats.missilesPerShot ?? 1)
+                      : stats.missilesPerShot;
             if (!usesPreStock && !isFactionOffOrNav && p.missiles < minMissiles) continue;
             if (!usesPreStock && isFactionOffOrNav && p.missiles < minMissiles) continue;
             const pid = tile.owner;
@@ -1448,8 +1552,14 @@ export class Game {
             if (this._missileSmartPlayers?.has(pid)) {
                 const inc = this._incomingShooterKeysForDefender(pid);
                 order = [...entries].sort((a, b) => {
-                    const ta = this.resolveTarget(a.tile, a.tile.structure.stats, { missileSmart: true, allocMap: null });
-                    const tb = this.resolveTarget(b.tile, b.tile.structure.stats, { missileSmart: true, allocMap: null });
+                    const ta = this.resolveTarget(a.tile, a.tile.structure.stats, {
+                        missileSmart: true,
+                        allocMap: null,
+                    });
+                    const tb = this.resolveTarget(b.tile, b.tile.structure.stats, {
+                        missileSmart: true,
+                        allocMap: null,
+                    });
                     const pa = ta ? this.missileTargetPriority(pid, ta, inc, a.tile) : -Infinity;
                     const pb = tb ? this.missileTargetPriority(pid, tb, inc, b.tile) : -Infinity;
                     if (pb !== pa) return pb - pa;
@@ -1461,9 +1571,10 @@ export class Game {
                 const stats = tile.structure.stats;
                 const s = tile.structure;
                 if (time - tile.lastAction <= stats.interval * eff) continue;
-                const minM = (s.type === 'AB' && tile.structure.level === 2)
-                    ? Math.min(GAME_CONFIG.AB_L3_STEALTH_MISSILES, stats.missilesPerShot)
-                    : stats.missilesPerShot;
+                const minM =
+                    s.type === 'AB' && tile.structure.level === 2
+                        ? Math.min(GAME_CONFIG.AB_L3_STEALTH_MISSILES, stats.missilesPerShot)
+                        : stats.missilesPerShot;
                 if (p.missiles < minM) continue;
                 if (s.type === 'RL') {
                     if (this.fireRocket(tile)) tile.lastAction = time;
@@ -1590,7 +1701,16 @@ export class Game {
             score = 500_000;
         } else if (t === 'PT') {
             score = 350_000;
-        } else if (t === 'RL' || t === 'AB' || t === 'D' || t === 'SU' || t === 'B' || (t === 'M' && st?.damage) || t === 'DDG' || t === 'SSG') {
+        } else if (
+            t === 'RL' ||
+            t === 'AB' ||
+            t === 'D' ||
+            t === 'SU' ||
+            t === 'B' ||
+            (t === 'M' && st?.damage) ||
+            t === 'DDG' ||
+            t === 'SSG'
+        ) {
             score = 2_000_000 + dps * 1000;
         } else {
             score = 400_000 + dps;
@@ -1602,9 +1722,12 @@ export class Game {
             if ((stType === 'DDG' || stType === 'SSG') && this._enemyNavyOnSeaForOwner(targetTile, o)) {
                 score += GAME_CONFIG.NAVY_FIRST_TARGET_BONUS;
             }
-            if ((stType === 'RL' || stType === 'AB') && sourceTile.buildable
-                && this._enemyNavyOnSeaForOwner(targetTile, o)
-                && !this._navyWithinHexesOfMyLand(targetTile, o, GAME_CONFIG.NAVY_COASTAL_LAND_EXCEPT_HEX)) {
+            if (
+                (stType === 'RL' || stType === 'AB') &&
+                sourceTile.buildable &&
+                this._enemyNavyOnSeaForOwner(targetTile, o) &&
+                !this._navyWithinHexesOfMyLand(targetTile, o, GAME_CONFIG.NAVY_COASTAL_LAND_EXCEPT_HEX)
+            ) {
                 score -= GAME_CONFIG.NAVY_LAND_DEPRIOR_PENALTY;
             }
         }
@@ -1698,18 +1821,20 @@ export class Game {
 
         const hKey = `${c.tile.q},${c.tile.r}`;
         if (srcT && peerPen) {
-            const peer = this._countPeersSameTypeToHex(
-                sourceOwner, srcT, hKey, allocMap, source
-            );
+            const peer = this._countPeersSameTypeToHex(sourceOwner, srcT, hKey, allocMap, source);
             s -= peer * peerPen;
         }
         const sk0 = this._autoTargetLayerKey(source);
         const tk0 = this._autoTargetLayerKey(c.tile);
         const L = GAME_CONFIG.AUTO_TARGET_LAYER || {};
         s += this._autoTargetLayerScore(sk0, tk0);
-        if (sk0 === 'land' && tk0 === 'sea' && this._enemyNavyOnSeaForOwner(c.tile, sourceOwner)
-            && this._navyWithinHexesOfMyLand(c.tile, sourceOwner, GAME_CONFIG.NAVY_COASTAL_LAND_EXCEPT_HEX)) {
-            s -= (L.LAND_TO_SEA_PENALTY ?? 0);
+        if (
+            sk0 === 'land' &&
+            tk0 === 'sea' &&
+            this._enemyNavyOnSeaForOwner(c.tile, sourceOwner) &&
+            this._navyWithinHexesOfMyLand(c.tile, sourceOwner, GAME_CONFIG.NAVY_COASTAL_LAND_EXCEPT_HEX)
+        ) {
+            s -= L.LAND_TO_SEA_PENALTY ?? 0;
         }
         const sType = st?.type;
         if ((sType === 'DDG' || sType === 'SSG') && (c.tile.navyIlluminatedUntil | 0) > this.gameTime) {
@@ -1721,7 +1846,7 @@ export class Game {
 
     _pickByAutoTargetScore(source, cands, sourceOwner, missileSmart, inc, allocMap) {
         if (!cands.length) return null;
-        const dMin = Math.min(...cands.map(c => c.d));
+        const dMin = Math.min(...cands.map((c) => c.d));
         let best = cands[0];
         let bestS = this._autoTargetCandidateScore(source, best, dMin, sourceOwner, missileSmart, inc, allocMap);
         for (let i = 1; i < cands.length; i++) {
@@ -1730,7 +1855,8 @@ export class Game {
                 bestS = sc;
                 best = cands[i];
             } else if (sc === bestS) {
-                const t = cands[i].tile, o = best.tile;
+                const t = cands[i].tile,
+                    o = best.tile;
                 if (t.q < o.q || (t.q === o.q && t.r < o.r)) best = cands[i];
             }
         }
@@ -1743,7 +1869,12 @@ export class Game {
             const live = this.grid.getTile(assigned.q, assigned.r);
             if (live) {
                 const d = Hex.distance(tile, live);
-                if (d <= stats.range && live.owner !== tile.owner && live.structure && !this.areAllied(live.owner, tile.owner)) {
+                if (
+                    d <= stats.range &&
+                    live.owner !== tile.owner &&
+                    live.structure &&
+                    !this.areAllied(live.owner, tile.owner)
+                ) {
                     return { target: live, fromManual: true };
                 }
             }
@@ -1812,7 +1943,7 @@ export class Game {
         };
 
         const blockedByPending = (c) => !!GAME_CONFIG.AUTO_TARGET_USE_PENDING_DAMAGE && isSaturated(c);
-        const preferred = candidates.filter(c => !isInboundBlocked(c) && !blockedByPending(c));
+        const preferred = candidates.filter((c) => !isInboundBlocked(c) && !blockedByPending(c));
 
         if (preferred.length) {
             return this._pickByAutoTargetScore(source, preferred, sourceOwner, missileSmart, inc, allocMap);
@@ -1827,8 +1958,8 @@ export class Game {
         if (!pending) {
             return this._pickByAutoTargetScore(source, candidates, sourceOwner, missileSmart, inc, allocMap);
         }
-        const dMin = Math.min(...candidates.map(c => c.d));
-        const scored = candidates.map(c => {
+        const dMin = Math.min(...candidates.map((c) => c.d));
+        const scored = candidates.map((c) => {
             const k = `${c.tile.q},${c.tile.r}`;
             return {
                 c,
@@ -1859,15 +1990,18 @@ export class Game {
         if (!this._humanSees(tile)) return;
         const from = this.grid.hexToPixel(tile.q, tile.r);
         const to = this.grid.hexToPixel(target.q, target.r);
-        const dx = to.x - from.x, dy = to.y - from.y;
+        const dx = to.x - from.x,
+            dy = to.y - from.y;
         const len = Math.hypot(dx, dy) || 1;
-        const nx = dx / len, ny = dy / len;
+        const nx = dx / len,
+            ny = dy / len;
         for (let i = 0; i < count; i++) {
             if (this.particles.length >= GAME_CONFIG.MAX_PARTICLES) this.particles.shift();
             const spread = (Math.random() - 0.5) * 0.9;
             const s = 1.8 + Math.random() * 2.0;
             this.particles.push({
-                x: from.x + nx * 8, y: from.y + ny * 8,
+                x: from.x + nx * 8,
+                y: from.y + ny * 8,
                 vx: (nx * Math.cos(spread) - ny * Math.sin(spread)) * s,
                 vy: (nx * Math.sin(spread) + ny * Math.cos(spread)) * s,
                 life: 10 + Math.random() * 8,
@@ -1903,8 +2037,7 @@ export class Game {
             this._autoTargetAllocMap.set(k, (this._autoTargetAllocMap.get(k) || 0) + 1);
         }
         const count = stats.projectiles || 1;
-        const splash = stats.splash && tile.structure.level === 2
-            && Math.random() < GAME_CONFIG.RL_L3_SPLASH_CHANCE;
+        const splash = stats.splash && tile.structure.level === 2 && Math.random() < GAME_CONFIG.RL_L3_SPLASH_CHANCE;
         for (let i = 0; i < count; i++) {
             this.spawnProjectile(tile, target, {
                 type: 'rocket',
@@ -1912,7 +2045,7 @@ export class Game {
                 speed: 3.0,
                 interceptable: stats.interceptable !== false,
                 trail: true,
-                splash
+                splash,
             });
         }
         this.spawnMuzzleFlash(tile, target, { color: '#ff9130', size: 2, count: 5 });
@@ -1946,8 +2079,8 @@ export class Game {
                 type: 'airstrike',
                 damage: stats.damage,
                 speed: stats.projectileSpeed || 4.5,
-                interceptable: stealth ? false : (stats.interceptable !== false),
-                trail: true
+                interceptable: stealth ? false : stats.interceptable !== false,
+                trail: true,
             });
         }
         this.spawnMuzzleFlash(tile, target, { color: '#e8f3ff', size: 1.5, count: 4 });
@@ -1983,9 +2116,13 @@ export class Game {
             dmg *= GAME_CONFIG.DDG_ANTISHIP_DMG_MULT;
         }
         // DDG3 "CEC Datalink": widened from 3-hex partner radius to GAME_CONFIG.DDG3_CEC_RADIUS (5).
-        if (s.type === 'DDG' && tile.structure.level === 2 && stats.cec
-            && this._enemyNavyOnSeaForOwner(target, tile.owner)
-            && this._otherFriendlyNavyInRangeExcl(tile, GAME_CONFIG.DDG3_CEC_RADIUS, tile.owner) > 0) {
+        if (
+            s.type === 'DDG' &&
+            tile.structure.level === 2 &&
+            stats.cec &&
+            this._enemyNavyOnSeaForOwner(target, tile.owner) &&
+            this._otherFriendlyNavyInRangeExcl(tile, GAME_CONFIG.DDG3_CEC_RADIUS, tile.owner) > 0
+        ) {
             dmg *= GAME_CONFIG.DDG3_CEC_DMG_MULT;
         }
         if (this._inFriendlyL3PortAura(tile, tile.owner)) {
@@ -2022,9 +2159,13 @@ export class Game {
         if (!target) return false;
         if (p.missiles < stats.missilesPerShot) return false;
         let dmg = stats.damage;
-        if (s.type === 'SSG' && tile.structure.level === 2 && stats.bastion
-            && this._enemyNavyOnSeaForOwner(target, tile.owner)
-            && this._otherFriendlyNavyInRangeExcl(tile, 1, tile.owner) > 0) {
+        if (
+            s.type === 'SSG' &&
+            tile.structure.level === 2 &&
+            stats.bastion &&
+            this._enemyNavyOnSeaForOwner(target, tile.owner) &&
+            this._otherFriendlyNavyInRangeExcl(tile, 1, tile.owner) > 0
+        ) {
             dmg *= GAME_CONFIG.SSG3_BASTION_DMG_MULT;
         }
         if (this._inFriendlyL3PortAura(tile, tile.owner)) {
@@ -2044,8 +2185,8 @@ export class Game {
                 type: 'cruise',
                 damage: dmg,
                 speed: stats.projectileSpeed || 4.2,
-                interceptable: stealth ? false : (stats.interceptable !== false),
-                trail: true
+                interceptable: stealth ? false : stats.interceptable !== false,
+                trail: true,
             });
         }
         this.spawnMuzzleFlash(tile, target, { color: '#7aa0c0', size: 1.2, count: 3 });
@@ -2086,7 +2227,7 @@ export class Game {
                 type: 'airstrike',
                 damage: dmg,
                 speed: stats.projectileSpeed || 5.5,
-                interceptable: stealth ? false : (stats.interceptable !== false),
+                interceptable: stealth ? false : stats.interceptable !== false,
                 trail: true,
             });
         }
@@ -2137,7 +2278,7 @@ export class Game {
         let dmg = stats.damage;
         // USA Stryker BCT paint aura: bonus damage + faster cadence on the painted tile.
         const paint = this._strykerPaintMultsFor(tile, tile.owner, target);
-        if (paint.dmgBonus) dmg *= (1 + paint.dmgBonus);
+        if (paint.dmgBonus) dmg *= 1 + paint.dmgBonus;
         if (paint.rateBonus) {
             // Shrink time-until-next-fire: pretend last action happened slightly later.
             tile.lastAction = this.gameTime + Math.floor((stats.interval || 0) * paint.rateBonus);
@@ -2149,7 +2290,7 @@ export class Game {
                 damage: dmg,
                 speed: 3.5,
                 interceptable: !!stats.interceptable,
-                trail: false
+                trail: false,
             });
         }
         if (projType === 'militia') {
@@ -2170,7 +2311,7 @@ export class Game {
 
         tile.structure.lastFiredAt = this.gameTime;
         const s = tile.structure;
-        const suL3 = (s.type === 'SU' && s.level === 2) ? this._suSignatureId(tile) : null;
+        const suL3 = s.type === 'SU' && s.level === 2 ? this._suSignatureId(tile) : null;
 
         // Damage modifiers applied at fire time (depend on shooter or target).
         let dmg = stats.damage;
@@ -2180,7 +2321,7 @@ export class Game {
         if (suL3 === 'anti_ship' && this._isEnemyNavyTarget(target, tile.owner)) {
             dmg *= 1.5; // IDN Yakhont — coastal anti-ship.
         }
-        if (suL3 === 'recon' && target.structure && target.maxHp > 0 && (target.hp / target.maxHp) < 0.5) {
+        if (suL3 === 'recon' && target.structure && target.maxHp > 0 && target.hp / target.maxHp < 0.5) {
             dmg *= 1.25; // TUR Bayraktar — finish-the-wounded loiter bonus.
         }
         if (suL3 === 'defender') {
@@ -2202,7 +2343,7 @@ export class Game {
         // CHN "Saturation": every 4th salvo fires the regular volley + 2 extra projectiles.
         let projCount = stats.projectiles || 1;
         if (suL3 === 'saturation') {
-            s._satShotCount = ((s._satShotCount | 0) + 1);
+            s._satShotCount = (s._satShotCount | 0) + 1;
             if (s._satShotCount % 4 === 0) projCount += 2;
         }
 
@@ -2272,7 +2413,7 @@ export class Game {
         // Percent-HP damage (Russia Solntsepyok).
         if (stats.pctHpDmg && target.maxHp > 0) {
             const pctBonus = (target.hp || 0) * stats.pctHpDmg;
-            dmg = Math.min((stats.pctHpDmgCap || Infinity), dmg + pctBonus);
+            dmg = Math.min(stats.pctHpDmgCap || Infinity, dmg + pctBonus);
         }
 
         // Anti-fortification (Saudi GBU-39).
@@ -2295,12 +2436,12 @@ export class Game {
         if (stats.buildingScaleDmg) {
             const friendlyCount = this._friendlyBuildingCount(tile.owner);
             const bonus = Math.min(stats.buildingScaleCap || 0.6, friendlyCount * stats.buildingScaleDmg);
-            dmg *= (1 + bonus);
+            dmg *= 1 + bonus;
         }
 
         // First shot of the game bonus (Vietnam Tunnel Launch).
         if (stats.firstShotBonusPct && !s._firedOnce) {
-            dmg *= (1 + stats.firstShotBonusPct);
+            dmg *= 1 + stats.firstShotBonusPct;
         }
         // UK SAS Raid Team — opening-strike flat damage bonus on the unit's first ever shot.
         if (stats.openingStrike && !s._firedOnce) {
@@ -2312,24 +2453,24 @@ export class Game {
         // by friendly tiles to keep the unit's identity in play.
         if (stats.dugInBonus && this._countFriendlyAdjTiles(tile, tile.owner) >= (stats.dugInMinFriendlyAdj || 3)) {
             // Range/HP bonus is handled at build/upgrade time; on-fire we add +20% dmg for being dug-in.
-            dmg *= 1.20;
+            dmg *= 1.2;
         }
 
         // Adjacency synergy (Italy Bersaglieri).
         if (stats.adjacencyDmg) {
             const n = Math.min(stats.adjacencyMax || 5, this._countFriendlyAdjGroundUnits(tile, tile.owner));
-            dmg *= (1 + n * stats.adjacencyDmg);
+            dmg *= 1 + n * stats.adjacencyDmg;
         }
 
         // Ambush bonus (Finland Jäger) — +25% dmg if it's been >ambushCooldownMs since last shot.
         if (stats.ambushDmgBonus && stats.ambushCooldownMs) {
             const dt = this.gameTime - (s.lastFiredAt || 0);
-            if (dt >= stats.ambushCooldownMs) dmg *= (1 + stats.ambushDmgBonus);
+            if (dt >= stats.ambushCooldownMs) dmg *= 1 + stats.ambushDmgBonus;
         }
 
         // Vengeance (Vietnam Kilo).
         if (stats.vengeanceDmgBonus && this._recentFriendlyLossNear(tile, tile.owner, 4, 8000)) {
-            dmg *= (1 + stats.vengeanceDmgBonus);
+            dmg *= 1 + stats.vengeanceDmgBonus;
         }
 
         // Home territory defender bonus (Japan Type 12).
@@ -2365,7 +2506,7 @@ export class Game {
         s._firedOnce = true;
 
         // Projectile spec.
-        const projType = cat === 'nav' ? 'navy' : (cat === 'gnd' ? 'ground' : 'rocket');
+        const projType = cat === 'nav' ? 'navy' : cat === 'gnd' ? 'ground' : 'rocket';
         const splashFlag = !!stats.splash;
         const interceptable = stats.interceptable !== false;
 
@@ -2375,16 +2516,26 @@ export class Game {
             const targets = this._pickMultiTargets(tile, stats, projCount);
             for (const tgt of targets) {
                 this.spawnProjectile(tile, tgt, {
-                    type: projType, damage: dmg, speed: 3.0,
-                    interceptable, trail: true, splash: splashFlag,
-                    pierce, splashRadius: stats.splashRadius || 1
+                    type: projType,
+                    damage: dmg,
+                    speed: 3.0,
+                    interceptable,
+                    trail: true,
+                    splash: splashFlag,
+                    pierce,
+                    splashRadius: stats.splashRadius || 1,
                 });
             }
         } else if (pierce > 0) {
             // Single line-attack projectile.
             this.spawnProjectile(tile, target, {
-                type: projType, damage: dmg, speed: 3.0,
-                interceptable, trail: true, splash: false, pierce
+                type: projType,
+                damage: dmg,
+                speed: 3.0,
+                interceptable,
+                trail: true,
+                splash: false,
+                pierce,
             });
         } else {
             for (let i = 0; i < projCount; i++) {
@@ -2393,9 +2544,12 @@ export class Game {
                 // Poland NSM Coastal — afPierceChance grants a per-shot roll to bypass the first AF layer.
                 const afPierce = stats.afPierceChance && Math.random() < stats.afPierceChance;
                 this.spawnProjectile(tile, target, {
-                    type: projType, damage: dmg, speed: 3.0,
-                    interceptable: (isStealthExtra || afPierce) ? false : interceptable,
-                    trail: true, splash: splashFlag,
+                    type: projType,
+                    damage: dmg,
+                    speed: 3.0,
+                    interceptable: isStealthExtra || afPierce ? false : interceptable,
+                    trail: true,
+                    splash: splashFlag,
                     splashRadius: stats.splashRadius || 1,
                     killRefundPct: stats.killRefundPct,
                     sourceType: s.type,
@@ -2408,7 +2562,10 @@ export class Game {
         }
 
         this.spawnMuzzleFlash(tile, target, { color: '#ffb060', size: 1.4, count: 4 });
-        this._fireSfx(tile, projType === 'navy' ? 'launch_navy' : (projType === 'ground' ? 'launch_drone' : 'launch_rocket'));
+        this._fireSfx(
+            tile,
+            projType === 'navy' ? 'launch_navy' : projType === 'ground' ? 'launch_drone' : 'launch_rocket'
+        );
         return true;
     }
 
@@ -2490,7 +2647,7 @@ export class Game {
     // ========================================================================
     spawnProjectile(fromTile, toTile, opts) {
         const startPos = this.grid.hexToPixel(fromTile.q, fromTile.r);
-        const endPos   = this.grid.hexToPixel(toTile.q,   toTile.r);
+        const endPos = this.grid.hexToPixel(toTile.q, toTile.r);
         const atkOwner = opts.owner ?? fromTile.owner;
         let dmg = opts.damage ?? 0;
         if (fromTile?.structure) {
@@ -2541,7 +2698,7 @@ export class Game {
         const lastT = this._lastIncomingLog.get(k) || 0;
         if (this.gameTime - lastT > 3500) {
             this._lastIncomingLog.set(k, this.gameTime);
-            const structName = tile.structure ? (UNIT_STATS[tile.structure.type]?.name || tile.structure.type) : 'tile';
+            const structName = tile.structure ? UNIT_STATS[tile.structure.type]?.name || tile.structure.type : 'tile';
             this.logEvent(p.owner, this.humanId, 'incoming', `Incoming ${p.type} → ${structName}`);
         }
     }
@@ -2583,7 +2740,7 @@ export class Game {
 
                 if (p.interceptable && this.checkInterception(p)) {
                     this._removeIncomingHumanThreat(p);
-                    this.spawnBurst(p.x, p.y, "#00e5ff", heavy ? 4 : 8);
+                    this.spawnBurst(p.x, p.y, '#00e5ff', heavy ? 4 : 8);
                     SFX.play('intercept');
                     this.logEvent(p.owner, null, 'intercepted', `${p.type} intercepted`);
                     this.projectiles.splice(i, 1);
@@ -2605,7 +2762,7 @@ export class Game {
                 if (Hex.distance(hex, t) > t.structure.stats.range) continue;
                 if (Math.random() > t.structure.stats.koralSpoof) continue;
                 // Pick a random friendly tile belonging to the spoofer.
-                const friendlyTiles = (this._structureTiles || []).filter(x => x.owner === t.owner && x !== t);
+                const friendlyTiles = (this._structureTiles || []).filter((x) => x.owner === t.owner && x !== t);
                 if (friendlyTiles.length === 0) break;
                 const pick = friendlyTiles[(Math.random() * friendlyTiles.length) | 0];
                 const newEnd = this.grid.hexToPixel(pick.q, pick.r);
@@ -2640,8 +2797,13 @@ export class Game {
                 if (tile.contested) continue;
                 if ((tile.structure.charge || 0) <= 0) continue;
                 // ICBM warheads can only be intercepted by Lv3 interceptors (Iron Dome / Aegis BMD).
-                if (proj.type === 'icbm' && GAME_CONFIG.ICBM_REQUIRES_L3_INTERCEPTOR
-                    && tile.structure.level !== 2 && !tile.structure.stats?.interceptsIcbm) continue;
+                if (
+                    proj.type === 'icbm' &&
+                    GAME_CONFIG.ICBM_REQUIRES_L3_INTERCEPTOR &&
+                    tile.structure.level !== 2 &&
+                    !tile.structure.stats?.interceptsIcbm
+                )
+                    continue;
                 // KSA THAAD `ballisticOnly`: only intercepts rocket / icbm types.
                 if (tile.structure.stats?.ballisticOnly && proj.type !== 'rocket' && proj.type !== 'icbm') continue;
 
@@ -2698,8 +2860,11 @@ export class Game {
                     const reflectDmg = (proj.damage || 0) * (best.structure.stats.reflectDmgMult || 0.5);
                     if (reflectDmg > 0) {
                         this.spawnProjectile(best, sourceTile, {
-                            type: 'rocket', damage: reflectDmg, speed: 4.0,
-                            interceptable: false, trail: true,
+                            type: 'rocket',
+                            damage: reflectDmg,
+                            speed: 4.0,
+                            interceptable: false,
+                            trail: true,
                         });
                     }
                 }
@@ -2720,14 +2885,14 @@ export class Game {
 
         // Tier the visual/audio weight of the impact by projectile type.
         const IMPACT_TIER = {
-            rocket:    { burst: 18, color: '#ffb060', shake: 4, sfx: 'impact_big'   },
-            airstrike: { burst: 22, color: '#ffe9c0', shake: 5, sfx: 'impact_big'   },
-            icbm:      { burst: 60, color: '#ffd060', shake: 10, sfx: 'impact_big'  },
-            navy:      { burst: 16, color: '#5aa0c0', shake: 3, sfx: 'impact_big'   },
-            cruise:    { burst: 20, color: '#8aa0b8', shake: 4, sfx: 'impact_big'   },
-            drone:     { burst: 7,  color: '#78c8ff', shake: 1, sfx: 'impact_small' },
-            ground:    { burst: 5,  color: '#fff0a0', shake: 1, sfx: 'impact_small' },
-            militia:   { burst: 4,  color: '#ffe680', shake: 0, sfx: 'impact_small' },
+            rocket: { burst: 18, color: '#ffb060', shake: 4, sfx: 'impact_big' },
+            airstrike: { burst: 22, color: '#ffe9c0', shake: 5, sfx: 'impact_big' },
+            icbm: { burst: 60, color: '#ffd060', shake: 10, sfx: 'impact_big' },
+            navy: { burst: 16, color: '#5aa0c0', shake: 3, sfx: 'impact_big' },
+            cruise: { burst: 20, color: '#8aa0b8', shake: 4, sfx: 'impact_big' },
+            drone: { burst: 7, color: '#78c8ff', shake: 1, sfx: 'impact_small' },
+            ground: { burst: 5, color: '#fff0a0', shake: 1, sfx: 'impact_small' },
+            militia: { burst: 4, color: '#ffe680', shake: 0, sfx: 'impact_small' },
         };
         const tier = IMPACT_TIER[proj.type] || IMPACT_TIER.ground;
         this.spawnBurst(proj.targetX, proj.targetY, tier.color, tier.burst);
@@ -2742,9 +2907,13 @@ export class Game {
             let dmg = proj.damage;
             // EW Jammer (soft-kill defense): for interceptable projectile types, friendly EW coverage
             // reduces damage and (L3 only) has a chance to fully spoof the missile.
-            const ewElig = proj.interceptable !== false
-                && (proj.type === 'rocket' || proj.type === 'airstrike' || proj.type === 'navy'
-                    || proj.type === 'cruise' || proj.type === 'drone');
+            const ewElig =
+                proj.interceptable !== false &&
+                (proj.type === 'rocket' ||
+                    proj.type === 'airstrike' ||
+                    proj.type === 'navy' ||
+                    proj.type === 'cruise' ||
+                    proj.type === 'drone');
             if (ewElig) {
                 const ew = this._ewCoverageFor(tile, tile.owner);
                 if (ew) {
@@ -2766,7 +2935,11 @@ export class Game {
                 }
             }
             // AF3 "Aegis BMD" illumination — naval projectiles hitting an illuminated tile do extra damage.
-            if ((proj.type === 'navy' || proj.type === 'cruise') && tile.navyIlluminatedUntil && this.gameTime < tile.navyIlluminatedUntil) {
+            if (
+                (proj.type === 'navy' || proj.type === 'cruise') &&
+                tile.navyIlluminatedUntil &&
+                this.gameTime < tile.navyIlluminatedUntil
+            ) {
                 dmg *= GAME_CONFIG.AF3_ILLUM_DMG_MULT;
             }
             if (this._inFriendlyL3BarracksCommandAura(tile, tile.owner)) {
@@ -2778,7 +2951,7 @@ export class Game {
             const drMult = this._friendlyDrAuraMult(tile, tile.owner);
             if (drMult < 1) dmg *= drMult;
             // Switzerland Réduit Casemate splash-resist.
-            if (proj.splash && tile.structure?.stats?.splashResist) dmg *= (1 - tile.structure.stats.splashResist);
+            if (proj.splash && tile.structure?.stats?.splashResist) dmg *= 1 - tile.structure.stats.splashResist;
             // Bunker Lv3 "Hardened": the bunker itself takes 25% less damage from all sources.
             if (tile.structure.type === 'BUNK' && tile.structure.level === 2) {
                 dmg *= GAME_CONFIG.BUNK_L3_TAKEN_MULT;
@@ -2799,7 +2972,12 @@ export class Game {
 
             const st = tile.structure;
             const structName = st?.displayName || UNIT_STATS[st?.type]?.name || st?.type;
-            this.logEvent(proj.owner, tile.owner, 'hit', `${proj.type} hit ${structName} (-${Math.round(dmg * 10) / 10} HP)`);
+            this.logEvent(
+                proj.owner,
+                tile.owner,
+                'hit',
+                `${proj.type} hit ${structName} (-${Math.round(dmg * 10) / 10} HP)`
+            );
 
             if (tile.hp <= 0) {
                 // Capture base build cost BEFORE destroyStructure() nulls the reference (KSA gilded refund).
@@ -2818,9 +2996,11 @@ export class Game {
             const src = this.grid.getTile(proj.fromQR.q, proj.fromQR.r);
             const tgt = this.grid.getTile(proj.targetQR.q, proj.targetQR.r);
             if (src && tgt) {
-                const dq = tgt.q - src.q, dr = tgt.r - src.r;
+                const dq = tgt.q - src.q,
+                    dr = tgt.r - src.r;
                 let curDmg = proj.damage * 0.75;
-                let curQ = tgt.q + dq, curR = tgt.r + dr;
+                let curQ = tgt.q + dq,
+                    curR = tgt.r + dr;
                 for (let i = 0; i < proj.pierce; i++) {
                     const nextTile = this.grid.getTile(curQ, curR);
                     if (!nextTile?.structure || !nextTile.owner) break;
@@ -2840,19 +3020,25 @@ export class Game {
                         this._onFactionKill(proj, baseCost, vOwner, nextTile);
                     }
                     curDmg *= 0.75;
-                    curQ += dq; curR += dr;
+                    curQ += dq;
+                    curR += dr;
                 }
             }
         }
 
         // Splash: RL3 (rocket) uses RL_L3_SPLASH_MULT; IRN kamikaze drones 28% (3 projectiles per volley
         // means the expected per-volley splash is already large); ICBM 100% (full damage to all adjacent).
-        if (proj.splash && (proj.type === 'rocket' || proj.type === 'icbm' || (proj.type === 'drone' && proj.suL3 === 'kamikaze'))) {
+        if (
+            proj.splash &&
+            (proj.type === 'rocket' || proj.type === 'icbm' || (proj.type === 'drone' && proj.suL3 === 'kamikaze'))
+        ) {
             const origin = new Hex(proj.targetQR.q, proj.targetQR.r);
             const splashFrac =
-                proj.type === 'icbm'   ? GAME_CONFIG.ICBM_SPLASH_MULT :
-                proj.type === 'rocket' ? GAME_CONFIG.RL_L3_SPLASH_MULT :
-                                         0.28;
+                proj.type === 'icbm'
+                    ? GAME_CONFIG.ICBM_SPLASH_MULT
+                    : proj.type === 'rocket'
+                      ? GAME_CONFIG.RL_L3_SPLASH_MULT
+                      : 0.28;
             let splashBase = proj.damage * splashFrac;
             for (const n of origin.getNeighbors()) {
                 const nt = this.grid.getTile(n.q, n.r);
@@ -2875,7 +3061,12 @@ export class Game {
                 }
                 const nst = nt.structure;
                 const sn = nst?.displayName || UNIT_STATS[nst?.type]?.name || nst?.type;
-                this.logEvent(proj.owner, nt.owner, 'hit', `${proj.type === 'rocket' ? 'rocket splash' : 'kamikaze splash'} ${sn} (-${Math.round(sdmg * 10) / 10} HP)`);
+                this.logEvent(
+                    proj.owner,
+                    nt.owner,
+                    'hit',
+                    `${proj.type === 'rocket' ? 'rocket splash' : 'kamikaze splash'} ${sn} (-${Math.round(sdmg * 10) / 10} HP)`
+                );
                 if (nt.hp <= 0) {
                     const baseCost = UNIT_STATS[nst?.type]?.levels?.[0]?.cost || 0;
                     const vOwner = nt.owner;
@@ -2980,12 +3171,16 @@ export class Game {
     /** GBR PJHQ flagship buff — picks the closest friendly MF and tags it with the HP/output bonus. */
     _applyFlagshipBuff(treasuryTile, ownerId, buff) {
         this._ensureIndex();
-        let best = null, bestD = Infinity;
+        let best = null,
+            bestD = Infinity;
         for (const t of this._structureTiles) {
             if (t.owner !== ownerId || !t.structure) continue;
             if (t.structure.type !== 'MF') continue;
             const d = Hex.distance(treasuryTile, t);
-            if (d < bestD) { bestD = d; best = t; }
+            if (d < bestD) {
+                bestD = d;
+                best = t;
+            }
         }
         if (!best) return;
         const hpAdd = Math.floor(best.maxHp * (buff.hp || 0));
@@ -3091,7 +3286,10 @@ export class Game {
         if (!ownerId || !tile) return;
         if (!this._recentLossesByOwner) this._recentLossesByOwner = new Map();
         let arr = this._recentLossesByOwner.get(ownerId);
-        if (!arr) { arr = []; this._recentLossesByOwner.set(ownerId, arr); }
+        if (!arr) {
+            arr = [];
+            this._recentLossesByOwner.set(ownerId, arr);
+        }
         arr.push({ q: tile.q, r: tile.r, t: this.gameTime });
         if (arr.length > 32) arr.shift();
     }
@@ -3108,12 +3306,13 @@ export class Game {
             const a = Math.random() * Math.PI * 2;
             const sp = 0.8 + Math.random() * 2.4;
             this.particles.push({
-                x, y,
+                x,
+                y,
                 vx: Math.cos(a) * sp,
                 vy: Math.sin(a) * sp,
                 life: 25 + Math.random() * 20,
                 age: 0,
-                color
+                color,
             });
         }
     }
@@ -3121,8 +3320,10 @@ export class Game {
     updateParticles() {
         for (let i = this.particles.length - 1; i >= 0; i--) {
             const p = this.particles[i];
-            p.x += p.vx; p.y += p.vy;
-            p.vx *= 0.94; p.vy *= 0.94;
+            p.x += p.vx;
+            p.y += p.vy;
+            p.vx *= 0.94;
+            p.vy *= 0.94;
             p.age++;
             if (p.age >= p.life) this.particles.splice(i, 1);
         }
@@ -3133,7 +3334,7 @@ export class Game {
         if (this.events.length > 40) this.events.shift();
     }
     pruneEvents() {
-        this.events = this.events.filter(e => this.gameTime - e.t < 3500);
+        this.events = this.events.filter((e) => this.gameTime - e.t < 3500);
     }
 
     // ========================================================================
@@ -3160,7 +3361,8 @@ export class Game {
         if (tile.contested) return false;
         // Poland NSM Coastal Battery is naval but also accepts owned coastal-land placement.
         const polCoastalNav = type === 'POL_NAV';
-        if (NAVY_BUILD_TYPES.has(type) && !this.isSeaTile(tile) && !(polCoastalNav && this.isCoastalLand?.(tile))) return false;
+        if (NAVY_BUILD_TYPES.has(type) && !this.isSeaTile(tile) && !(polCoastalNav && this.isCoastalLand?.(tile)))
+            return false;
         if (!tile.buildable) {
             if (!NAVY_BUILD_TYPES.has(type)) return false;
             if (!this.canBuildNavyOn(tile, ownerId)) return false;
@@ -3178,7 +3380,7 @@ export class Game {
         if (!stats) return false;
         if (tile.structure) return false;
 
-        const isOwn     = tile.owner === ownerId;
+        const isOwn = tile.owner === ownerId;
         const isNeutral = tile.owner == null;
 
         if (type === 'M') {
@@ -3266,9 +3468,11 @@ export class Game {
         // Charge-up units (CHN_OFF DF-17, POL_GND Hussar Charge) — add chargeUpMs to the initial wait.
         if (stats.chargeUpMs) buildCooldown = Math.max(buildCooldown, stats.chargeUpMs);
         const structInterval =
-            type === 'MF'  ? (stats.produceInterval  || 10000) :
-            type === 'AAS' || type === 'AF' ? (stats.rechargeInterval  || 12000) :
-                             (stats.interval          || 10000);
+            type === 'MF'
+                ? stats.produceInterval || 10000
+                : type === 'AAS' || type === 'AF'
+                  ? stats.rechargeInterval || 12000
+                  : stats.interval || 10000;
         tile.lastAction = this.gameTime + (buildCooldown - structInterval);
 
         // Store cooldown window so the renderer can draw a "warming up" arc.
@@ -3296,7 +3500,7 @@ export class Game {
         if (type === 'M') p.units.M++;
 
         p.stats.structuresBuilt++;
-        const buildLabel = type === 'SU' ? (tile.structure.displayName || def.name) : def.name;
+        const buildLabel = type === 'SU' ? tile.structure.displayName || def.name : def.name;
         this.logEvent(ownerId, null, 'build', `Built ${buildLabel}`);
         this._markStructuresDirty();
         this.updateBorders();
@@ -3407,9 +3611,11 @@ export class Game {
 
         const newStats = tile.structure.stats;
         const newInterval =
-            type === 'MF'  ? (newStats.produceInterval  || 10000) :
-            type === 'AAS' || type === 'AF' ? (newStats.rechargeInterval || 12000) :
-                             (newStats.interval ?? prevLevelStats?.interval ?? 10000);
+            type === 'MF'
+                ? newStats.produceInterval || 10000
+                : type === 'AAS' || type === 'AF'
+                  ? newStats.rechargeInterval || 12000
+                  : (newStats.interval ?? prevLevelStats?.interval ?? 10000);
         if (tile.buildCooldownUntil && this.gameTime < tile.buildCooldownUntil) {
             const remaining = tile.buildCooldownUntil - this.gameTime;
             const newRemaining = Math.max(0, remaining - 1000);
@@ -3485,7 +3691,9 @@ export class Game {
                 // Structures can sit on contested tiles — evaluate them too
             }
 
-            let best = null, bestScore = 0, secondScore = 0;
+            let best = null,
+                bestScore = 0,
+                secondScore = 0;
             const scoresByPlayer = {};
             const tileIsWater = !tile.buildable;
             for (const src of sources) {
@@ -3510,8 +3718,7 @@ export class Game {
             }
 
             const epsilon = GAME_CONFIG.CONTESTED_EPSILON;
-            const isTied = entries.length >= 2 && bestScore > 0 &&
-                           (bestScore - secondScore) / bestScore < epsilon;
+            const isTied = entries.length >= 2 && bestScore > 0 && (bestScore - secondScore) / bestScore < epsilon;
 
             if (bestScore <= 0) {
                 tile.owner = tile.structure ? tile.owner : null;
@@ -3557,14 +3764,14 @@ export class Game {
             if (!hasGov && p.tileCount === 0) this.defeated.add(p.id);
         }
 
-        const alive = this.players.filter(p => !this.defeated.has(p.id));
+        const alive = this.players.filter((p) => !this.defeated.has(p.id));
         if (alive.length === 1) {
             this.winner = alive[0].id;
             return;
         }
 
         if (alive.length >= 2 && this._allSurvivorsAllied(alive)) {
-            this.coWinners = alive.map(p => p.id).sort((a, b) => a - b);
+            this.coWinners = alive.map((p) => p.id).sort((a, b) => a - b);
             this.winner = this.coWinners[0];
             return;
         }
@@ -3574,7 +3781,7 @@ export class Game {
         }
 
         if (mode === 'domination') {
-            const pct = this.victoryConfig.param || 0.60;
+            const pct = this.victoryConfig.param || 0.6;
             const landCount = this._landTileCountForVictory();
             for (const p of this.players) {
                 if (this.defeated.has(p.id)) continue;
@@ -3589,8 +3796,8 @@ export class Game {
             for (const p of this.players) {
                 if (this.defeated.has(p.id)) continue;
                 const allRivalsNoGov = this.players
-                    .filter(r => r.id !== p.id && !this.defeated.has(r.id))
-                    .every(r => (this._govCount[r.id - 1] || 0) === 0);
+                    .filter((r) => r.id !== p.id && !this.defeated.has(r.id))
+                    .every((r) => (this._govCount[r.id - 1] || 0) === 0);
                 if (allRivalsNoGov) {
                     this.winner = p.id;
                     return;

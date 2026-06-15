@@ -1,6 +1,6 @@
-import { COLORS, UNIT_STATS, PROJECTILE_VISUAL_PRESETS } from './constants.js?v=sig3';
-import { getSpecialUnitIcon } from './factions.js?v=sig3';
-import { FACTION_UNIT_STATS } from './factionUnits.js?v=fu1';
+import { COLORS, UNIT_STATS, PROJECTILE_VISUAL_PRESETS } from '../core/constants.js';
+import { getSpecialUnitIcon } from '../data/factions.js';
+import { FACTION_UNIT_STATS } from '../data/factionUnits.js';
 
 const TARGETABLE_TYPES = new Set(['RL', 'B', 'D', 'SU', 'M', 'AB', 'DDG', 'SSG']);
 const NAVY_BUILD_GHOST = new Set(['DDG', 'AF', 'SSG', 'CV']);
@@ -67,19 +67,16 @@ export class Renderer {
         for (const tile of grid.tiles.values()) {
             const pos = grid.hexToPixel(tile.q, tile.r);
             const sp = camera.worldToScreen(pos.x, pos.y, w, h);
-            if (sp.x < -buffer || sp.x > w + buffer ||
-                sp.y < -buffer || sp.y > h + buffer) continue;
+            if (sp.x < -buffer || sp.x > w + buffer || sp.y < -buffer || sp.y > h + buffer) continue;
             list.push({ tile, sx: sp.x, sy: sp.y });
         }
     }
 
     drawGridBackdrop() {
         const { ctx } = this;
-        const W = this._cw, H = this._ch;
-        const grad = ctx.createRadialGradient(
-            W / 2, H / 2, H * 0.2,
-            W / 2, H / 2, H * 0.9
-        );
+        const W = this._cw,
+            H = this._ch;
+        const grad = ctx.createRadialGradient(W / 2, H / 2, H * 0.2, W / 2, H / 2, H * 0.9);
         grad.addColorStop(0, '#0e1520');
         grad.addColorStop(1, '#05070c');
         ctx.fillStyle = grad;
@@ -90,10 +87,16 @@ export class Renderer {
         ctx.lineWidth = 1;
         const step = 40;
         for (let x = 0; x < W; x += step) {
-            ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, H);
+            ctx.stroke();
         }
         for (let y = 0; y < H; y += step) {
-            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(W, y);
+            ctx.stroke();
         }
         ctx.restore();
     }
@@ -108,7 +111,7 @@ export class Renderer {
         for (const v of this._visibleTiles) {
             const tile = v.tile;
             const key = `${tile.q},${tile.r}`;
-            const visible  = human?.fogVisible.has(key);
+            const visible = human?.fogVisible.has(key);
             const explored = human?.fogExplored.has(key);
 
             this.drawHex(v.sx, v.sy, size, tile, { visible, explored, human }, gameState);
@@ -145,21 +148,24 @@ export class Renderer {
             ctx.fill();
 
             let waterStructure = tile.structure;
-            let waterHp = tile.hp, waterMax = tile.maxHp;
+            let waterHp = tile.hp,
+                waterMax = tile.maxHp;
             if (fog.explored) {
-                let ro = tile.owner, rc = tile.contested;
+                let ro = tile.owner,
+                    rc = tile.contested;
                 if (!fog.visible && fog.human) {
                     const mem = fog.human.memory.get(`${tile.q},${tile.r}`);
                     if (mem) {
-                        ro = mem.owner; rc = mem.contested;
+                        ro = mem.owner;
+                        rc = mem.contested;
                         waterStructure = mem.type ? { type: mem.type, level: mem.level, stats: {} } : null;
-                        waterHp = mem.hp; waterMax = mem.maxHp;
+                        waterHp = mem.hp;
+                        waterMax = mem.maxHp;
                     } else {
                         waterStructure = null;
                     }
                 }
-                const ownerColor = rc ? COLORS.CONTESTED
-                    : (ro ? (COLORS[`PLAYER${ro}`] || null) : null);
+                const ownerColor = rc ? COLORS.CONTESTED : ro ? COLORS[`PLAYER${ro}`] || null : null;
                 if (ownerColor) {
                     this.hexPath(x, y, size);
                     ctx.fillStyle = ownerColor;
@@ -184,10 +190,16 @@ export class Renderer {
             ctx.fill();
             ctx.globalAlpha = 1;
             const hash = Math.sin(tile.q * 127.1 + tile.r * 311.7) * 43758.5453;
-            if ((hash - Math.floor(hash)) > 0.92) {
+            if (hash - Math.floor(hash) > 0.92) {
                 ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
                 ctx.beginPath();
-                ctx.arc(x + ((hash * 3) % 2 - 1) * size * 0.3, y + ((hash * 7) % 2 - 1) * size * 0.3, 1, 0, Math.PI * 2);
+                ctx.arc(
+                    x + (((hash * 3) % 2) - 1) * size * 0.3,
+                    y + (((hash * 7) % 2) - 1) * size * 0.3,
+                    1,
+                    0,
+                    Math.PI * 2
+                );
                 ctx.fill();
             }
             return;
@@ -197,7 +209,8 @@ export class Renderer {
         let renderOwner = tile.owner;
         let renderContested = tile.contested;
         let renderStructure = tile.structure;
-        let renderHp = tile.hp, renderMax = tile.maxHp;
+        let renderHp = tile.hp,
+            renderMax = tile.maxHp;
 
         if (!fog.visible && fog.human) {
             const mem = fog.human.memory.get(`${tile.q},${tile.r}`);
@@ -205,9 +218,12 @@ export class Renderer {
                 renderOwner = mem.owner;
                 renderContested = mem.contested;
                 renderStructure = mem.type ? { type: mem.type, level: mem.level, stats: {} } : null;
-                renderHp = mem.hp; renderMax = mem.maxHp;
+                renderHp = mem.hp;
+                renderMax = mem.maxHp;
             } else {
-                renderOwner = null; renderContested = false; renderStructure = null;
+                renderOwner = null;
+                renderContested = false;
+                renderStructure = null;
             }
         }
 
@@ -229,16 +245,12 @@ export class Renderer {
         }
 
         // ---- OWNER OVERLAY ----
-        const ownerColor = renderContested ? COLORS.CONTESTED
-                         : renderOwner ? COLORS[`PLAYER${renderOwner}`]
-                         : null;
+        const ownerColor = renderContested ? COLORS.CONTESTED : renderOwner ? COLORS[`PLAYER${renderOwner}`] : null;
 
         if (ownerColor) {
             this.hexPath(x, y, size);
             ctx.fillStyle = ownerColor;
-            ctx.globalAlpha = renderOwner
-                ? (fog.visible ? 0.48 : 0.28)
-                : (fog.visible ? 0.4 : 0.22);
+            ctx.globalAlpha = renderOwner ? (fog.visible ? 0.48 : 0.28) : fog.visible ? 0.4 : 0.22;
             ctx.fill();
         }
 
@@ -249,7 +261,7 @@ export class Renderer {
             ctx.clip();
             const shimmer = Math.sin(this.time * 0.003 + tile.q + tile.r) * 0.1 + 0.2;
             ctx.globalAlpha = shimmer;
-            ctx.strokeStyle = "#ffcc00";
+            ctx.strokeStyle = '#ffcc00';
             ctx.lineWidth = 2;
             const step = Math.max(4, size * 0.4);
             for (let i = -size * 2; i < size * 2; i += step) {
@@ -263,7 +275,11 @@ export class Renderer {
 
         ctx.globalAlpha = 1.0;
         const hasBorder = renderOwner || renderContested;
-        ctx.strokeStyle = renderContested ? "#ffcc00" : (renderOwner ? "rgba(255,255,255,0.85)" : 'rgba(255,255,255,0.05)');
+        ctx.strokeStyle = renderContested
+            ? '#ffcc00'
+            : renderOwner
+              ? 'rgba(255,255,255,0.85)'
+              : 'rgba(255,255,255,0.05)';
         ctx.lineWidth = hasBorder ? 1.8 : 0.5;
         ctx.setLineDash(hasBorder ? [] : [2, 2]);
         this.hexPath(x, y, size);
@@ -271,7 +287,14 @@ export class Renderer {
         ctx.setLineDash([]);
 
         // Ally tint: secondary inner ring when this tile belongs to a human ally
-        if (fog.human && renderOwner && renderOwner !== fog.human.id && !renderContested && gameState.areAllied && gameState.areAllied(renderOwner, fog.human.id)) {
+        if (
+            fog.human &&
+            renderOwner &&
+            renderOwner !== fog.human.id &&
+            !renderContested &&
+            gameState.areAllied &&
+            gameState.areAllied(renderOwner, fog.human.id)
+        ) {
             ctx.save();
             ctx.strokeStyle = COLORS[`PLAYER${fog.human.id}`] || '#00e5ff';
             ctx.globalAlpha = fog.visible ? 0.55 : 0.3;
@@ -283,12 +306,20 @@ export class Renderer {
             ctx.restore();
         }
 
-        if (renderStructure) this.drawStructure(x, y, size, tile, renderStructure, renderHp, renderMax, fog.visible, gameState);
+        if (renderStructure)
+            this.drawStructure(x, y, size, tile, renderStructure, renderHp, renderMax, fog.visible, gameState);
 
         // Handshake badge on ally capitals
-        if (fog.visible && fog.human && renderOwner && renderOwner !== fog.human.id
-            && renderStructure && renderStructure.type === 'G'
-            && gameState.areAllied && gameState.areAllied(renderOwner, fog.human.id)) {
+        if (
+            fog.visible &&
+            fog.human &&
+            renderOwner &&
+            renderOwner !== fog.human.id &&
+            renderStructure &&
+            renderStructure.type === 'G' &&
+            gameState.areAllied &&
+            gameState.areAllied(renderOwner, fog.human.id)
+        ) {
             ctx.save();
             ctx.font = `${size * 0.45}px Arial`;
             ctx.textAlign = 'center';
@@ -309,10 +340,11 @@ export class Renderer {
         const { ctx } = this;
         ctx.beginPath();
         for (let i = 0; i < 6; i++) {
-            const angle = 2 * Math.PI / 6 * (i + 0.5);
+            const angle = ((2 * Math.PI) / 6) * (i + 0.5);
             const px = x + size * Math.cos(angle);
             const py = y + size * Math.sin(angle);
-            if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+            if (i === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
         }
         ctx.closePath();
     }
@@ -345,41 +377,75 @@ export class Renderer {
             }
 
             const iconPx = Math.max(10, size * 0.8);
-            ctx.fillStyle = "white";
+            ctx.fillStyle = 'white';
             ctx.font = `${iconPx}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",Arial,sans-serif`;
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
 
-            let icon = "❓";
+            let icon = '❓';
             switch (structure.type) {
-                case 'G':   icon = "🏛️"; break;
-                case 'RL':  icon = "🚀"; break;
-                case 'AAS': icon = "🛡️"; break;
-                case 'MF':  icon = "🏭"; break;
-                case 'M':   icon = structure.level === 2 ? "🎖️" : "🔫"; break;
-                case 'D':   icon = "🚁"; break;
+                case 'G':
+                    icon = '🏛️';
+                    break;
+                case 'RL':
+                    icon = '🚀';
+                    break;
+                case 'AAS':
+                    icon = '🛡️';
+                    break;
+                case 'MF':
+                    icon = '🏭';
+                    break;
+                case 'M':
+                    icon = structure.level === 2 ? '🎖️' : '🔫';
+                    break;
+                case 'D':
+                    icon = '🚁';
+                    break;
                 case 'SU': {
                     const fid = gameState?.players?.[tile.owner - 1]?.factionId ?? 0;
                     icon = getSpecialUnitIcon(fid);
                     break;
                 }
-                case 'AB':  icon = "✈️"; break;
-                case 'PT':  icon = "⚓"; break;
-                case 'DDG': icon = "🚢"; break;
-                case 'AF':  icon = "📡"; break;
-                case 'SSG': icon = "🫧"; break;
-                case 'BUNK': icon = "🧱"; break;
-                case 'RC':  icon = "🛰️"; break;
-                case 'TH':  icon = "💰"; break;
-                case 'EW':  icon = "📶"; break;
-                case 'CV':  icon = "🛩️"; break;
-                case 'ICBM': icon = "☢️"; break;
+                case 'AB':
+                    icon = '✈️';
+                    break;
+                case 'PT':
+                    icon = '⚓';
+                    break;
+                case 'DDG':
+                    icon = '🚢';
+                    break;
+                case 'AF':
+                    icon = '📡';
+                    break;
+                case 'SSG':
+                    icon = '🫧';
+                    break;
+                case 'BUNK':
+                    icon = '🧱';
+                    break;
+                case 'RC':
+                    icon = '🛰️';
+                    break;
+                case 'TH':
+                    icon = '💰';
+                    break;
+                case 'EW':
+                    icon = '📶';
+                    break;
+                case 'CV':
+                    icon = '🛩️';
+                    break;
+                case 'ICBM':
+                    icon = '☢️';
+                    break;
             }
             // Signature (SU): dashed ring under icon (distinct from Drone)
             if (structure.type === 'SU') {
                 ctx.save();
                 ctx.globalAlpha = isVisible ? 0.5 : 0.22;
-                ctx.strokeStyle = COLORS[`PLAYER${tile.owner}`] || "#00c8e8";
+                ctx.strokeStyle = COLORS[`PLAYER${tile.owner}`] || '#00c8e8';
                 ctx.lineWidth = 1.5;
                 ctx.setLineDash([4, 3]);
                 ctx.beginPath();
@@ -407,11 +473,11 @@ export class Renderer {
                     ctx.stroke();
                 } else if (structure.type === 'SSG') {
                     ctx.beginPath();
-                    ctx.moveTo(x - size * 0.42, y + size * 0.30);
-                    ctx.lineTo(x + size * 0.42, y + size * 0.30);
+                    ctx.moveTo(x - size * 0.42, y + size * 0.3);
+                    ctx.lineTo(x + size * 0.42, y + size * 0.3);
                     ctx.stroke();
                     ctx.beginPath();
-                    ctx.moveTo(x, y + size * 0.30);
+                    ctx.moveTo(x, y + size * 0.3);
                     ctx.lineTo(x, y + size * 0.05);
                     ctx.stroke();
                 } else if (structure.type === 'AF') {
@@ -426,7 +492,7 @@ export class Renderer {
         // Level pips
         const lvl = (structure.level || 0) + 1;
         if (lvl > 1) {
-            ctx.fillStyle = "gold";
+            ctx.fillStyle = 'gold';
             for (let i = 0; i < lvl; i++) {
                 ctx.beginPath();
                 ctx.arc(x - size * 0.5 + i * 5, y - size * 0.55, 2, 0, Math.PI * 2);
@@ -438,9 +504,9 @@ export class Renderer {
         if (isVisible && hp < maxHp && maxHp > 0) {
             const barW = size * 1.2;
             const barH = 3;
-            ctx.fillStyle = "rgba(255,0,0,0.85)";
+            ctx.fillStyle = 'rgba(255,0,0,0.85)';
             ctx.fillRect(x - barW / 2, y + size * 0.6, barW, barH);
-            ctx.fillStyle = hp / maxHp > 0.5 ? "#2ecc71" : "#ffcc00";
+            ctx.fillStyle = hp / maxHp > 0.5 ? '#2ecc71' : '#ffcc00';
             ctx.fillRect(x - barW / 2, y + size * 0.6, barW * (hp / maxHp), barH);
         }
 
@@ -461,7 +527,8 @@ export class Renderer {
         // -- FOOTPRINT (rounded rect) --
         const w = size * 1.55;
         const h = size * 1.15;
-        const bx = x - w / 2, by = y - h / 2;
+        const bx = x - w / 2,
+            by = y - h / 2;
         const r = size * 0.22;
 
         ctx.save();
@@ -534,7 +601,7 @@ export class Renderer {
         if (!aiming) angle = (this.time * 0.0006) % (Math.PI * 2);
 
         const barrelLen = size * 0.62;
-        const barrelW   = size * 0.12;
+        const barrelW = size * 0.12;
 
         ctx.save();
         ctx.globalAlpha = alpha;
@@ -579,7 +646,7 @@ export class Renderer {
             const angle = (t * 0.002) % (Math.PI * 2);
             ctx.save();
             ctx.globalAlpha = 0.15 + chargeRatio * 0.2;
-            ctx.strokeStyle = COLORS[`PLAYER${tile.owner}`] || "#00e5ff";
+            ctx.strokeStyle = COLORS[`PLAYER${tile.owner}`] || '#00e5ff';
             ctx.lineWidth = 1.5;
             ctx.beginPath();
             ctx.moveTo(x, y);
@@ -596,8 +663,8 @@ export class Renderer {
         if (tile.buildCooldownUntil && gameState && gameState.gameTime < tile.buildCooldownUntil) {
             const total = tile.buildCooldownUntil - tile.buildCooldownStart;
             const elapsed = gameState.gameTime - tile.buildCooldownStart;
-            const progress = Math.min(1, elapsed / total);          // 0 → 1 as cooldown expires
-            const startAngle = -Math.PI / 2;                        // top of circle
+            const progress = Math.min(1, elapsed / total); // 0 → 1 as cooldown expires
+            const startAngle = -Math.PI / 2; // top of circle
             const endAngle = startAngle + Math.PI * 2 * progress;
             ctx.save();
             // Dim track (full ring)
@@ -623,7 +690,7 @@ export class Renderer {
             const pulse = Math.sin(t * 0.003) * 0.5 + 0.5;
             ctx.save();
             ctx.globalAlpha = 0.08 + pulse * 0.07;
-            ctx.strokeStyle = COLORS[`PLAYER${tile.owner}`] || "#00e5ff";
+            ctx.strokeStyle = COLORS[`PLAYER${tile.owner}`] || '#00e5ff';
             ctx.lineWidth = 1;
             ctx.beginPath();
             ctx.arc(x, y, size * (1.2 + pulse * 0.3), 0, Math.PI * 2);
@@ -637,7 +704,7 @@ export class Renderer {
                 const sx = x + (Math.random() - 0.5) * size * 0.8;
                 const sy = y + (Math.random() - 0.5) * size * 0.8;
                 ctx.save();
-                ctx.fillStyle = "#ffcc00";
+                ctx.fillStyle = '#ffcc00';
                 ctx.globalAlpha = 0.8;
                 ctx.beginPath();
                 ctx.arc(sx, sy, 1.5, 0, Math.PI * 2);
@@ -662,18 +729,21 @@ export class Renderer {
 
     // ------------------------------------------------------------------ RANGE RING
     drawRangeRing(gameState) {
-        if (this.settings.hoverRange && this.hoverTile?.structure
-            && this.hoverTile.owner === gameState.humanId
-            && this.hoverTile !== gameState.selectedTile) {
+        if (
+            this.settings.hoverRange &&
+            this.hoverTile?.structure &&
+            this.hoverTile.owner === gameState.humanId &&
+            this.hoverTile !== gameState.selectedTile
+        ) {
             const t = this.hoverTile;
             const s = t.structure.stats;
             if (s.range) {
-                const col = s.damage ? "rgba(255, 61, 0, 0.10)" : "rgba(255, 255, 255, 0.08)";
+                const col = s.damage ? 'rgba(255, 61, 0, 0.10)' : 'rgba(255, 255, 255, 0.08)';
                 this.drawHexRing(t.q, t.r, s.range, col);
             }
             const hoverInfR = t.structure._lockedRadius ?? s.radius;
             if (hoverInfR) {
-                this.drawHexRing(t.q, t.r, hoverInfR, "rgba(0, 229, 255, 0.08)");
+                this.drawHexRing(t.q, t.r, hoverInfR, 'rgba(0, 229, 255, 0.08)');
             }
         }
 
@@ -681,12 +751,12 @@ export class Renderer {
         if (!tile?.structure) return;
         const s = tile.structure.stats;
         if (s.range) {
-            const color = s.damage ? "rgba(255, 61, 0, 0.22)" : "rgba(255, 255, 255, 0.18)";
+            const color = s.damage ? 'rgba(255, 61, 0, 0.22)' : 'rgba(255, 255, 255, 0.18)';
             this.drawHexRing(tile.q, tile.r, s.range, color);
         }
         const effectiveRadius = tile.structure._lockedRadius ?? s.radius;
         if (effectiveRadius) {
-            this.drawHexRing(tile.q, tile.r, effectiveRadius, "rgba(0, 229, 255, 0.18)");
+            this.drawHexRing(tile.q, tile.r, effectiveRadius, 'rgba(0, 229, 255, 0.18)');
         }
     }
 
@@ -699,8 +769,8 @@ export class Renderer {
         const size = grid.hexSize * camera.scale;
 
         let valid = true;
-        let color = "rgba(0, 229, 255, 0.85)";
-        let fill  = "rgba(0, 229, 255, 0.08)";
+        let color = 'rgba(0, 229, 255, 0.85)';
+        let fill = 'rgba(0, 229, 255, 0.08)';
 
         const humanId = gameState.humanId;
         const p = gameState.players[humanId - 1];
@@ -708,8 +778,7 @@ export class Renderer {
             const def = UNIT_STATS[this.buildGhostType];
             const li = this.buildGhostLevel ?? 0;
             const cost = def?.levels?.[li]?.cost ?? 0;
-            valid = !!gameState.canBuildNavyOn(tile, humanId) && !tile.structure
-                && p && p.gold >= cost;
+            valid = !!gameState.canBuildNavyOn(tile, humanId) && !tile.structure && p && p.gold >= cost;
         } else if (this.buildGhostType === 'PT') {
             const def = UNIT_STATS.PT;
             const li = this.buildGhostLevel ?? 0;
@@ -723,10 +792,12 @@ export class Renderer {
             if (this.buildGhostType === 'M') {
                 const humanVisible = gameState.players[humanId - 1]?.fogVisible.has(`${tile.q},${tile.r}`);
                 valid = (isOwn || isNeutral) && !tile.structure && !tile.contested && humanVisible;
-            }
-            else valid = isOwn && !tile.structure && !tile.contested;
+            } else valid = isOwn && !tile.structure && !tile.contested;
         }
-        if (!valid) { color = "rgba(255, 61, 0, 0.8)"; fill = "rgba(255, 61, 0, 0.1)"; }
+        if (!valid) {
+            color = 'rgba(255, 61, 0, 0.8)';
+            fill = 'rgba(255, 61, 0, 0.1)';
+        }
 
         this.hexPath(sp.x, sp.y, size);
         ctx.fillStyle = fill;
@@ -743,11 +814,11 @@ export class Renderer {
             // Influence-radius structures show their inf-range ring.
             const auraTypes = new Set(['G', 'B', 'PT']);
             if (auraTypes.has(this.buildGhostType) && lv?.radius) {
-                this.drawHexRing(tile.q, tile.r, lv.radius, "rgba(0, 229, 255, 0.08)");
+                this.drawHexRing(tile.q, tile.r, lv.radius, 'rgba(0, 229, 255, 0.08)');
             }
             // EW jammer uses `range` instead of `radius`; show its soft-kill coverage at placement time.
             if (this.buildGhostType === 'EW' && lv?.range) {
-                this.drawHexRing(tile.q, tile.r, lv.range, "rgba(180, 120, 255, 0.10)");
+                this.drawHexRing(tile.q, tile.r, lv.range, 'rgba(180, 120, 255, 0.10)');
             }
         }
     }
@@ -790,16 +861,21 @@ export class Renderer {
             const pa = camera.worldToScreen(a.x, a.y, this._cw, this._ch);
             const pb = camera.worldToScreen(b.x, b.y, this._cw, this._ch);
 
-            ctx.strokeStyle = "rgba(0, 229, 255, 0.55)";
+            ctx.strokeStyle = 'rgba(0, 229, 255, 0.55)';
             ctx.lineWidth = 1.5;
             ctx.setLineDash([6, 6]);
-            ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y); ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(pa.x, pa.y);
+            ctx.lineTo(pb.x, pb.y);
+            ctx.stroke();
 
             ctx.setLineDash([]);
             const s = 8;
             ctx.beginPath();
-            ctx.moveTo(pb.x - s, pb.y); ctx.lineTo(pb.x + s, pb.y);
-            ctx.moveTo(pb.x, pb.y - s); ctx.lineTo(pb.x, pb.y + s);
+            ctx.moveTo(pb.x - s, pb.y);
+            ctx.lineTo(pb.x + s, pb.y);
+            ctx.moveTo(pb.x, pb.y - s);
+            ctx.lineTo(pb.x, pb.y + s);
             ctx.stroke();
         }
         ctx.restore();
@@ -811,10 +887,11 @@ export class Renderer {
      */
     _visibleProjectilesForRender(gameState) {
         const projs = gameState.projectiles;
-        const mode = (this.settings.projectileVisual
-            && Object.prototype.hasOwnProperty.call(PROJECTILE_VISUAL_PRESETS, this.settings.projectileVisual))
-            ? this.settings.projectileVisual
-            : 'medium';
+        const mode =
+            this.settings.projectileVisual &&
+            Object.prototype.hasOwnProperty.call(PROJECTILE_VISUAL_PRESETS, this.settings.projectileVisual)
+                ? this.settings.projectileVisual
+                : 'medium';
         const preset = PROJECTILE_VISUAL_PRESETS[mode];
         if (preset == null) return projs;
 
@@ -860,7 +937,7 @@ export class Renderer {
         const queues = Array.from(byTarget.values());
         const out = [];
         let qi = 0;
-        while (out.length < G && queues.some(q => q.length)) {
+        while (out.length < G && queues.some((q) => q.length)) {
             const q = queues[qi % queues.length];
             if (q.length) out.push(q.shift());
             qi++;
@@ -880,32 +957,36 @@ export class Renderer {
             if (p.trail && p.trailPts.length > 1) {
                 ctx.save();
                 for (let i = 0; i < p.trailPts.length - 1; i++) {
-                    const a = p.trailPts[i], b = p.trailPts[i + 1];
+                    const a = p.trailPts[i],
+                        b = p.trailPts[i + 1];
                     const pa = camera.worldToScreen(a.x, a.y, this._cw, this._ch);
                     const pb = camera.worldToScreen(b.x, b.y, this._cw, this._ch);
                     const alpha = (i / p.trailPts.length) * 0.6;
                     ctx.globalAlpha = alpha;
 
                     if (p.type === 'rocket') {
-                        ctx.strokeStyle = "#ff6a00";
+                        ctx.strokeStyle = '#ff6a00';
                         ctx.lineWidth = 2.5 * sc;
                     } else if (p.type === 'airstrike') {
-                        ctx.strokeStyle = "rgba(255, 255, 255, 0.8)";
+                        ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
                         ctx.lineWidth = 1.5 * sc;
                     } else if (p.type === 'drone') {
-                        ctx.strokeStyle = "rgba(120, 200, 255, 0.7)";
+                        ctx.strokeStyle = 'rgba(120, 200, 255, 0.7)';
                         ctx.lineWidth = 1 * sc;
                     } else if (p.type === 'navy') {
-                        ctx.strokeStyle = "rgba(80, 160, 200, 0.8)";
+                        ctx.strokeStyle = 'rgba(80, 160, 200, 0.8)';
                         ctx.lineWidth = 2 * sc;
                     } else if (p.type === 'cruise') {
-                        ctx.strokeStyle = "rgba(140, 180, 210, 0.75)";
+                        ctx.strokeStyle = 'rgba(140, 180, 210, 0.75)';
                         ctx.lineWidth = 1.5 * sc;
                     } else {
-                        ctx.strokeStyle = p.color || "white";
+                        ctx.strokeStyle = p.color || 'white';
                         ctx.lineWidth = 2 * sc;
                     }
-                    ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y); ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(pa.x, pa.y);
+                    ctx.lineTo(pb.x, pb.y);
+                    ctx.stroke();
                 }
                 ctx.globalAlpha = 1;
                 ctx.restore();
@@ -915,12 +996,14 @@ export class Renderer {
             ctx.save();
             if (p.type === 'rocket') {
                 // Cone shape oriented along velocity
-                const dx = p.targetX - p.x, dy = p.targetY - p.y;
+                const dx = p.targetX - p.x,
+                    dy = p.targetY - p.y;
                 const angle = Math.atan2(dy, dx);
-                const len = 6 * sc, w = 3 * sc;
+                const len = 6 * sc,
+                    w = 3 * sc;
                 ctx.translate(sp.x, sp.y);
                 ctx.rotate(angle);
-                ctx.fillStyle = p.color || "#ff6a00";
+                ctx.fillStyle = p.color || '#ff6a00';
                 ctx.beginPath();
                 ctx.moveTo(len, 0);
                 ctx.lineTo(-len * 0.3, -w);
@@ -929,43 +1012,46 @@ export class Renderer {
                 ctx.fill();
                 // Orange glow
                 ctx.globalCompositeOperation = 'lighter';
-                ctx.fillStyle = "rgba(255, 120, 0, 0.3)";
+                ctx.fillStyle = 'rgba(255, 120, 0, 0.3)';
                 ctx.beginPath();
                 ctx.arc(0, 0, 5 * sc, 0, Math.PI * 2);
                 ctx.fill();
             } else if (p.type === 'airstrike') {
                 // Fast streak with white tip
-                const dx = p.targetX - p.x, dy = p.targetY - p.y;
+                const dx = p.targetX - p.x,
+                    dy = p.targetY - p.y;
                 const angle = Math.atan2(dy, dx);
-                const len = 8 * sc, w = 2 * sc;
+                const len = 8 * sc,
+                    w = 2 * sc;
                 ctx.translate(sp.x, sp.y);
                 ctx.rotate(angle);
-                ctx.fillStyle = "white";
+                ctx.fillStyle = 'white';
                 ctx.beginPath();
                 ctx.moveTo(len, 0);
                 ctx.lineTo(-len * 0.5, -w);
                 ctx.lineTo(-len * 0.5, w);
                 ctx.closePath();
                 ctx.fill();
-                ctx.fillStyle = p.color || "#ff3d00";
+                ctx.fillStyle = p.color || '#ff3d00';
                 ctx.globalAlpha = 0.6;
                 ctx.beginPath();
                 ctx.ellipse(-len * 0.3, 0, len * 0.4, w * 0.8, 0, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.globalAlpha = 1;
                 ctx.globalCompositeOperation = 'lighter';
-                ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
                 ctx.beginPath();
                 ctx.arc(0, 0, 6 * sc, 0, Math.PI * 2);
                 ctx.fill();
             } else if (p.type === 'navy' || p.type === 'cruise') {
-                const dx = p.targetX - p.x, dy = p.targetY - p.y;
+                const dx = p.targetX - p.x,
+                    dy = p.targetY - p.y;
                 const angle = Math.atan2(dy, dx);
                 const len = p.type === 'cruise' ? 7 * sc : 5 * sc;
                 const w = 2.2 * sc;
                 ctx.translate(sp.x, sp.y);
                 ctx.rotate(angle);
-                ctx.fillStyle = p.type === 'cruise' ? "#a8b8c8" : "#5aa0c0";
+                ctx.fillStyle = p.type === 'cruise' ? '#a8b8c8' : '#5aa0c0';
                 ctx.beginPath();
                 ctx.moveTo(len, 0);
                 ctx.lineTo(-len * 0.4, -w);
@@ -975,19 +1061,19 @@ export class Renderer {
             } else if (p.type === 'drone') {
                 // Tiny zigzagging dart
                 const jitter = Math.sin(this.time * 0.02 + p.x * 0.1) * 2 * sc;
-                ctx.fillStyle = "rgba(120, 200, 255, 0.9)";
+                ctx.fillStyle = 'rgba(120, 200, 255, 0.9)';
                 ctx.beginPath();
                 ctx.arc(sp.x + jitter, sp.y, 2.5 * sc, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.globalCompositeOperation = 'lighter';
-                ctx.fillStyle = "rgba(120, 200, 255, 0.2)";
+                ctx.fillStyle = 'rgba(120, 200, 255, 0.2)';
                 ctx.beginPath();
                 ctx.arc(sp.x + jitter, sp.y, 5 * sc, 0, Math.PI * 2);
                 ctx.fill();
             } else if (p.type === 'militia') {
                 // Scrappy, dim tracer (deterministic — avoids RNG cost + flicker with many shots)
                 const jitter = (Math.sin(this.time * 0.02 + p.x * 0.11 + p.y * 0.09) - 0.5) * 2 * sc;
-                ctx.fillStyle = p.color || "rgba(255,255,200,0.6)";
+                ctx.fillStyle = p.color || 'rgba(255,255,200,0.6)';
                 ctx.globalAlpha = 0.6;
                 ctx.beginPath();
                 ctx.arc(sp.x + jitter, sp.y + jitter, 2 * sc, 0, Math.PI * 2);
@@ -995,16 +1081,17 @@ export class Renderer {
                 ctx.globalAlpha = 1;
             } else {
                 // Ground (Barracks) - bullet dash
-                const dx = p.targetX - p.x, dy = p.targetY - p.y;
+                const dx = p.targetX - p.x,
+                    dy = p.targetY - p.y;
                 const angle = Math.atan2(dy, dx);
                 ctx.translate(sp.x, sp.y);
                 ctx.rotate(angle);
-                ctx.fillStyle = "rgba(255, 255, 200, 0.9)";
+                ctx.fillStyle = 'rgba(255, 255, 200, 0.9)';
                 ctx.beginPath();
                 ctx.ellipse(0, 0, 4 * sc, 1.5 * sc, 0, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.globalCompositeOperation = 'lighter';
-                ctx.fillStyle = "rgba(255, 200, 100, 0.25)";
+                ctx.fillStyle = 'rgba(255, 200, 100, 0.25)';
                 ctx.beginPath();
                 ctx.arc(0, 0, 4 * sc, 0, Math.PI * 2);
                 ctx.fill();
@@ -1035,7 +1122,7 @@ export class Renderer {
             for (const tile of this.multiSelected) {
                 const pos = this.grid.hexToPixel(tile.q, tile.r);
                 const sp = this.camera.worldToScreen(pos.x, pos.y, this._cw, this._ch);
-                ctx.strokeStyle = "rgba(255, 215, 0, 0.85)";
+                ctx.strokeStyle = 'rgba(255, 215, 0, 0.85)';
                 ctx.lineWidth = 3;
                 this.hexPath(sp.x, sp.y, this.grid.hexSize * 1.1 * this.camera.scale);
                 ctx.stroke();
@@ -1046,7 +1133,7 @@ export class Renderer {
         if (!gameState.selectedTile) return;
         const pos = this.grid.hexToPixel(gameState.selectedTile.q, gameState.selectedTile.r);
         const sp = this.camera.worldToScreen(pos.x, pos.y, this._cw, this._ch);
-        ctx.strokeStyle = "rgba(0, 229, 255, 0.8)";
+        ctx.strokeStyle = 'rgba(0, 229, 255, 0.8)';
         ctx.lineWidth = 3;
         this.hexPath(sp.x, sp.y, this.grid.hexSize * 1.1 * this.camera.scale);
         ctx.stroke();
@@ -1085,7 +1172,7 @@ export class Renderer {
         const startPos = this.grid.hexToPixel(gameState.currentTargetSource.q, gameState.currentTargetSource.r);
         const ss = this.camera.worldToScreen(startPos.x, startPos.y, this._cw, this._ch);
         ctx.setLineDash([5, 5]);
-        ctx.strokeStyle = "rgba(255, 61, 0, 0.85)";
+        ctx.strokeStyle = 'rgba(255, 61, 0, 0.85)';
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.moveTo(ss.x, ss.y);
@@ -1151,7 +1238,7 @@ export class Renderer {
                 if (!tile || tile.owner !== humanId) continue;
 
                 const targetScreen = camera.worldToScreen(p.targetX, p.targetY, this._cw, this._ch);
-                const projScreen   = camera.worldToScreen(p.x, p.y, this._cw, this._ch);
+                const projScreen = camera.worldToScreen(p.x, p.y, this._cw, this._ch);
 
                 const dx = targetScreen.x - projScreen.x;
                 const dy = targetScreen.y - projScreen.y;
@@ -1159,13 +1246,14 @@ export class Renderer {
                 if (dist < 4) continue;
 
                 // Pull the arrow tip slightly off the target so it points AT the hex, not into it.
-                const ux = dx / dist, uy = dy / dist;
+                const ux = dx / dist,
+                    uy = dy / dist;
                 const tipX = targetScreen.x - ux * sz * 0.6;
                 const tipY = targetScreen.y - uy * sz * 0.6;
 
                 ctx.save();
                 ctx.strokeStyle = `rgba(255, 80, 40, ${0.85 * pulse})`;
-                ctx.fillStyle   = `rgba(255, 80, 40, ${0.85 * pulse})`;
+                ctx.fillStyle = `rgba(255, 80, 40, ${0.85 * pulse})`;
                 ctx.lineWidth = 2.5;
                 ctx.setLineDash([8, 5]);
                 ctx.beginPath();
@@ -1198,7 +1286,8 @@ export class Renderer {
     // ------------------------------------------------------------------ MINIMAP
     renderMinimap(miniCanvas, gameState) {
         const mctx = miniCanvas.getContext('2d');
-        const W = miniCanvas.width, H = miniCanvas.height;
+        const W = miniCanvas.width,
+            H = miniCanvas.height;
         mctx.clearRect(0, 0, W, H);
 
         mctx.fillStyle = '#060a12';
@@ -1208,9 +1297,10 @@ export class Renderer {
 
         const r = this.grid.radius;
         const ex = this.grid.hexSize * Math.sqrt(3) * (r + r / 2);
-        const ey = this.grid.hexSize * 3 / 2 * r;
+        const ey = ((this.grid.hexSize * 3) / 2) * r;
         const scale = Math.min(W, H) / (Math.max(ex, ey) * 2.2);
-        const cx = W / 2, cy = H / 2;
+        const cx = W / 2,
+            cy = H / 2;
         this._miniScale = scale;
         this._miniCx = cx;
         this._miniCy = cy;
@@ -1238,11 +1328,17 @@ export class Renderer {
             const fromMem = !human.fogVisible.has(key);
             const mem = human.memory.get(key);
 
-            let owner = tile.owner, contested = tile.contested, hasStruct = !!tile.structure;
+            let owner = tile.owner,
+                contested = tile.contested,
+                hasStruct = !!tile.structure;
             if (fromMem && mem) {
-                owner = mem.owner; contested = mem.contested; hasStruct = !!mem.type;
+                owner = mem.owner;
+                contested = mem.contested;
+                hasStruct = !!mem.type;
             } else if (fromMem) {
-                owner = null; contested = false; hasStruct = false;
+                owner = null;
+                contested = false;
+                hasStruct = false;
             }
 
             let color = COLORS.TERRAIN?.[tile.biome] || '#1a1f2e';
@@ -1264,10 +1360,10 @@ export class Renderer {
         // Viewport rectangle
         const mainW = this.canvas.clientWidth || this.canvas.width;
         const mainH = this.canvas.clientHeight || this.canvas.height;
-        const vw = mainW / this.camera.scale * scale;
-        const vh = mainH / this.camera.scale * scale;
-        const vx = cx + (-this.camera.x) * scale - vw / 2;
-        const vy = cy + (-this.camera.y) * scale - vh / 2;
+        const vw = (mainW / this.camera.scale) * scale;
+        const vh = (mainH / this.camera.scale) * scale;
+        const vx = cx + -this.camera.x * scale - vw / 2;
+        const vy = cy + -this.camera.y * scale - vh / 2;
         mctx.strokeStyle = 'rgba(0, 229, 255, 0.8)';
         mctx.lineWidth = 1;
         mctx.strokeRect(vx, vy, vw, vh);

@@ -2,8 +2,8 @@
 //  Hand-tuned map changes after base Game.start (mission-specific)
 // ============================================================================
 
-import { Hex } from './hexGrid.js?v=sig3';
-import { UNIT_STATS } from './constants.js?v=sig3';
+import { Hex } from '../core/hexGrid.js';
+import { UNIT_STATS } from '../core/constants.js';
 
 function findGovTile(game, ownerId) {
     for (const t of game.grid.tiles.values()) {
@@ -22,7 +22,7 @@ function findMfTile(game, ownerId) {
 /**
  * @param {import('./game.js').Game} game
  * @param {string} type
- * @param {import('./hexGrid.js').Hex} tile
+ * @param {import('../core/hexGrid.js').Hex} tile
  * @returns {{ ok: boolean, msg?: string }}
  */
 export function m1BuildTutorialCheckPlace(game, type, tile) {
@@ -45,7 +45,7 @@ export function m1BuildTutorialCheckPlace(game, type, tile) {
 /**
  * @param {import('./game.js').Game} game
  * @param {string} type
- * @param {import('./hexGrid.js').Hex} tile
+ * @param {import('../core/hexGrid.js').Hex} tile
  * @param {boolean} [placementSucceeded]
  * @returns {{ nudge: 'next' } | { nudge: 'complete' } | void}
  */
@@ -101,7 +101,7 @@ function pickForwardRlSlots(grid, humanGov, enemyGov, count, rlRange) {
         const k = `${t.q},${t.r}`;
         if (seen.has(k)) continue;
         // Spread the slots a little so they don't stack on one tile cluster.
-        if (out.some(o => Hex.distance(o, t) < 2)) continue;
+        if (out.some((o) => Hex.distance(o, t) < 2)) continue;
         out.push(t);
         seen.add(k);
         if (out.length >= count) break;
@@ -197,8 +197,10 @@ function applyMission1(game, grid) {
             r: slots[0].r,
             key: 9,
             label: 'Rocket Launcher (Lv1)',
-            questPrimary: 'TRAINING — **1/2** · Press **[9]** then click the **pulsing cyan hex** to drop a Rocket Launcher.',
-            questHint: 'Rocket Launchers spend a missile per shot. The pulsing tile is **already in range** of the enemy Government.',
+            questPrimary:
+                'TRAINING — **1/2** · Press **[9]** then click the **pulsing cyan hex** to drop a Rocket Launcher.',
+            questHint:
+                'Rocket Launchers spend a missile per shot. The pulsing tile is **already in range** of the enemy Government.',
         },
         {
             type: 'RL',
@@ -207,8 +209,10 @@ function applyMission1(game, grid) {
             r: slots[1].r,
             key: 9,
             label: 'Rocket Launcher (Lv1)',
-            questPrimary: 'TRAINING — **2/2** · Drop a **second Rocket Launcher** on the next pulsing hex — saturate the target.',
-            questHint: 'Two launchers fire alternately and your Missile Factory keeps them fed. Then wait — they auto-target the enemy **Government**.',
+            questPrimary:
+                'TRAINING — **2/2** · Drop a **second Rocket Launcher** on the next pulsing hex — saturate the target.',
+            questHint:
+                'Two launchers fire alternately and your Missile Factory keeps them fed. Then wait — they auto-target the enemy **Government**.',
         },
     ];
     game.campaign.buildTutorial = {
@@ -252,15 +256,18 @@ function applyMission2(game, grid) {
     enemyGov = downgradeEnemyGovToLv1(game, enemyId) || enemyGov;
 
     // AAS tile: adjacent to player's Government, on the side facing the enemy.
-    const aasTile = humanGov.getNeighbors()
-        .map(h => grid.getTile(h.q, h.r))
-        .filter(t => t && t.owner === 1 && t.buildable && !t.structure)
-        .sort((a, b) => Hex.distance(a, enemyGov) - Hex.distance(b, enemyGov))[0] || null;
+    const aasTile =
+        humanGov
+            .getNeighbors()
+            .map((h) => grid.getTile(h.q, h.r))
+            .filter((t) => t && t.owner === 1 && t.buildable && !t.structure)
+            .sort((a, b) => Hex.distance(a, enemyGov) - Hex.distance(b, enemyGov))[0] || null;
 
     // Barracks tile: forward player land, distinct from AAS tile.
-    const barracksTile = allOwnedTiles(grid, 1)
-        .filter(t => t.buildable && !t.structure && t !== aasTile)
-        .sort((a, b) => Hex.distance(a, enemyGov) - Hex.distance(b, enemyGov))[0] || null;
+    const barracksTile =
+        allOwnedTiles(grid, 1)
+            .filter((t) => t.buildable && !t.structure && t !== aasTile)
+            .sort((a, b) => Hex.distance(a, enemyGov) - Hex.distance(b, enemyGov))[0] || null;
 
     if (aasTile && barracksTile && game.campaign) {
         const steps = [
@@ -271,8 +278,10 @@ function applyMission2(game, grid) {
                 r: aasTile.r,
                 key: 5,
                 label: 'Anti-Air System (Lv1)',
-                questPrimary: 'TRAINING — **1/2** · Press **[5]** then click the **pulsing hex** next to your Government to drop an AAS.',
-                questHint: 'AAS auto-intercepts incoming missiles in range. Build this first or you eat the enemy salvo.',
+                questPrimary:
+                    'TRAINING — **1/2** · Press **[5]** then click the **pulsing hex** next to your Government to drop an AAS.',
+                questHint:
+                    'AAS auto-intercepts incoming missiles in range. Build this first or you eat the enemy salvo.',
             },
             {
                 type: 'B',
@@ -281,8 +290,10 @@ function applyMission2(game, grid) {
                 r: barracksTile.r,
                 key: 'F3',
                 label: 'Barracks (Lv1)',
-                questPrimary: 'TRAINING — **2/2** · Press **[F3]** then click the **forward pulsing hex** for a Barracks.',
-                questHint: 'Barracks are tanky and push your border forward — they anchor your Rocket Launchers for the counter-attack.',
+                questPrimary:
+                    'TRAINING — **2/2** · Press **[F3]** then click the **forward pulsing hex** for a Barracks.',
+                questHint:
+                    'Barracks are tanky and push your border forward — they anchor your Rocket Launchers for the counter-attack.',
             },
         ];
         game.campaign.buildTutorial = {
@@ -308,7 +319,7 @@ function applyMission2(game, grid) {
     const placed = [];
     for (const t of cand) {
         if (placed.length >= 2) break;
-        if (placed.some(p => Hex.distance(p, t) < 2)) continue;
+        if (placed.some((p) => Hex.distance(p, t) < 2)) continue;
         if (game.buildStructure(t, 'RL', enemyId, 0, true)) placed.push(t);
     }
 
@@ -324,7 +335,7 @@ function applyMission2(game, grid) {
 
 /**
  * @param {import('./game.js').Game} game
- * @param {import('./hexGrid.js').HexGrid} grid
+ * @param {import('../core/hexGrid.js').HexGrid} grid
  * @param {number} missionId
  */
 export function applyCampaignScenario(game, grid, missionId) {

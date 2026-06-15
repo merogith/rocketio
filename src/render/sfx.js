@@ -26,8 +26,8 @@
 //       noise, modulation, bitCrush, delay, sustainVolume, decay, tremolo)
 //
 //  Shape: 0=sine, 1=triangle, 2=saw, 3=tan, 4=noise
-let zzfxX = null;       // shared AudioContext (lazy)
-const zzfxV = 0.22;     // per-sample baseline (preset dynamic range)
+let zzfxX = null; // shared AudioContext (lazy)
+const zzfxV = 0.22; // per-sample baseline (preset dynamic range)
 const zzfxR = 44100;
 
 function zzfxP(samples) {
@@ -42,46 +42,82 @@ function zzfxP(samples) {
 
 // Generate samples. Port of the official zzfxG.
 function zzfxG(
-    vol = 1, rand = 0.05, freq = 220, attack = 0, sustain = 0, release = 0.1,
-    shape = 0, shapeCurve = 1, slide = 0, deltaSlide = 0, pitchJump = 0, pitchJumpTime = 0,
-    repeatTime = 0, noise = 0, modulation = 0, bitCrush = 0, delay = 0,
-    sustainVolume = 1, decay = 0, tremolo = 0
+    vol = 1,
+    rand = 0.05,
+    freq = 220,
+    attack = 0,
+    sustain = 0,
+    release = 0.1,
+    shape = 0,
+    shapeCurve = 1,
+    slide = 0,
+    deltaSlide = 0,
+    pitchJump = 0,
+    pitchJumpTime = 0,
+    repeatTime = 0,
+    noise = 0,
+    modulation = 0,
+    bitCrush = 0,
+    delay = 0,
+    sustainVolume = 1,
+    decay = 0,
+    tremolo = 0
 ) {
-    const M = Math, PI2 = 2 * M.PI;
-    let startSlide = slide *= 500 * PI2 / zzfxR / zzfxR;
-    let b = [], t = 0, tm = 0, i = 0, j = 1, r = 0, c = 0, s = 0, f, length;
+    const M = Math,
+        PI2 = 2 * M.PI;
+    let startSlide = (slide *= (500 * PI2) / zzfxR / zzfxR);
+    let b = [],
+        t = 0,
+        tm = 0,
+        i = 0,
+        j = 1,
+        r = 0,
+        c = 0,
+        s = 0,
+        f,
+        length;
     attack = attack * zzfxR + 9;
     decay *= zzfxR;
     sustain *= zzfxR;
     release *= zzfxR;
     delay *= zzfxR;
-    deltaSlide *= 500 * PI2 / zzfxR ** 3;
+    deltaSlide *= (500 * PI2) / zzfxR ** 3;
     modulation *= PI2 / zzfxR;
     pitchJump *= PI2 / zzfxR;
     pitchJumpTime *= zzfxR;
-    repeatTime = repeatTime * zzfxR | 0;
+    repeatTime = (repeatTime * zzfxR) | 0;
     freq *= PI2 / zzfxR;
-    freq *= (1 + rand * (M.random() * 2 - 1));
+    freq *= 1 + rand * (M.random() * 2 - 1);
     const freqStart = freq;
-    for (length = attack + decay + sustain + release + delay | 0; i < length; b[i++] = s) {
-        if (!(++c % (bitCrush * 100 | 0))) {
-            s = shape ? shape > 1 ? shape > 2 ? shape > 3 ? M.sin(t ** 3) :
-                M.max(M.min(M.tan(t), 1), -1) :
-                1 - (2 * t / PI2 % 2 + 2) % 2 :
-                1 - 4 * M.abs(M.round(t / PI2) - t / PI2) :
-                M.sin(t);
-            s = (repeatTime ?
-                1 - tremolo + tremolo * M.sin(PI2 * i / repeatTime)
-                : 1) *
-                (s < 0 ? -1 : 1) * M.abs(s) ** shapeCurve *
-                vol * zzfxV * (
-                    i < attack ? i / attack :
-                    i < attack + decay ? 1 - (i - attack) / decay * (1 - sustainVolume) :
-                    i < attack + decay + sustain ? sustainVolume :
-                    i < length - delay ? (length - i - delay) / release * sustainVolume : 0
-                );
-            s = delay ? s / 2 + (delay > i ? 0 :
-                (i < length - delay ? 1 : (length - i) / delay) * b[i - delay | 0] / 2) : s;
+    for (length = (attack + decay + sustain + release + delay) | 0; i < length; b[i++] = s) {
+        if (!(++c % ((bitCrush * 100) | 0))) {
+            s = shape
+                ? shape > 1
+                    ? shape > 2
+                        ? shape > 3
+                            ? M.sin(t ** 3)
+                            : M.max(M.min(M.tan(t), 1), -1)
+                        : 1 - (((((2 * t) / PI2) % 2) + 2) % 2)
+                    : 1 - 4 * M.abs(M.round(t / PI2) - t / PI2)
+                : M.sin(t);
+            s =
+                (repeatTime ? 1 - tremolo + tremolo * M.sin((PI2 * i) / repeatTime) : 1) *
+                (s < 0 ? -1 : 1) *
+                M.abs(s) ** shapeCurve *
+                vol *
+                zzfxV *
+                (i < attack
+                    ? i / attack
+                    : i < attack + decay
+                      ? 1 - ((i - attack) / decay) * (1 - sustainVolume)
+                      : i < attack + decay + sustain
+                        ? sustainVolume
+                        : i < length - delay
+                          ? ((length - i - delay) / release) * sustainVolume
+                          : 0);
+            s = delay
+                ? s / 2 + (delay > i ? 0 : ((i < length - delay ? 1 : (length - i) / delay) * b[(i - delay) | 0]) / 2)
+                : s;
         }
         f = (freq += slide += deltaSlide) * M.cos(modulation * tm++);
         t += f + f * noise * M.sin(i ** 5);
@@ -106,8 +142,8 @@ let _musicStarted = false;
 let _musicEnabled = true;
 let _sfxEnabled = true;
 let _initialized = false;
-let _sfxVolume = 0.7;       // user-controlled (0..1)
-let _musicVolume = 0.7;     // user-controlled (0..1)
+let _sfxVolume = 0.7; // user-controlled (0..1)
+let _musicVolume = 0.7; // user-controlled (0..1)
 
 function _applySfxGain() {
     if (_sfxBus) _sfxBus.gain.value = _sfxEnabled ? _sfxVolume : 0;
@@ -121,8 +157,8 @@ function _applyMusicGain(fast = false) {
 }
 
 // ------------------------------------------------------------- THROTTLING
-const _lastPlay = new Map();     // preset -> timestamp (ms)
-const _recent = [];              // timestamps of recent plays (global budget)
+const _lastPlay = new Map(); // preset -> timestamp (ms)
+const _recent = []; // timestamps of recent plays (global budget)
 const GLOBAL_WINDOW_MS = 120;
 const GLOBAL_MAX = 8;
 
@@ -142,24 +178,27 @@ function _throttled(name, minGapMs) {
 // Tweak in https://killedbyapixel.github.io/ZzFX/
 const PRESETS = {
     // Big punchy rocket launch — low rumble + slide down
-    launch_rocket:   { p: [1.4, .2, 90, .02, .18, .4, 3, 1.4, -3, 0, 0, 0, 0, .9, 0, .3, .1, .85, .1], gap: 60 },
+    launch_rocket: { p: [1.4, 0.2, 90, 0.02, 0.18, 0.4, 3, 1.4, -3, 0, 0, 0, 0, 0.9, 0, 0.3, 0.1, 0.85, 0.1], gap: 60 },
     // Jet streak — quick high whoosh with bit of noise
-    launch_airstrike:{ p: [1.1, .1, 1200, .01, .08, .25, 2, 1.1, 0, 0, 0, 0, 0, 1.6, 0, .2, 0, .7, .05], gap: 80 },
+    launch_airstrike: {
+        p: [1.1, 0.1, 1200, 0.01, 0.08, 0.25, 2, 1.1, 0, 0, 0, 0, 0, 1.6, 0, 0.2, 0, 0.7, 0.05],
+        gap: 80,
+    },
     // Drone buzz — short zzzp
-    launch_drone:    { p: [.7, .1, 420, .01, .05, .08, 3, 1.5, 0, 0, 0, 0, 0, 1.2, 0, 0, 0, .6, .02], gap: 40 },
+    launch_drone: { p: [0.7, 0.1, 420, 0.01, 0.05, 0.08, 3, 1.5, 0, 0, 0, 0, 0, 1.2, 0, 0, 0, 0.6, 0.02], gap: 40 },
     // Crack of small arms — sharp, tight
-    launch_barracks: { p: [1.1, .15, 900, 0, .01, .06, 4, 1.4, 0, 0, 0, 0, 0, 2.2, 0, .3, 0, .6, .02], gap: 30 },
-    launch_militia:  { p: [.6, .3, 700, 0, .01, .04, 4, 1.3, 0, 0, 0, 0, 0, 2.5, 0, .2, 0, .5, .02], gap: 40 },
+    launch_barracks: { p: [1.1, 0.15, 900, 0, 0.01, 0.06, 4, 1.4, 0, 0, 0, 0, 0, 2.2, 0, 0.3, 0, 0.6, 0.02], gap: 30 },
+    launch_militia: { p: [0.6, 0.3, 700, 0, 0.01, 0.04, 4, 1.3, 0, 0, 0, 0, 0, 2.5, 0, 0.2, 0, 0.5, 0.02], gap: 40 },
 
     // Big missile / airstrike impact
-    impact_big:      { p: [2.2, .2, 70, .02, .22, .5, 4, 1.2, -1, 0, 0, 0, 0, 1.8, 0, .4, .08, .9, .2], gap: 60 },
+    impact_big: { p: [2.2, 0.2, 70, 0.02, 0.22, 0.5, 4, 1.2, -1, 0, 0, 0, 0, 1.8, 0, 0.4, 0.08, 0.9, 0.2], gap: 60 },
     // Smaller bullet impact / drone hit
-    impact_small:    { p: [.9, .2, 200, .01, .06, .15, 3, 1.2, 0, 0, 0, 0, 0, 1.5, 0, .25, 0, .6, .05], gap: 25 },
+    impact_small: { p: [0.9, 0.2, 200, 0.01, 0.06, 0.15, 3, 1.2, 0, 0, 0, 0, 0, 1.5, 0, 0.25, 0, 0.6, 0.05], gap: 25 },
     // Interception — short metallic ping + zap
-    intercept:       { p: [1.1, 0, 1400, .01, .04, .12, 1, 1.2, 0, -400, 0, 0, 0, 0, 0, 0, 0, .7, .03], gap: 30 },
+    intercept: { p: [1.1, 0, 1400, 0.01, 0.04, 0.12, 1, 1.2, 0, -400, 0, 0, 0, 0, 0, 0, 0, 0.7, 0.03], gap: 30 },
 
     // UI (cheap click for build confirm etc. — optional)
-    ui_click:        { p: [.5, 0, 600, 0, .02, .02, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0], gap: 20 },
+    ui_click: { p: [0.5, 0, 600, 0, 0.02, 0.02, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0], gap: 20 },
 };
 
 // ------------------------------------------------------------- INIT
@@ -176,7 +215,7 @@ function _ensureCtx() {
     _sfxBus.connect(_master);
 
     _musicBus = zzfxX.createGain();
-    _musicBus.gain.value = 0;   // music fades in via _applyMusicGain()
+    _musicBus.gain.value = 0; // music fades in via _applyMusicGain()
     _musicBus.connect(_master);
 }
 
@@ -199,7 +238,7 @@ function _buildMusic() {
     // two detuned saws for thickness
     _bassOsc = zzfxX.createOscillator();
     _bassOsc.type = 'sawtooth';
-    _bassOsc.frequency.value = 55;            // low A
+    _bassOsc.frequency.value = 55; // low A
     _bassOsc.detune.value = -6;
     _bassOsc.connect(_bassFilter);
     _bassOsc.start(now);
@@ -250,7 +289,7 @@ function _buildMusic() {
     // a "ticking heartbeat" feel. Its gain rides on top of _tenseGain.
     _tensePulse = zzfxX.createOscillator();
     _tensePulse.type = 'square';
-    _tensePulse.frequency.value = 1.6;   // ~96 BPM heartbeat
+    _tensePulse.frequency.value = 1.6; // ~96 BPM heartbeat
     const pulseShaper = zzfxX.createGain();
     pulseShaper.gain.value = 0;
     _tensePulse.connect(pulseShaper);
@@ -279,7 +318,11 @@ export const SFX = {
         const preset = PRESETS[name];
         if (!preset) return;
         if (_throttled(name, preset.gap)) return;
-        try { zzfxP(zzfxG(...preset.p)); } catch (_) { /* AudioContext not ready */ }
+        try {
+            zzfxP(zzfxG(...preset.p));
+        } catch (_) {
+            /* AudioContext not ready */
+        }
     },
 
     setSfxVolume(v) {

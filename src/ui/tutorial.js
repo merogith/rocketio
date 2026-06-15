@@ -1,4 +1,4 @@
-import { UNIT_STATS as US, GAME_CONFIG as GC } from './constants.js?v=sig3';
+import { UNIT_STATS as US, GAME_CONFIG as GC } from '../core/constants.js';
 
 /** Keep tutorial copy aligned with simulation constants. */
 const L1 = {

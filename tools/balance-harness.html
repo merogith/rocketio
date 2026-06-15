@@ -1,0 +1,596 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <title>RocketIO — Balance Test Harness</title>
+        <style>
+            * {
+                box-sizing: border-box;
+                margin: 0;
+                padding: 0;
+            }
+            body {
+                background: #0a0e17;
+                color: #e0e6f0;
+                font-family: 'Segoe UI', sans-serif;
+                padding: 24px;
+            }
+            h1 {
+                color: #00e5ff;
+                margin-bottom: 8px;
+                font-size: 22px;
+            }
+            h2 {
+                color: #80d8ff;
+                margin: 18px 0 8px;
+                font-size: 16px;
+            }
+            .subtitle {
+                color: #667;
+                font-size: 13px;
+                margin-bottom: 20px;
+            }
+            #controls {
+                display: flex;
+                gap: 12px;
+                margin-bottom: 16px;
+                flex-wrap: wrap;
+                align-items: center;
+            }
+            button {
+                background: #1a2233;
+                color: #00e5ff;
+                border: 1px solid #00e5ff44;
+                padding: 8px 16px;
+                border-radius: 6px;
+                cursor: pointer;
+                font-size: 13px;
+            }
+            button:hover {
+                background: #00e5ff22;
+            }
+            button:disabled {
+                opacity: 0.4;
+                cursor: default;
+            }
+            button.running {
+                background: #00e5ff33;
+                animation: pulse 1s infinite;
+            }
+            @keyframes pulse {
+                0%,
+                100% {
+                    opacity: 1;
+                }
+                50% {
+                    opacity: 0.6;
+                }
+            }
+            select,
+            input {
+                background: #151c2b;
+                color: #e0e6f0;
+                border: 1px solid #334;
+                padding: 6px 10px;
+                border-radius: 4px;
+                font-size: 13px;
+            }
+            label {
+                font-size: 13px;
+                color: #99a;
+            }
+            #output {
+                background: #111827;
+                border: 1px solid #1f2937;
+                border-radius: 8px;
+                padding: 16px;
+                font-family: 'Cascadia Code', 'Fira Code', monospace;
+                font-size: 12px;
+                line-height: 1.6;
+                white-space: pre-wrap;
+                max-height: 70vh;
+                overflow-y: auto;
+            }
+            .pass {
+                color: #4ade80;
+            }
+            .fail {
+                color: #f87171;
+            }
+            .warn {
+                color: #fbbf24;
+            }
+            .info {
+                color: #60a5fa;
+            }
+            .dim {
+                color: #4b5563;
+            }
+            table {
+                border-collapse: collapse;
+                margin: 8px 0;
+                width: 100%;
+            }
+            th,
+            td {
+                text-align: left;
+                padding: 4px 10px;
+                border-bottom: 1px solid #1f2937;
+                font-size: 12px;
+            }
+            th {
+                color: #00e5ff;
+                font-weight: 600;
+            }
+            .section {
+                border-left: 3px solid #00e5ff44;
+                padding-left: 12px;
+                margin: 12px 0;
+            }
+            #progress {
+                height: 4px;
+                background: #1f2937;
+                border-radius: 2px;
+                margin-bottom: 12px;
+                overflow: hidden;
+            }
+            #progress-bar {
+                height: 100%;
+                background: linear-gradient(90deg, #00e5ff, #4ade80);
+                width: 0%;
+                transition: width 0.2s;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>⚡ RocketIO Balance Test Harness</h1>
+        <p class="subtitle">Headless simulation — runs real game logic at max speed, no rendering</p>
+
+        <div id="controls">
+            <label
+                >Map Size:
+                <select id="map-size">
+                    <option value="small" selected>Small (r=20)</option>
+                    <option value="medium">Medium (r=30)</option>
+                </select></label
+            >
+            <label
+                >Players:
+                <select id="player-count">
+                    <option value="2">2</option>
+                    <option value="4" selected>4</option>
+                    <option value="6">6</option>
+                </select></label
+            >
+            <label>Runs: <input type="number" id="runs" value="10" min="1" max="100" style="width: 60px" /></label>
+            <label
+                >Max game time (s):
+                <input type="number" id="max-time" value="300" min="60" max="600" style="width: 70px"
+            /></label>
+            <button id="btn-balance" onclick="runBalanceSuite()">▶ Run Full Balance Suite</button>
+            <button id="btn-dps" onclick="runDPSAnalysis()">📊 DPS/Gold Analysis</button>
+            <button id="btn-missile" onclick="runMissileEconomy()">🚀 Missile Economy Test</button>
+            <button id="btn-gov" onclick="runGovROI()">🏛️ Gov ROI Analysis</button>
+            <button id="btn-aivai" onclick="runAIvsAI()">🤖 AI vs AI Sim</button>
+        </div>
+
+        <div id="progress"><div id="progress-bar"></div></div>
+        <div id="output">Ready. Click a test to begin.\n</div>
+
+        <!-- Hidden canvas required by HexGrid -->
+        <canvas id="gameCanvas" width="1" height="1" style="display: none"></canvas>
+        <canvas id="minimap" width="1" height="1" style="display: none"></canvas>
+
+        <script type="module">
+            import {
+                UNIT_STATS,
+                GAME_CONFIG,
+                getEffectiveMapRadius,
+                DIFFICULTY,
+                AI_DOCTRINES,
+                hexDiskTileCount,
+                totalSoloGovDiskGoldPerSec,
+            } from '../src/core/constants.js';
+            import { HexGrid, Hex } from '../src/core/hexGrid.js';
+            import { Game } from '../src/core/game.js';
+            import { updateAI } from '../src/ai/ai.js';
+
+            const out = document.getElementById('output');
+            const progressBar = document.getElementById('progress-bar');
+
+            function log(msg, cls = '') {
+                const span = document.createElement('span');
+                span.className = cls;
+                span.textContent = msg + '\n';
+                out.appendChild(span);
+                out.scrollTop = out.scrollHeight;
+            }
+            function clearLog() {
+                out.innerHTML = '';
+            }
+            function setProgress(pct) {
+                progressBar.style.width = pct + '%';
+            }
+
+            // ========================================================================
+            //  DPS / Gold Analysis (static — no simulation)
+            // ========================================================================
+            window.runDPSAnalysis = function () {
+                clearLog();
+                log('═══════════════════════════════════════════', 'info');
+                log('  DPS / GOLD EFFICIENCY ANALYSIS', 'info');
+                log('═══════════════════════════════════════════', 'info');
+                log('');
+
+                const combatTypes = ['RL', 'AB', 'B', 'D', 'M'];
+                const rows = [];
+
+                for (const type of combatTypes) {
+                    const def = UNIT_STATS[type];
+                    for (let i = 0; i < def.levels.length; i++) {
+                        const s = def.levels[i];
+                        if (!s.damage) continue;
+                        const dps = (s.damage * (s.projectiles || 1)) / (s.interval / 1000);
+                        const dpsPerGold = dps / s.cost;
+                        const hpPerGold = s.hp / s.cost;
+                        const missiles = s.missilesPerShot || 0;
+                        const dmgPerMissile = missiles > 0 ? s.damage / missiles : Infinity;
+                        rows.push({
+                            id: s.id || `${type}${i + 1}`,
+                            type,
+                            level: i + 1,
+                            damage: s.damage,
+                            interval: s.interval,
+                            projectiles: s.projectiles || 1,
+                            dps: dps.toFixed(2),
+                            cost: s.cost,
+                            hp: s.hp,
+                            dpsPerGold: dpsPerGold.toFixed(4),
+                            hpPerGold: hpPerGold.toFixed(3),
+                            range: s.range,
+                            missiles,
+                            dmgPerMissile: missiles > 0 ? dmgPerMissile.toFixed(1) : '∞',
+                            interceptable: s.interceptable ? 'Yes' : 'No',
+                        });
+                    }
+                }
+
+                // Header
+                log(
+                    pad('Unit', 8) +
+                        pad('DPS', 8) +
+                        pad('Cost', 6) +
+                        pad('DPS/$', 8) +
+                        pad('HP', 6) +
+                        pad('HP/$', 7) +
+                        pad('Range', 6) +
+                        pad('Msl', 5) +
+                        pad('Dmg/Msl', 8) +
+                        pad('Int', 5),
+                    'dim'
+                );
+                log('─'.repeat(78), 'dim');
+
+                // Sort by DPS/Gold descending
+                rows.sort((a, b) => parseFloat(b.dpsPerGold) - parseFloat(a.dpsPerGold));
+                for (const r of rows) {
+                    const cls = parseFloat(r.dpsPerGold) > 0.04 ? 'warn' : '';
+                    log(
+                        pad(r.id, 8) +
+                            pad(r.dps, 8) +
+                            pad(r.cost, 6) +
+                            pad(r.dpsPerGold, 8) +
+                            pad(r.hp, 6) +
+                            pad(r.hpPerGold, 7) +
+                            pad(r.range, 6) +
+                            pad(r.missiles, 5) +
+                            pad(r.dmgPerMissile, 8) +
+                            pad(r.interceptable, 5),
+                        cls
+                    );
+                }
+
+                log('');
+                const maxDPG = Math.max(...rows.map((r) => parseFloat(r.dpsPerGold)));
+                const minDPG = Math.min(...rows.map((r) => parseFloat(r.dpsPerGold)));
+                const ratio = (maxDPG / minDPG).toFixed(1);
+                log(
+                    `DPS/Gold spread: ${ratio}:1  (max=${maxDPG.toFixed(4)} min=${minDPG.toFixed(4)})`,
+                    parseFloat(ratio) > 3 ? 'warn' : 'pass'
+                );
+                log(`Target: < 3:1 spread`, 'dim');
+            };
+
+            // ========================================================================
+            //  Missile Economy Test
+            // ========================================================================
+            window.runMissileEconomy = function () {
+                clearLog();
+                log('═══════════════════════════════════════════', 'info');
+                log('  MISSILE ECONOMY: PRODUCTION vs CONSUMPTION', 'info');
+                log('═══════════════════════════════════════════', 'info');
+                log('');
+
+                const mult = GAME_CONFIG.MF_GLOBAL_PRODUCTION_MULT;
+                log(`MF_GLOBAL_PRODUCTION_MULT = ${mult}`, 'dim');
+                log('');
+
+                log('PRODUCTION (per MF, with global mult):', 'info');
+                log(pad('MF', 6) + pad('Base', 6) + pad('Actual', 8) + pad('Interval', 10) + pad('/min', 8), 'dim');
+                log('─'.repeat(40), 'dim');
+                for (let i = 0; i < UNIT_STATS.MF.levels.length; i++) {
+                    const s = UNIT_STATS.MF.levels[i];
+                    const actual = Math.floor(s.missilesProduced * mult);
+                    const perMin = ((actual / (s.produceInterval / 1000)) * 60).toFixed(1);
+                    log(
+                        pad(`MF${i + 1}`, 6) +
+                            pad(s.missilesProduced, 6) +
+                            pad(actual, 8) +
+                            pad((s.produceInterval / 1000).toFixed(1) + 's', 10) +
+                            pad(perMin, 8)
+                    );
+                }
+
+                log('');
+                log('CONSUMPTION (per shooter):', 'info');
+                log(pad('Unit', 6) + pad('Msl/shot', 10) + pad('Interval', 10) + pad('/min', 8), 'dim');
+                log('─'.repeat(36), 'dim');
+                for (const type of ['RL', 'AB']) {
+                    for (let i = 0; i < UNIT_STATS[type].levels.length; i++) {
+                        const s = UNIT_STATS[type].levels[i];
+                        const perMin = ((s.missilesPerShot / (s.interval / 1000)) * 60).toFixed(1);
+                        log(
+                            pad(s.id, 6) +
+                                pad(s.missilesPerShot, 10) +
+                                pad((s.interval / 1000).toFixed(1) + 's', 10) +
+                                pad(perMin, 8)
+                        );
+                    }
+                }
+
+                log('');
+                log('SUSTAINABILITY (MFs needed to sustain 1 shooter):', 'info');
+                log(pad('Shooter', 8) + pad('Msl/min', 8) + pad('MF1s', 6) + pad('MF2s', 6) + pad('MF3s', 6), 'dim');
+                log('─'.repeat(36), 'dim');
+                for (const type of ['RL', 'AB']) {
+                    for (let i = 0; i < UNIT_STATS[type].levels.length; i++) {
+                        const s = UNIT_STATS[type].levels[i];
+                        const consPerMin = (s.missilesPerShot / (s.interval / 1000)) * 60;
+                        const mf1 = UNIT_STATS.MF.levels[0];
+                        const mf2 = UNIT_STATS.MF.levels[1];
+                        const mf3 = UNIT_STATS.MF.levels[2];
+                        const mf1prod = (Math.floor(mf1.missilesProduced * mult) / (mf1.produceInterval / 1000)) * 60;
+                        const mf2prod = (Math.floor(mf2.missilesProduced * mult) / (mf2.produceInterval / 1000)) * 60;
+                        const mf3prod = (Math.floor(mf3.missilesProduced * mult) / (mf3.produceInterval / 1000)) * 60;
+                        log(
+                            pad(s.id, 8) +
+                                pad(consPerMin.toFixed(1), 8) +
+                                pad((consPerMin / mf1prod).toFixed(2), 6) +
+                                pad((consPerMin / mf2prod).toFixed(2), 6) +
+                                pad((consPerMin / mf3prod).toFixed(2), 6)
+                        );
+                    }
+                }
+            };
+
+            // ========================================================================
+            //  Government ROI Analysis
+            // ========================================================================
+            window.runGovROI = function () {
+                clearLog();
+                log('═══════════════════════════════════════════', 'info');
+                log('  GOVERNMENT ROI ANALYSIS', 'info');
+                log('═══════════════════════════════════════════', 'info');
+                log('');
+
+                const warmup = GAME_CONFIG.GOV_WARMUP_MS / 1000;
+                log(`Gov warmup: ${warmup}s`, 'dim');
+                log('');
+
+                log(
+                    pad('Gov', 5) +
+                        pad('Cost', 7) +
+                        pad('Radius', 8) +
+                        pad('Tiles', 7) +
+                        pad('avgG/t', 7) +
+                        pad('Income/s', 10) +
+                        pad('ROI', 7) +
+                        pad('+warmup', 9),
+                    'dim'
+                );
+                log('─'.repeat(60), 'dim');
+
+                const govLevels = UNIT_STATS.G.levels;
+                for (let i = 0; i < govLevels.length; i++) {
+                    const g = govLevels[i];
+                    const r = g.radius;
+                    const tiles = hexDiskTileCount(r);
+                    const income = totalSoloGovDiskGoldPerSec(i);
+                    const effG = income / tiles;
+                    const roi = g.cost / income;
+                    const roiWarmup = roi + warmup;
+                    const cls = roi < 20 ? 'pass' : roi < 40 ? '' : 'warn';
+                    log(
+                        pad(g.id, 5) +
+                            pad(g.cost, 7) +
+                            pad(r, 8) +
+                            pad(tiles, 7) +
+                            pad(effG.toFixed(2), 7) +
+                            pad(income.toFixed(1), 10) +
+                            pad(roi.toFixed(1) + 's', 7) +
+                            pad(roiWarmup.toFixed(1) + 's', 9),
+                        cls
+                    );
+                }
+
+                log('');
+                log('UPGRADE ROI:', 'info');
+                for (let i = 0; i < govLevels.length - 1; i++) {
+                    const cur = govLevels[i];
+                    const next = govLevels[i + 1];
+                    const upgCost = Math.floor(next.cost * GAME_CONFIG.UPGRADE_COST_MULT);
+                    const curTiles = hexDiskTileCount(cur.radius);
+                    const nextTiles = hexDiskTileCount(next.radius);
+                    const curIncome = totalSoloGovDiskGoldPerSec(i);
+                    const nextIncome = totalSoloGovDiskGoldPerSec(i + 1);
+                    const delta = nextIncome - curIncome;
+                    const upgROI = delta > 0 ? (upgCost / delta).toFixed(1) : '∞';
+                    log(
+                        `  G${i + 1}→G${i + 2}: cost ${upgCost}g, income +${delta.toFixed(1)}g/s, upgrade ROI = ${upgROI}s`,
+                        parseFloat(upgROI) < 40 ? 'pass' : 'warn'
+                    );
+                }
+
+                log('');
+                log('INCOME SCALING:', 'info');
+                const g1Income = totalSoloGovDiskGoldPerSec(0);
+                for (let i = 1; i < govLevels.length; i++) {
+                    const gIncome = totalSoloGovDiskGoldPerSec(i);
+                    const ratio = (gIncome / g1Income).toFixed(2);
+                    log(`  G${i + 1}/G1 income ratio: ${ratio}x`, parseFloat(ratio) < 3 ? 'pass' : 'warn');
+                }
+            };
+
+            // ========================================================================
+            //  AI vs AI Simulation
+            // ========================================================================
+            window.runAIvsAI = async function () {
+                clearLog();
+                const numRuns = parseInt(document.getElementById('runs').value) || 10;
+                const maxTimeSec = parseInt(document.getElementById('max-time').value) || 300;
+                const mapSize = document.getElementById('map-size').value;
+                const playerCount = parseInt(document.getElementById('player-count').value) || 4;
+                const btn = document.getElementById('btn-aivai');
+                btn.disabled = true;
+                btn.classList.add('running');
+
+                log('═══════════════════════════════════════════', 'info');
+                log(
+                    `  AI vs AI SIMULATION  (${numRuns} runs, ${playerCount}p, ${mapSize} map, ${maxTimeSec}s max)`,
+                    'info'
+                );
+                log('═══════════════════════════════════════════', 'info');
+                log('');
+
+                const wins = {};
+                const durations = [];
+                const doctrineWins = {};
+                const tilesPeak = [];
+                const goldEarned = [];
+
+                for (let run = 0; run < numRuns; run++) {
+                    setProgress((run / numRuns) * 100);
+                    log(`Run ${run + 1}/${numRuns}...`, 'dim');
+
+                    const grid = new HexGrid(getEffectiveMapRadius(mapSize, playerCount), 30, 'pangaea', playerCount);
+                    const game = new Game(grid);
+                    game.humanId = -1; // No human — all AI
+                    game.aiDifficulty = 'normal';
+                    game.diplomacyEnabled = true;
+
+                    game.start(playerCount, 'BOT-1', { mode: 'conquest', param: null });
+
+                    // Assign all players as AI with doctrines
+                    const docKeys = Object.keys(AI_DOCTRINES);
+                    for (const p of game.players) {
+                        p.doctrine = AI_DOCTRINES[docKeys[(p.id - 1) % docKeys.length]];
+                    }
+
+                    const maxGameTime = maxTimeSec * 1000;
+                    const tickStep = 16.67; // ~60fps simulation
+                    let simTime = 0;
+
+                    while (!game.winner && simTime < maxGameTime) {
+                        game._lastRealTime = simTime;
+                        simTime += tickStep;
+                        game.update(simTime);
+                        updateAI(game, simTime);
+
+                        // Yield to browser every 500 sim-ticks to prevent freeze
+                        if (simTime % 8335 < tickStep) {
+                            await new Promise((r) => setTimeout(r, 0));
+                        }
+                    }
+
+                    const duration = game.gameTime / 1000;
+                    durations.push(duration);
+
+                    if (game.winner) {
+                        const w = game.winner;
+                        wins[w] = (wins[w] || 0) + 1;
+                        const doc = game.players[w - 1]?.doctrine?.name || '?';
+                        doctrineWins[doc] = (doctrineWins[doc] || 0) + 1;
+                    } else {
+                        wins['timeout'] = (wins['timeout'] || 0) + 1;
+                    }
+
+                    for (const p of game.players) {
+                        tilesPeak.push(p.stats.peakTiles);
+                        goldEarned.push(p.stats.goldEarned);
+                    }
+                }
+
+                setProgress(100);
+                log('');
+                log('═══════════════════════════════════════════', 'info');
+                log('  RESULTS', 'info');
+                log('═══════════════════════════════════════════', 'info');
+
+                log('');
+                log('Win distribution:', 'info');
+                for (const [k, v] of Object.entries(wins).sort((a, b) => b[1] - a[1])) {
+                    const pct = ((v / numRuns) * 100).toFixed(0);
+                    log(`  Player ${k}: ${v} wins (${pct}%)`, parseInt(pct) > 40 ? 'warn' : 'pass');
+                }
+
+                log('');
+                log('Doctrine win rate:', 'info');
+                for (const [doc, w] of Object.entries(doctrineWins).sort((a, b) => b[1] - a[1])) {
+                    log(`  ${doc}: ${w} wins`, w > numRuns * 0.4 ? 'warn' : 'pass');
+                }
+
+                log('');
+                const avgDur = (durations.reduce((a, b) => a + b, 0) / durations.length).toFixed(0);
+                const minDur = Math.min(...durations).toFixed(0);
+                const maxDur = Math.max(...durations).toFixed(0);
+                log(`Game duration: avg ${avgDur}s, min ${minDur}s, max ${maxDur}s`, 'info');
+
+                const avgPeak = (tilesPeak.reduce((a, b) => a + b, 0) / tilesPeak.length).toFixed(0);
+                log(`Avg peak tiles per player: ${avgPeak}`, 'info');
+
+                const avgGold = (goldEarned.reduce((a, b) => a + b, 0) / goldEarned.length).toFixed(0);
+                log(`Avg total gold earned per player: ${avgGold}`, 'info');
+
+                btn.disabled = false;
+                btn.classList.remove('running');
+            };
+
+            // ========================================================================
+            //  Full Balance Suite
+            // ========================================================================
+            window.runBalanceSuite = async function () {
+                clearLog();
+                log('Running full balance suite...', 'info');
+                log('');
+
+                window.runDPSAnalysis();
+                log('');
+                window.runMissileEconomy();
+                log('');
+                window.runGovROI();
+                log('');
+                await window.runAIvsAI();
+
+                log('');
+                log('═══════════════════════════════════════════', 'pass');
+                log('  BALANCE SUITE COMPLETE', 'pass');
+                log('═══════════════════════════════════════════', 'pass');
+            };
+
+            function pad(val, width) {
+                const s = String(val);
+                return s + ' '.repeat(Math.max(0, width - s.length));
+            }
+        </script>
+    </body>
+</html>

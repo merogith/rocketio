@@ -1,4 +1,4 @@
-import { DEFAULT_KEYBINDS, DEFAULT_SETTINGS } from './constants.js?v=sig3';
+import { DEFAULT_KEYBINDS, DEFAULT_SETTINGS } from '../core/constants.js';
 
 const keybinds = {};
 const settings = {};
@@ -16,7 +16,9 @@ function loadKeybinds() {
         if (stored && typeof stored === 'object') {
             Object.assign(keybinds, stored);
         }
-    } catch (_) { /* use defaults */ }
+    } catch (_) {
+        /* use defaults */
+    }
 }
 
 function saveKeybinds() {
@@ -30,7 +32,9 @@ function loadSettings() {
         if (stored && typeof stored === 'object') {
             Object.assign(settings, stored);
         }
-    } catch (_) { /* use defaults */ }
+    } catch (_) {
+        /* use defaults */
+    }
     const pv = settings.projectileVisual;
     if (pv !== 'none' && pv !== 'low' && pv !== 'medium' && pv !== 'high' && pv !== 'unlimited') {
         settings.projectileVisual = DEFAULT_SETTINGS.projectileVisual;

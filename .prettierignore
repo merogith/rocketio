@@ -1,0 +1,12 @@
+node_modules/
+dist/
+package-lock.json
+
+# Data tables below use intentional column alignment (hand-aligned unit stats).
+# Reformatting them would collapse the alignment and hurt readability, so they
+# are excluded from Prettier and treated as data files.
+src/core/constants.js
+src/data/factionUnits.js
+constants.js
+factionUnits.js
+Units.csv
