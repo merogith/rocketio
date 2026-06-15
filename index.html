@@ -21,8 +21,7 @@
             property="og:description"
             content="Command one of 14 world powers across hex-grid battles of missiles, economy and interception. A vanilla-JS + Canvas strategy game."
         />
-        <meta property="og:image" content="assets/social-preview.png" />
-        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:card" content="summary" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
             href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
@@ -31,6 +30,19 @@
         <link rel="stylesheet" href="style.css" />
     </head>
     <body>
+        <!-- Small-viewport guard: the HUD is desktop-optimized, so on phones we
+             show a clean notice instead of a broken layout (CSS-only, never seen on desktop). -->
+        <div id="viewport-guard">
+            <div class="vg-card">
+                <div class="vg-logo">ROCKET<span class="accent">IO</span></div>
+                <p class="vg-title">Best played on desktop</p>
+                <p class="vg-sub">
+                    RocketIO is built for keyboard + mouse at 1280×720 or larger. Open it on a desktop browser to
+                    command the battlefield.
+                </p>
+            </div>
+        </div>
+
         <!-- ==================== HOMEPAGE ==================== -->
         <div id="homepage">
             <div class="stars"></div>
