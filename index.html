@@ -3,27 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <meta http-equiv="Pragma" content="no-cache">
-    <meta http-equiv="Expires" content="0">
-    <title>RocketIO | Modern Warfare Hex Strategy</title>
+    <title>RocketIO — Modern Warfare Hex Strategy</title>
+    <meta name="description" content="RocketIO is a real-time hex-grid strategy game: command one of 14 world powers, each with unique units and doctrines, across skirmish and campaign battles of missiles, economy and interception.">
+    <meta name="theme-color" content="#00e5ff">
+    <!-- Inline SVG favicon (rocket motif) — no binary asset required -->
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230a0e17'/%3E%3Cpath d='M16 4c4 3 6 7 6 12 0 3-1 5-2 7l-4-3-4 3c-1-2-2-4-2-7 0-5 2-9 6-12z' fill='%2300e5ff'/%3E%3Ccircle cx='16' cy='13' r='2.2' fill='%230a0e17'/%3E%3Cpath d='M13 23l-2 4 3-1.5M19 23l2 4-3-1.5' fill='%23ff5252'/%3E%3C/svg%3E">
+    <!-- Open Graph / social preview -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="RocketIO — Modern Warfare Hex Strategy">
+    <meta property="og:description" content="Command one of 14 world powers across hex-grid battles of missiles, economy and interception. A vanilla-JS + Canvas strategy game.">
+    <meta property="og:image" content="assets/social-preview.png">
+    <meta name="twitter:card" content="summary_large_image">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css?v=units3">
-    <script>
-    (function () {
-        function send(d) {
-            fetch('http://127.0.0.1:7800/ingest/05987a93-cd05-4494-a5fb-56e4fc3c37c8', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '7abbd6' }, body: JSON.stringify(Object.assign({ sessionId: '7abbd6', timestamp: Date.now() }, d)) }).catch(function () { });
-        }
-        send({ location: 'index.html:head', message: 'index head script ran', hypothesisId: 'H1', data: {} });
-        window.addEventListener('error', function (e) {
-            send({ location: 'index.html:window.onerror', message: 'uncaught', hypothesisId: 'H1', data: { msg: String(e.message), file: e.filename, line: e.lineno } });
-        });
-        window.addEventListener('unhandledrejection', function (e) {
-            send({ location: 'index.html:unhandledrejection', message: 'rejection', hypothesisId: 'H1', data: { reason: String(e.reason) } });
-        });
-    })();
-    </script>
 </head>
 <body>
 
@@ -598,6 +591,16 @@
             <button id="end-restart" class="play-button">
                 <span class="play-icon">&#9654;</span> RETURN TO COMMAND
             </button>
+        </div>
+    </div>
+
+    <!-- LOADING OVERLAY (shown while a world/map is generated) -->
+    <div id="loading-overlay" class="hidden" role="status" aria-live="polite">
+        <div class="loading-backdrop"></div>
+        <div class="loading-card">
+            <div class="loading-spinner" aria-hidden="true"></div>
+            <div class="loading-text">GENERATING WORLD</div>
+            <div class="loading-sub">Deploying forces&hellip;</div>
         </div>
     </div>
 

@@ -294,15 +294,17 @@ function startCampaignMission(missionId) {
     SFX.setMusicEnabled(Input.getSetting('musicEnabled') !== false);
 
     const victoryConfig = { mode: m.victoryMode, param: m.victoryParam == null ? null : m.victoryParam };
-    initWorld(m.mapSize, m.mapStyle, m.playerCount, playerName, victoryConfig, m.difficulty, { missionId: m.id });
+    showLoadingThen(() => {
+        initWorld(m.mapSize, m.mapStyle, m.playerCount, playerName, victoryConfig, m.difficulty, { missionId: m.id });
 
-    showCampaignQuestPanel(m);
-    syncCampaignBuildQuestPanel();
-    showCampaignBriefingInGame(m);
-    if (!loopRunning) {
-        loopRunning = true;
-        requestAnimationFrame(loop);
-    }
+        showCampaignQuestPanel(m);
+        syncCampaignBuildQuestPanel();
+        showCampaignBriefingInGame(m);
+        if (!loopRunning) {
+            loopRunning = true;
+            requestAnimationFrame(loop);
+        }
+    });
 }
 
 function renderCampaignMissionList() {
@@ -373,6 +375,21 @@ function registerCampaignOnWindow() {
 registerCampaignOnWindow();
 if (campaignScreenEl && !campaignScreenEl.classList.contains('hidden')) {
     renderCampaignMissionList();
+}
+
+/**
+ * Show the loading overlay, then run `work` once the browser has painted it.
+ * World generation is synchronous and blocks the main thread, so we yield across
+ * two animation frames first to guarantee the spinner actually renders.
+ * @param {() => void} work
+ */
+function showLoadingThen(work) {
+    const ov = document.getElementById('loading-overlay');
+    if (!ov) { work(); return; }
+    ov.classList.remove('hidden');
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+        try { work(); } finally { ov.classList.add('hidden'); }
+    }));
 }
 
 function initWorld(mapSize, mapStyle, playerCount, playerName, victoryConfig, difficulty = 'normal', campaign = null, playerOptions = null) {
@@ -577,9 +594,6 @@ function updateVictorySubPicker(mode) {
 }
 
 document.getElementById('play-btn')?.addEventListener('click', () => {
-    // #region agent log
-    fetch('http://127.0.0.1:7800/ingest/05987a93-cd05-4494-a5fb-56e4fc3c37c8', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '7abbd6' }, body: JSON.stringify({ sessionId: '7abbd6', location: 'main.js:play-btn', message: 'play clicked', hypothesisId: 'H2', data: { map: selectedMapStyle, players: selectedPlayerCount }, timestamp: Date.now() }) }).catch(() => { });
-    // #endregion
     const nameInput = document.getElementById('player-name');
     commanderName = (nameInput.value || '').trim().toUpperCase() || 'COMMANDER';
     activeCampaign = null;
@@ -603,18 +617,10 @@ document.getElementById('play-btn')?.addEventListener('click', () => {
     const lSel = document.getElementById('leader-select');
     const hF = fSel ? (parseInt(fSel.value, 10) || 0) : 0;
     const hL = lSel ? (parseInt(lSel.value, 10) || 0) : 0;
-    try {
+    showLoadingThen(() => {
         initWorld(selectedMapSize, selectedMapStyle, selectedPlayerCount, commanderName, victoryConfig, selectedDifficulty, null, { humanFactionId: hF, humanLeaderIdx: hL });
-    } catch (e) {
-        // #region agent log
-        fetch('http://127.0.0.1:7800/ingest/05987a93-cd05-4494-a5fb-56e4fc3c37c8', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '7abbd6' }, body: JSON.stringify({ sessionId: '7abbd6', location: 'main.js:play-btn', message: 'initWorld threw', hypothesisId: 'H3', data: { err: String(e) }, timestamp: Date.now() }) }).catch(() => { });
-        // #endregion
-        throw e;
-    }
-    // #region agent log
-    fetch('http://127.0.0.1:7800/ingest/05987a93-cd05-4494-a5fb-56e4fc3c37c8', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '7abbd6' }, body: JSON.stringify({ sessionId: '7abbd6', location: 'main.js:play-btn', message: 'initWorld ok', hypothesisId: 'H3', data: { hasGame: !!game }, timestamp: Date.now() }) }).catch(() => { });
-    // #endregion
-    if (!loopRunning) { loopRunning = true; requestAnimationFrame(loop); }
+        if (!loopRunning) { loopRunning = true; requestAnimationFrame(loop); }
+    });
 });
 
 campaignBackBtn?.addEventListener('click', () => {
@@ -1355,10 +1361,12 @@ document.getElementById('menu-restart')?.addEventListener('click', () => {
                 const nameInput = document.getElementById('player-name');
                 const pn = ((nameInput?.value || '').trim() || game.players[0].name).toUpperCase();
                 const vc = { mode: m.victoryMode, param: m.victoryParam == null ? null : m.victoryParam };
-                initWorld(m.mapSize, m.mapStyle, m.playerCount, pn, vc, m.difficulty, { missionId: m.id });
-                showCampaignQuestPanel(m);
-                syncCampaignBuildQuestPanel();
-                showCampaignBriefingInGame(m);
+                showLoadingThen(() => {
+                    initWorld(m.mapSize, m.mapStyle, m.playerCount, pn, vc, m.difficulty, { missionId: m.id });
+                    showCampaignQuestPanel(m);
+                    syncCampaignBuildQuestPanel();
+                    showCampaignBriefingInGame(m);
+                });
             }
         } else {
             const vc = { mode: selectedVictoryMode, param: selectedVictoryParam };
@@ -1366,8 +1374,10 @@ document.getElementById('menu-restart')?.addEventListener('click', () => {
             const lSel = document.getElementById('leader-select');
             const hF = fSel ? (parseInt(fSel.value, 10) || 0) : 0;
             const hL = lSel ? (parseInt(lSel.value, 10) || 0) : 0;
-            initWorld(selectedMapSize, selectedMapStyle, selectedPlayerCount, commanderName, vc, selectedDifficulty, null, { humanFactionId: hF, humanLeaderIdx: hL });
-            hideCampaignQuestPanel();
+            showLoadingThen(() => {
+                initWorld(selectedMapSize, selectedMapStyle, selectedPlayerCount, commanderName, vc, selectedDifficulty, null, { humanFactionId: hF, humanLeaderIdx: hL });
+                hideCampaignQuestPanel();
+            });
         }
     }
 });
@@ -2735,15 +2745,7 @@ minimapStatsNextBtn?.addEventListener('click', (e) => {
 });
 
 let lastBuildRefresh = 0;
-let _agentLoopLogOnce = false;
-
 function loop(time) {
-    // #region agent log
-    if (!_agentLoopLogOnce) {
-        _agentLoopLogOnce = true;
-        fetch('http://127.0.0.1:7800/ingest/05987a93-cd05-4494-a5fb-56e4fc3c37c8', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '7abbd6' }, body: JSON.stringify({ sessionId: '7abbd6', location: 'main.js:loop', message: 'first frame', hypothesisId: 'H4', data: { hasGame: !!game }, timestamp: Date.now() }) }).catch(() => { });
-    }
-    // #endregion
     handleInput();
     Input.clearFrame();
 
@@ -2960,6 +2962,3 @@ if (document.readyState === 'loading') {
     initHomePageFactionUI();
 }
 
-// #region agent log
-fetch('http://127.0.0.1:7800/ingest/05987a93-cd05-4494-a5fb-56e4fc3c37c8', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '7abbd6' }, body: JSON.stringify({ sessionId: '7abbd6', location: 'main.js:EOF', message: 'main module init finished', hypothesisId: 'H1', data: { playWired: true }, timestamp: Date.now() }) }).catch(() => { });
-// #endregion
