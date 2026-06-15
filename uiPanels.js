@@ -9,21 +9,34 @@
 
     // [panel id] -> { title, allowDrag, allowCollapse, allowClose }
     const PANELS = {
-        'side-panel':   { title: 'BUILD',       allowDrag: true,  allowCollapse: true,  allowClose: true },
-        'info-panel':   { title: 'INTEL',       allowDrag: true,  allowCollapse: true,  allowClose: true },
-        'minimap-wrap': { title: 'TACTICAL',    allowDrag: true,  allowCollapse: true,  allowClose: true },
-        'combat-log':   { title: 'COMBAT LOG',  allowDrag: true,  allowCollapse: true,  allowClose: true, customHeader: true }
+        'side-panel': { title: 'BUILD', allowDrag: true, allowCollapse: true, allowClose: true },
+        'info-panel': { title: 'INTEL', allowDrag: true, allowCollapse: true, allowClose: true },
+        'minimap-wrap': { title: 'TACTICAL', allowDrag: true, allowCollapse: true, allowClose: true },
+        'combat-log': {
+            title: 'COMBAT LOG',
+            allowDrag: true,
+            allowCollapse: true,
+            allowClose: true,
+            customHeader: true,
+        },
     };
 
     function loadState() {
-        try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; }
-        catch (_) { return {}; }
+        try {
+            return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+        } catch (_) {
+            return {};
+        }
     }
     function saveState(state) {
-        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (_) {}
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        } catch (_) {}
     }
     const state = loadState();
-    function getEntry(id) { return state[id] || (state[id] = {}); }
+    function getEntry(id) {
+        return state[id] || (state[id] = {});
+    }
 
     function makeBtn(text, title, cls) {
         const b = document.createElement('button');
@@ -108,7 +121,7 @@
 
     function togglePanel(panel, conf, flag, force) {
         const cls = flag === 'collapsed' ? 'panel-collapsed' : 'panel-hidden';
-        const isOn = (typeof force === 'boolean') ? force : !panel.classList.contains(cls);
+        const isOn = typeof force === 'boolean' ? force : !panel.classList.contains(cls);
         panel.classList.toggle(cls, isOn);
         const entry = getEntry(panel.id);
         entry[flag] = isOn;
@@ -140,7 +153,11 @@
     function makeDraggable(panel, handle, conf) {
         if (!conf.allowDrag || !handle) return;
         handle.classList.add('panel-drag-handle');
-        let dragging = false, startX = 0, startY = 0, baseLeft = 0, baseTop = 0;
+        let dragging = false,
+            startX = 0,
+            startY = 0,
+            baseLeft = 0,
+            baseTop = 0;
 
         handle.addEventListener('mousedown', (e) => {
             // Ignore clicks on buttons inside the bar
@@ -168,8 +185,10 @@
             if (!dragging) return;
             const dx = e.clientX - startX;
             const dy = e.clientY - startY;
-            const W = window.innerWidth, H = window.innerHeight;
-            const w = panel.offsetWidth, h = panel.offsetHeight;
+            const W = window.innerWidth,
+                H = window.innerHeight;
+            const w = panel.offsetWidth,
+                h = panel.offsetHeight;
             const nl = Math.max(0, Math.min(W - 40, baseLeft + dx));
             const nt = Math.max(0, Math.min(H - 28, baseTop + dy));
             panel.style.left = nl + 'px';
@@ -267,9 +286,7 @@
             const panel = document.getElementById(id);
             if (!panel) continue;
             const conf = PANELS[id];
-            const handle = conf.customHeader
-                ? decorateCustomHeader(panel, conf)
-                : ensureTitlebar(panel, conf);
+            const handle = conf.customHeader ? decorateCustomHeader(panel, conf) : ensureTitlebar(panel, conf);
             makeDraggable(panel, handle, conf);
             applyStoredState(panel, conf);
         }

@@ -42,9 +42,10 @@ export const FACTION_BANNERS = [
 
 /** What the Signature (SU) unit does — shared rules + faction-unique L3 doctrine. */
 export function getSpecialUnitBlurb(faction) {
-    const s = typeof faction === 'object' && faction != null && faction.specialName
-        ? faction
-        : getFaction(typeof faction === 'number' ? faction : 0);
+    const s =
+        typeof faction === 'object' && faction != null && faction.specialName
+            ? faction
+            : getFaction(typeof faction === 'number' ? faction : 0);
     const idx = typeof faction === 'number' ? faction : FACTIONS.indexOf(s);
     const icon = getSpecialUnitIcon(idx);
     const sig = s.signatureL3;
@@ -81,7 +82,7 @@ const LEADER_FLAVOR = {
     ],
     // 5. Türkiye — Erdoğan, Kılıçdaroğlu, Akar
     TUR: [
-        'Sultan\'s Push — sharper damage cures the swarm\'s chip-shot problem.',
+        "Sultan's Push — sharper damage cures the swarm's chip-shot problem.",
         'Civic Economy — strong gold for a drone-and-dollars war.',
         'Combined Arms — tighter fire-cycle tempo.',
     ],
@@ -107,7 +108,7 @@ const LEADER_FLAVOR = {
     SUI: [
         'Defense Reform — clears the bureaucratic sluggishness.',
         'Neutral Diplomacy — out-of-supply becomes a minor issue.',
-        'Private Banking — gold piles up faster than anyone\'s.',
+        "Private Banking — gold piles up faster than anyone's.",
     ],
     // 10. Saudi Arabia — Salman, MBS, Faisal
     KSA: [
@@ -125,7 +126,7 @@ const LEADER_FLAVOR = {
     VNM: [
         'Doi Moi Military — modernization tightens every cycle.',
         'Industrial Drive — clears the poverty trap on gold.',
-        'People\'s War — ambushes hit with ferocity.',
+        "People's War — ambushes hit with ferocity.",
     ],
     // 13. UK — Starmer, Sunak, Johnson
     GBR: [

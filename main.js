@@ -2,7 +2,15 @@ import { Hex, HexGrid, Camera } from './hexGrid.js?v=units3';
 import { getRealWorldMap, parseTemplate } from './realWorldMaps.js?v=rw1';
 import { Game } from './game.js?v=units3';
 import { Renderer } from './renderer.js?v=units3';
-import { UNIT_STATS, GAME_CONFIG, getEffectiveMapRadius, VICTORY_MODES, COLORS, DIPLOMACY, govGoldBandLinesHtml } from './constants.js?v=units3';
+import {
+    UNIT_STATS,
+    GAME_CONFIG,
+    getEffectiveMapRadius,
+    VICTORY_MODES,
+    COLORS,
+    DIPLOMACY,
+    govGoldBandLinesHtml,
+} from './constants.js?v=units3';
 import { getFactionSignatureL3, getSpecialUnitName, getSpecialUnitIcon } from './factions.js?v=units3';
 import { FACTION_UNITS_BY_CODE, FACTION_UNIT_STATS } from './factionUnits.js?v=fu1';
 import { TUTORIAL_PAGES } from './tutorial.js?v=units3';
@@ -13,7 +21,12 @@ import { Input } from './input.js?v=units3';
 import { updateAI } from './ai.js?v=units3';
 import { SFX } from './sfx.js?v=units3';
 import { FACTIONS, getFaction, describeModsList, getPlayerMods } from './factions.js?v=units3';
-import { FACTION_BANNERS, PLACEHOLDER_LEADER_PORTRAIT, getSpecialUnitBlurb, getLeaderPerkText } from './factionsDisplay.js?v=units3';
+import {
+    FACTION_BANNERS,
+    PLACEHOLDER_LEADER_PORTRAIT,
+    getSpecialUnitBlurb,
+    getLeaderPerkText,
+} from './factionsDisplay.js?v=units3';
 
 // ============================================================================
 //  DOM
@@ -116,7 +129,7 @@ let endReturnTarget = 'home';
 
 function campaignLineToHtml(line) {
     if (!line) return '';
-    const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     return esc(line).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
 }
 
@@ -215,11 +228,11 @@ function m1AutoselectBuild() {
 function updateM1BuildButtonLock() {
     const on = game?.campaign?.buildTutorial?.active;
     if (!on) {
-        buildBtns.forEach(b => b.classList.remove('campaign-locked'));
+        buildBtns.forEach((b) => b.classList.remove('campaign-locked'));
         return;
     }
     const st = game.campaign.buildTutorial.steps[game.campaign.buildTutorial.step];
-    buildBtns.forEach(btn => {
+    buildBtns.forEach((btn) => {
         const t = btn.dataset.type;
         btn.classList.toggle('campaign-locked', !!(st && t !== st.type));
     });
@@ -230,7 +243,7 @@ function showCampaignBriefingInGame(m) {
     if (campaignBriefingTitle) campaignBriefingTitle.textContent = m.briefingTitle || 'BRIEFING';
     if (campaignBriefingBody) {
         campaignBriefingBody.innerHTML = (m.briefingLines || [])
-            .map(p => `<p class="cb-line">${campaignLineToHtml(p)}</p>`)
+            .map((p) => `<p class="cb-line">${campaignLineToHtml(p)}</p>`)
             .join('');
     }
     campaignBriefingOverlay.classList.remove('hidden');
@@ -318,13 +331,11 @@ function renderCampaignMissionList() {
         const can = canStartMission(m.id, prog.beaten) && m.implemented;
         const prefix = m.act === 1 ? 'I' : 'II';
         const done = !!prog.beaten[m.id];
-        const label = m.implemented
-            ? (done ? 'CLEARED' : (can ? 'DEPLOY' : 'LOCKED'))
-            : 'SOON';
+        const label = m.implemented ? (done ? 'CLEARED' : can ? 'DEPLOY' : 'LOCKED') : 'SOON';
         btn.innerHTML = `
             <span class="cm-idx">M${m.id} · ${prefix}</span>
             <span class="cm-name">${m.codename}</span>
-            <span class="cm-st ${done ? 'cm-cleared' : (can && m.implemented ? 'cm-ready' : 'cm-locked')}">${label}</span>
+            <span class="cm-st ${done ? 'cm-cleared' : can && m.implemented ? 'cm-ready' : 'cm-locked'}">${label}</span>
         `;
         if (can) {
             btn.addEventListener('click', () => startCampaignMission(m.id));
@@ -385,32 +396,52 @@ if (campaignScreenEl && !campaignScreenEl.classList.contains('hidden')) {
  */
 function showLoadingThen(work) {
     const ov = document.getElementById('loading-overlay');
-    if (!ov) { work(); return; }
+    if (!ov) {
+        work();
+        return;
+    }
     ov.classList.remove('hidden');
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-        try { work(); } finally { ov.classList.add('hidden'); }
-    }));
+    requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+            try {
+                work();
+            } finally {
+                ov.classList.add('hidden');
+            }
+        })
+    );
 }
 
-function initWorld(mapSize, mapStyle, playerCount, playerName, victoryConfig, difficulty = 'normal', campaign = null, playerOptions = null) {
+function initWorld(
+    mapSize,
+    mapStyle,
+    playerCount,
+    playerName,
+    victoryConfig,
+    difficulty = 'normal',
+    campaign = null,
+    playerOptions = null
+) {
     const rwMap = getRealWorldMap(mapStyle);
     const radius = rwMap ? parseTemplate(rwMap.rows).naturalRadius : getEffectiveMapRadius(mapSize, playerCount);
     grid = new HexGrid(radius, 30, mapStyle, playerCount);
     game = new Game(grid);
     game.aiDifficulty = difficulty;
-    game.diplomacyEnabled = campaign ? false : (Input.getSetting('diplomacyEnabled') !== false);
+    game.diplomacyEnabled = campaign ? false : Input.getSetting('diplomacyEnabled') !== false;
     renderer = new Renderer(canvas, grid, camera);
     renderer.settings.screenShake = Input.getSetting('screenShake');
     renderer.settings.threatRings = Input.getSetting('threatRings') !== false;
     renderer.settings.hoverRange = Input.getSetting('hoverRange') !== false;
     renderer.settings.projectileVisual = getProjectileVisualSetting();
 
-    camera.x = 0; camera.y = 0; camera.scale = 0.6;
+    camera.x = 0;
+    camera.y = 0;
+    camera.scale = 0.6;
 
     const po = playerOptions && typeof playerOptions === 'object' ? playerOptions : {};
     const startOpt = {
-        humanFactionId: po.humanFactionId != null ? (po.humanFactionId | 0) : 0,
-        humanLeaderIdx: po.humanLeaderIdx != null ? (po.humanLeaderIdx | 0) : 0,
+        humanFactionId: po.humanFactionId != null ? po.humanFactionId | 0 : 0,
+        humanLeaderIdx: po.humanLeaderIdx != null ? po.humanLeaderIdx | 0 : 0,
     };
     game.start(playerCount, playerName, victoryConfig, startOpt);
     game.campaign = null;
@@ -423,27 +454,27 @@ function initWorld(mapSize, mapStyle, playerCount, playerName, victoryConfig, di
                 mission: m,
                 freezeEnemyAi: !!m.freezeEnemyAi,
                 _objectivePrimary: m.objectivePrimary,
-                _objectiveHint: m.objectiveHint
+                _objectiveHint: m.objectiveHint,
             };
             applyCampaignScenario(game, grid, m.id);
 
             // Defensive guard: if the scenario somehow left the human player without a Government
             // (e.g. an old/buggy scenario script destroyed the starter without rebuilding),
             // restore a Gov L3 + adjacent MF L1 so we can't get instant-defeated by checkVictory.
-            const humanHasGov = Array.from(grid.tiles.values())
-                .some(t => t.owner === 1 && t.structure?.type === 'G');
+            const humanHasGov = Array.from(grid.tiles.values()).some((t) => t.owner === 1 && t.structure?.type === 'G');
             if (!humanHasGov) {
                 console.warn('[RocketIO] Scenario left the human without a Government — restoring starter.');
-                const rebuildAt = Array.from(grid.tiles.values())
-                    .find(t => t.buildable && !t.structure
-                        && (t.owner === 1 || t.owner == null));
+                const rebuildAt = Array.from(grid.tiles.values()).find(
+                    (t) => t.buildable && !t.structure && (t.owner === 1 || t.owner == null)
+                );
                 if (rebuildAt) {
                     rebuildAt.owner = 1;
                     rebuildAt.contested = false;
                     game.buildStructure(rebuildAt, 'G', 1, 2, true);
-                    const neighbor = new Hex(rebuildAt.q, rebuildAt.r).getNeighbors()
-                        .map(h => grid.getTile(h.q, h.r))
-                        .find(t => t && t.buildable && !t.structure);
+                    const neighbor = new Hex(rebuildAt.q, rebuildAt.r)
+                        .getNeighbors()
+                        .map((h) => grid.getTile(h.q, h.r))
+                        .find((t) => t && t.buildable && !t.structure);
                     if (neighbor) {
                         neighbor.owner = 1;
                         game.buildStructure(neighbor, 'MF', 1, 0, true, true);
@@ -458,10 +489,11 @@ function initWorld(mapSize, mapStyle, playerCount, playerName, victoryConfig, di
         }
     }
 
-    const p1Start = Array.from(grid.tiles.values()).find(t => t.owner === 1);
+    const p1Start = Array.from(grid.tiles.values()).find((t) => t.owner === 1);
     if (p1Start) {
         const pos = grid.hexToPixel(p1Start.q, p1Start.r);
-        camera.x = -pos.x; camera.y = -pos.y;
+        camera.x = -pos.x;
+        camera.y = -pos.y;
     }
 
     {
@@ -528,9 +560,9 @@ let selectedDifficulty = 'normal';
 let commanderName = 'COMMANDER';
 
 function wireOptionRow(rowId, callback) {
-    document.querySelectorAll(`#${rowId} .option-btn`).forEach(btn => {
+    document.querySelectorAll(`#${rowId} .option-btn`).forEach((btn) => {
         btn.addEventListener('click', () => {
-            document.querySelectorAll(`#${rowId} .option-btn`).forEach(b => b.classList.remove('selected'));
+            document.querySelectorAll(`#${rowId} .option-btn`).forEach((b) => b.classList.remove('selected'));
             btn.classList.add('selected');
             callback(btn.dataset.value);
         });
@@ -543,15 +575,21 @@ function updatePlayerCountDiplomacyHint() {
     const show = selectedPlayerCount < 3;
     el.classList.toggle('hidden', !show);
 }
-wireOptionRow('player-count-row', v => {
+wireOptionRow('player-count-row', (v) => {
     selectedPlayerCount = parseInt(v, 10);
     updatePlayerCountDiplomacyHint();
 });
 updatePlayerCountDiplomacyHint();
-wireOptionRow('map-size-row', v => { selectedMapSize = v; });
-wireOptionRow('map-style-row', v => { selectedMapStyle = v; });
-wireOptionRow('difficulty-row', v => { selectedDifficulty = v; });
-wireOptionRow('victory-mode-row', v => {
+wireOptionRow('map-size-row', (v) => {
+    selectedMapSize = v;
+});
+wireOptionRow('map-style-row', (v) => {
+    selectedMapStyle = v;
+});
+wireOptionRow('difficulty-row', (v) => {
+    selectedDifficulty = v;
+});
+wireOptionRow('victory-mode-row', (v) => {
     selectedVictoryMode = v;
     updateVictorySubPicker(v);
 });
@@ -573,18 +611,27 @@ function updateVictorySubPicker(mode) {
             if (mode === 'domination') {
                 btn.textContent = `${Math.round(opt * 100)}%`;
                 btn.dataset.value = opt;
-                if (opt === modeDef.defaultPct) { btn.classList.add('selected'); selectedVictoryParam = opt; }
+                if (opt === modeDef.defaultPct) {
+                    btn.classList.add('selected');
+                    selectedVictoryParam = opt;
+                }
             } else if (mode === 'blitz') {
                 btn.textContent = opt;
                 btn.dataset.value = opt;
-                if (opt === modeDef.defaultN) { btn.classList.add('selected'); selectedVictoryParam = opt; }
+                if (opt === modeDef.defaultN) {
+                    btn.classList.add('selected');
+                    selectedVictoryParam = opt;
+                }
             } else if (mode === 'last_stand') {
                 btn.textContent = `${opt}m`;
                 btn.dataset.value = opt;
-                if (opt === modeDef.defaultMin) { btn.classList.add('selected'); selectedVictoryParam = opt; }
+                if (opt === modeDef.defaultMin) {
+                    btn.classList.add('selected');
+                    selectedVictoryParam = opt;
+                }
             }
             btn.addEventListener('click', () => {
-                sub.querySelectorAll('.option-btn').forEach(b => b.classList.remove('selected'));
+                sub.querySelectorAll('.option-btn').forEach((b) => b.classList.remove('selected'));
                 btn.classList.add('selected');
                 selectedVictoryParam = parseFloat(btn.dataset.value);
             });
@@ -615,11 +662,23 @@ document.getElementById('play-btn')?.addEventListener('click', () => {
     const victoryConfig = { mode: selectedVictoryMode, param: selectedVictoryParam };
     const fSel = document.getElementById('faction-select');
     const lSel = document.getElementById('leader-select');
-    const hF = fSel ? (parseInt(fSel.value, 10) || 0) : 0;
-    const hL = lSel ? (parseInt(lSel.value, 10) || 0) : 0;
+    const hF = fSel ? parseInt(fSel.value, 10) || 0 : 0;
+    const hL = lSel ? parseInt(lSel.value, 10) || 0 : 0;
     showLoadingThen(() => {
-        initWorld(selectedMapSize, selectedMapStyle, selectedPlayerCount, commanderName, victoryConfig, selectedDifficulty, null, { humanFactionId: hF, humanLeaderIdx: hL });
-        if (!loopRunning) { loopRunning = true; requestAnimationFrame(loop); }
+        initWorld(
+            selectedMapSize,
+            selectedMapStyle,
+            selectedPlayerCount,
+            commanderName,
+            victoryConfig,
+            selectedDifficulty,
+            null,
+            { humanFactionId: hF, humanLeaderIdx: hL }
+        );
+        if (!loopRunning) {
+            loopRunning = true;
+            requestAnimationFrame(loop);
+        }
     });
 });
 
@@ -765,25 +824,36 @@ function syncSettingsToggles() {
     const pvRow = document.getElementById('opt-projectile-visual-row');
     if (pvRow) {
         const sel = getProjectileVisualSetting();
-        pvRow.querySelectorAll('.option-btn').forEach(btn => {
+        pvRow.querySelectorAll('.option-btn').forEach((btn) => {
             btn.classList.toggle('selected', btn.dataset.value === sel);
         });
     }
 }
-['opt-quick-build', 'opt-hover-upgrade', 'opt-drag-paint', 'opt-auto-pause-hidden', 'opt-screen-shake', 'opt-threat-rings', 'opt-hover-range', 'opt-diplomacy', 'opt-sfx', 'opt-music'].forEach(id => {
+[
+    'opt-quick-build',
+    'opt-hover-upgrade',
+    'opt-drag-paint',
+    'opt-auto-pause-hidden',
+    'opt-screen-shake',
+    'opt-threat-rings',
+    'opt-hover-range',
+    'opt-diplomacy',
+    'opt-sfx',
+    'opt-music',
+].forEach((id) => {
     const el = document.getElementById(id);
     if (!el) return;
     const key = {
-        'opt-quick-build':'quickBuild',
-        'opt-hover-upgrade':'hoverUpgrade',
-        'opt-drag-paint':'dragPaintBuild',
-        'opt-auto-pause-hidden':'autoPauseOnHidden',
-        'opt-screen-shake':'screenShake',
-        'opt-threat-rings':'threatRings',
-        'opt-hover-range':'hoverRange',
-        'opt-diplomacy':'diplomacyEnabled',
-        'opt-sfx':'sfxEnabled',
-        'opt-music':'musicEnabled',
+        'opt-quick-build': 'quickBuild',
+        'opt-hover-upgrade': 'hoverUpgrade',
+        'opt-drag-paint': 'dragPaintBuild',
+        'opt-auto-pause-hidden': 'autoPauseOnHidden',
+        'opt-screen-shake': 'screenShake',
+        'opt-threat-rings': 'threatRings',
+        'opt-hover-range': 'hoverRange',
+        'opt-diplomacy': 'diplomacyEnabled',
+        'opt-sfx': 'sfxEnabled',
+        'opt-music': 'musicEnabled',
     }[id];
     el.addEventListener('change', () => {
         Input.setSetting(key, el.checked);
@@ -811,19 +881,19 @@ function _wireVolumeSlider(id, settingKey, apply) {
         apply(v);
     });
 }
-_wireVolumeSlider('opt-sfx-volume', 'sfxVolume', v => SFX.setSfxVolume(v));
-_wireVolumeSlider('opt-music-volume', 'musicVolume', v => SFX.setMusicVolume(v));
+_wireVolumeSlider('opt-sfx-volume', 'sfxVolume', (v) => SFX.setSfxVolume(v));
+_wireVolumeSlider('opt-music-volume', 'musicVolume', (v) => SFX.setMusicVolume(v));
 
 (function wireProjectileVisualRow() {
     const row = document.getElementById('opt-projectile-visual-row');
     if (!row) return;
-    row.querySelectorAll('.option-btn').forEach(btn => {
+    row.querySelectorAll('.option-btn').forEach((btn) => {
         btn.addEventListener('click', () => {
             const v = btn.dataset.value;
             Input.setSetting('projectileVisual', v);
             const sel = getProjectileVisualSetting();
             if (renderer) renderer.settings.projectileVisual = sel;
-            row.querySelectorAll('.option-btn').forEach(b => {
+            row.querySelectorAll('.option-btn').forEach((b) => {
                 b.classList.toggle('selected', b.dataset.value === sel);
             });
         });
@@ -834,7 +904,9 @@ const fsToggle = document.getElementById('opt-fullscreen');
 if (fsToggle) {
     fsToggle.addEventListener('change', () => {
         if (fsToggle.checked) {
-            document.documentElement.requestFullscreen().catch(() => { fsToggle.checked = false; });
+            document.documentElement.requestFullscreen().catch(() => {
+                fsToggle.checked = false;
+            });
         } else if (document.fullscreenElement) {
             document.exitFullscreen();
         }
@@ -870,48 +942,61 @@ canvas.addEventListener('mousedown', (e) => {
                             const nDef = UNIT_STATS[selectedBuildType];
                             const nCost = nDef?.levels?.[0]?.cost ?? 0;
                             if (tile.buildable) {
-                                showNoti("Navy: not on land — only on your owned, uncontested water (claim with Government, M3, or Port influence)", "error");
+                                showNoti(
+                                    'Navy: not on land — only on your owned, uncontested water (claim with Government, M3, or Port influence)',
+                                    'error'
+                                );
                             } else if (tile.contested) {
-                                showNoti("Navy: that water is contested", "error");
+                                showNoti('Navy: that water is contested', 'error');
                             } else if (tile.owner !== 1) {
-                                showNoti("Navy: need water you control. Build a Port on the coast or push Government/M3 influence over it", "error");
+                                showNoti(
+                                    'Navy: need water you control. Build a Port on the coast or push Government/M3 influence over it',
+                                    'error'
+                                );
                             } else if (tile.structure) {
-                                showNoti("That hex already has a structure", "error");
+                                showNoti('That hex already has a structure', 'error');
                             } else if (game.players[0].gold < nCost) {
-                                showNoti("Insufficient gold", "error");
+                                showNoti('Insufficient gold', 'error');
                             } else {
-                                showNoti("Cannot place navy here", "error");
+                                showNoti('Cannot place navy here', 'error');
                             }
                         } else if (selectedBuildType === 'PT') {
                             const ptCost = UNIT_STATS.PT?.levels?.[0]?.cost ?? 0;
                             if (!tile.buildable) {
-                                showNoti("Port: must build on coastal land (next to water)", "error");
+                                showNoti('Port: must build on coastal land (next to water)', 'error');
                             } else if (!game.isCoastalLand(tile)) {
-                                showNoti("Port: not coastal — pick land that touches the sea", "error");
+                                showNoti('Port: not coastal — pick land that touches the sea', 'error');
                             } else if (tile.contested) {
-                                showNoti("Port: tile is contested", "error");
+                                showNoti('Port: tile is contested', 'error');
                             } else if (tile.structure) {
-                                showNoti("That hex already has a structure", "error");
+                                showNoti('That hex already has a structure', 'error');
                             } else if (tile.owner !== 1) {
-                                showNoti("Port: must build on your own coastal land", "error");
+                                showNoti('Port: must build on your own coastal land', 'error');
                             } else if (game.players[0].gold < ptCost) {
-                                showNoti("Insufficient gold", "error");
+                                showNoti('Insufficient gold', 'error');
                             } else {
-                                showNoti("Cannot place port here", "error");
+                                showNoti('Cannot place port here', 'error');
                             }
                         } else if (!tile.buildable) {
-                            showNoti("Can't build on water", "error");
-                        } else if (tile.contested) showNoti("Tile is contested", "error");
-                        else if (selectedBuildType === 'M' && !game.isVisibleTo(tile, 1)) showNoti("No vision — need a structure nearby", "error");
-                        else if (selectedBuildType === 'M' && tile.owner && tile.owner !== 1) showNoti("Militia: your territory or neutral only", "error");
-                        else if (tile.owner !== 1 && selectedBuildType !== 'M') showNoti("Must build on your territory", "error");
-                        else showNoti("Insufficient gold, limit reached, or occupied", "error");
+                            showNoti("Can't build on water", 'error');
+                        } else if (tile.contested) showNoti('Tile is contested', 'error');
+                        else if (selectedBuildType === 'M' && !game.isVisibleTo(tile, 1))
+                            showNoti('No vision — need a structure nearby', 'error');
+                        else if (selectedBuildType === 'M' && tile.owner && tile.owner !== 1)
+                            showNoti('Militia: your territory or neutral only', 'error');
+                        else if (tile.owner !== 1 && selectedBuildType !== 'M')
+                            showNoti('Must build on your territory', 'error');
+                        else showNoti('Insufficient gold, limit reached, or occupied', 'error');
                     } else {
                         const m1n = m1OnBuildPlaced(game, selectedBuildType, tile, true);
                         game.recomputeFog();
-                        if (m1n?.nudge === 'next') showNoti('Next: Missile Factory — key 4, then the new pulsing hex.', 'info');
+                        if (m1n?.nudge === 'next')
+                            showNoti('Next: Missile Factory — key 4, then the new pulsing hex.', 'info');
                         if (m1n?.nudge === 'complete') {
-                            showNoti('Training complete. Main objective is in the op panel — take their Government.', 'success');
+                            showNoti(
+                                'Training complete. Main objective is in the op panel — take their Government.',
+                                'success'
+                            );
                         }
                         syncCampaignBuildQuestPanel();
                         updateM1BuildButtonLock();
@@ -924,7 +1009,7 @@ canvas.addEventListener('mousedown', (e) => {
                 if (tile) dragPaintedHexes.add(`${tile.q},${tile.r}`);
             } else if (e.ctrlKey) {
                 if (tile.owner === 1 && tile.structure) {
-                    const idx = multiSelected.findIndex(t => t.q === tile.q && t.r === tile.r);
+                    const idx = multiSelected.findIndex((t) => t.q === tile.q && t.r === tile.r);
                     if (idx >= 0) {
                         multiSelected.splice(idx, 1);
                     } else {
@@ -992,8 +1077,13 @@ canvas.addEventListener('mousemove', (e) => {
             renderer.buildGhostLevel = selectedBuildLevel;
         }
 
-        if (isDragging && selectedBuildType && !game.campaign?.buildTutorial?.active
-            && Input.getSetting('dragPaintBuild') && tile) {
+        if (
+            isDragging &&
+            selectedBuildType &&
+            !game.campaign?.buildTutorial?.active &&
+            Input.getSetting('dragPaintBuild') &&
+            tile
+        ) {
             const key = `${tile.q},${tile.r}`;
             if (!dragPaintedHexes.has(key)) {
                 dragPaintedHexes.add(key);
@@ -1001,7 +1091,7 @@ canvas.addEventListener('mousemove', (e) => {
                 if (!ok && !dragPaintWarned) {
                     const def = UNIT_STATS[selectedBuildType];
                     if (def && game.players[0].gold < def.levels[0].cost) {
-                        showNoti("Out of gold", "error");
+                        showNoti('Out of gold', 'error');
                         dragPaintWarned = true;
                     }
                 }
@@ -1034,11 +1124,11 @@ canvas.addEventListener('mouseup', (e) => {
         if (targetTile && targetTile !== src) {
             if (Hex.distance(src, targetTile) <= src.structure.stats.range) {
                 if (game.setAssignedTarget(src, targetTile)) {
-                    showNoti(`Target locked: (${targetTile.q}, ${targetTile.r})`, "success");
+                    showNoti(`Target locked: (${targetTile.q}, ${targetTile.r})`, 'success');
                     selectTile(src);
                 }
             } else {
-                showNoti("Target out of range", "error");
+                showNoti('Target out of range', 'error');
             }
         }
     }
@@ -1048,11 +1138,15 @@ canvas.addEventListener('mouseup', (e) => {
     dragPaintedHexes = new Set();
 });
 
-canvas.addEventListener('wheel', (e) => {
-    e.preventDefault();
-    const delta = e.deltaY > 0 ? 0.88 : 1.14;
-    camera.zoom(delta, e.clientX, e.clientY, canvas.clientWidth, canvas.clientHeight);
-}, { passive: false });
+canvas.addEventListener(
+    'wheel',
+    (e) => {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? 0.88 : 1.14;
+        camera.zoom(delta, e.clientX, e.clientY, canvas.clientWidth, canvas.clientHeight);
+    },
+    { passive: false }
+);
 
 canvas.addEventListener('dblclick', (e) => {
     if (!game) return;
@@ -1068,13 +1162,13 @@ canvas.addEventListener('dblclick', (e) => {
             }
         }
         if (multiSelected.length > 0) {
-            showNoti(`Selected all ${multiSelected.length} ${UNIT_STATS[sType]?.name || sType}`, "success");
+            showNoti(`Selected all ${multiSelected.length} ${UNIT_STATS[sType]?.name || sType}`, 'success');
             showMultiSelectPanel();
         }
     }
 });
 
-canvas.addEventListener('contextmenu', e => e.preventDefault());
+canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
 let minimapDragging = false;
 function centerCameraFromMinimapEvent(e) {
@@ -1084,9 +1178,11 @@ function centerCameraFromMinimapEvent(e) {
     const my = e.clientY - rect.top;
     const sx = miniCanvas.width / rect.width;
     const sy = miniCanvas.height / rect.height;
-    const px = mx * sx, py = my * sy;
+    const px = mx * sx,
+        py = my * sy;
     const scale = renderer._miniScale;
-    const cx = renderer._miniCx, cy = renderer._miniCy;
+    const cx = renderer._miniCx,
+        cy = renderer._miniCy;
     if (!scale) return;
     camera.x = -(px - cx) / scale;
     camera.y = -(py - cy) / scale;
@@ -1100,7 +1196,9 @@ miniCanvas?.addEventListener('mousedown', (e) => {
 window.addEventListener('mousemove', (e) => {
     if (minimapDragging) centerCameraFromMinimapEvent(e);
 });
-window.addEventListener('mouseup', () => { minimapDragging = false; });
+window.addEventListener('mouseup', () => {
+    minimapDragging = false;
+});
 
 function clearDragState() {
     isDragging = false;
@@ -1121,7 +1219,13 @@ window.addEventListener('blur', clearDragState);
 document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
         clearDragState();
-        if (game && !game.paused && !game.winner && !game.defeated.has(1) && Input.getSetting('autoPauseOnHidden') !== false) {
+        if (
+            game &&
+            !game.paused &&
+            !game.winner &&
+            !game.defeated.has(1) &&
+            Input.getSetting('autoPauseOnHidden') !== false
+        ) {
             setPaused(true);
         }
     }
@@ -1134,19 +1238,30 @@ function handleInput() {
     if (!game) return;
 
     const speed = 18;
-    if (Input.isDown('pan_up'))    camera.y += speed / camera.scale;
-    if (Input.isDown('pan_down'))  camera.y -= speed / camera.scale;
-    if (Input.isDown('pan_left'))  camera.x += speed / camera.scale;
+    if (Input.isDown('pan_up')) camera.y += speed / camera.scale;
+    if (Input.isDown('pan_down')) camera.y -= speed / camera.scale;
+    if (Input.isDown('pan_left')) camera.x += speed / camera.scale;
     if (Input.isDown('pan_right')) camera.x -= speed / camera.scale;
 
     if (Input.consumePress('cancel')) {
-        if (!settingsOverlay.classList.contains('hidden')) { closeSettings(); }
-        else if (diplomacyOpen) { closeDiplomacyPanel(); }
-        else if (game.isTargeting) { game.isTargeting = false; game.currentTargetSource = null; isDragging = false; }
-        else if (selectedBuildType) { resetSelection(); }
-        else if (multiSelected.length > 0) { multiSelected = []; infoPanel.classList.add('hidden'); }
-        else if (!infoPanel.classList.contains('hidden')) { infoPanel.classList.add('hidden'); }
-        else { toggleGameMenu(); }
+        if (!settingsOverlay.classList.contains('hidden')) {
+            closeSettings();
+        } else if (diplomacyOpen) {
+            closeDiplomacyPanel();
+        } else if (game.isTargeting) {
+            game.isTargeting = false;
+            game.currentTargetSource = null;
+            isDragging = false;
+        } else if (selectedBuildType) {
+            resetSelection();
+        } else if (multiSelected.length > 0) {
+            multiSelected = [];
+            infoPanel.classList.add('hidden');
+        } else if (!infoPanel.classList.contains('hidden')) {
+            infoPanel.classList.add('hidden');
+        } else {
+            toggleGameMenu();
+        }
     }
 
     if (Input.consumePress('pause')) {
@@ -1177,21 +1292,22 @@ function handleInput() {
                 if (game.upgradeStructure(tile)) upgraded++;
             }
             if (upgraded > 0) {
-                showNoti(`Upgraded ${upgraded} structures!`, "success");
+                showNoti(`Upgraded ${upgraded} structures!`, 'success');
                 showMultiSelectPanel();
             } else {
-                showNoti("Can't upgrade", "error");
+                showNoti("Can't upgrade", 'error');
             }
         } else {
-            const target = (Input.getSetting('hoverUpgrade') && renderer?.hoverTile?.owner === 1)
-                ? renderer.hoverTile
-                : game.selectedTile;
+            const target =
+                Input.getSetting('hoverUpgrade') && renderer?.hoverTile?.owner === 1
+                    ? renderer.hoverTile
+                    : game.selectedTile;
             if (target && target.owner === 1 && target.structure) {
                 if (game.upgradeStructure(target)) {
-                    showNoti("Upgraded!", "success");
+                    showNoti('Upgraded!', 'success');
                     if (target === game.selectedTile) selectTile(target);
                 } else {
-                    showNoti("Can't upgrade", "error");
+                    showNoti("Can't upgrade", 'error');
                 }
             }
         }
@@ -1201,11 +1317,11 @@ function handleInput() {
         if (game.campaign?.buildTutorial?.active) {
             showNoti('Finish the training builds first.', 'error');
         } else {
-        const count = game.upgradeAll(1);
-        if (count > 0) showNoti(`Upgraded ${count} structures!`, "success");
-        else showNoti("Nothing to upgrade", "error");
-        if (multiSelected.length > 0) showMultiSelectPanel();
-        if (game.selectedTile && !infoPanel.classList.contains('hidden')) selectTile(game.selectedTile);
+            const count = game.upgradeAll(1);
+            if (count > 0) showNoti(`Upgraded ${count} structures!`, 'success');
+            else showNoti('Nothing to upgrade', 'error');
+            if (multiSelected.length > 0) showMultiSelectPanel();
+            if (game.selectedTile && !infoPanel.classList.contains('hidden')) selectTile(game.selectedTile);
         }
     }
 
@@ -1219,7 +1335,7 @@ function handleInput() {
                 const r = game.demolishStructure(tile, 1);
                 if (r !== false) totalRefund += r;
             }
-            if (totalRefund > 0) showNoti(`Demolished ${count} (+$${totalRefund})`, "success");
+            if (totalRefund > 0) showNoti(`Demolished ${count} (+$${totalRefund})`, 'success');
             multiSelected = [];
             infoPanel.classList.add('hidden');
         } else {
@@ -1227,7 +1343,7 @@ function handleInput() {
             if (target && target.owner === 1 && target.structure) {
                 const refund = game.demolishStructure(target, 1);
                 if (refund !== false) {
-                    showNoti(`Demolished (+$${refund})`, "success");
+                    showNoti(`Demolished (+$${refund})`, 'success');
                     infoPanel.classList.add('hidden');
                 }
             }
@@ -1235,19 +1351,21 @@ function handleInput() {
     }
 
     if (Input.consumePress('center_cap')) {
-        const gov = Array.from(grid.tiles.values()).find(t => t.owner === 1 && t.structure?.type === 'G');
+        const gov = Array.from(grid.tiles.values()).find((t) => t.owner === 1 && t.structure?.type === 'G');
         if (gov) {
             const pos = grid.hexToPixel(gov.q, gov.r);
-            camera.x = -pos.x; camera.y = -pos.y;
+            camera.x = -pos.x;
+            camera.y = -pos.y;
         }
     }
 
     if (Input.consumePress('center_last_hit')) {
         if (game.lastOwnDamageTile) {
             const pos = grid.hexToPixel(game.lastOwnDamageTile.q, game.lastOwnDamageTile.r);
-            camera.x = -pos.x; camera.y = -pos.y;
+            camera.x = -pos.x;
+            camera.y = -pos.y;
         } else {
-            showNoti("No recent hits", "info");
+            showNoti('No recent hits', 'info');
         }
     }
 
@@ -1256,7 +1374,27 @@ function handleInput() {
     // Build hotkeys
     // Order matches the palette DOM (Economy → Defense → Offense → Ground → Navy)
     // so buildBtns[i] (querySelectorAll on .build-btn) resolves to the right tile.
-    const buildTypes = ['G', 'MF', 'TH', 'PT', 'AAS', 'EW', 'BUNK', 'RC', 'RL', 'AB', 'ICBM', 'SU', 'B', 'M', 'D', 'CV', 'DDG', 'AF', 'SSG'];
+    const buildTypes = [
+        'G',
+        'MF',
+        'TH',
+        'PT',
+        'AAS',
+        'EW',
+        'BUNK',
+        'RC',
+        'RL',
+        'AB',
+        'ICBM',
+        'SU',
+        'B',
+        'M',
+        'D',
+        'CV',
+        'DDG',
+        'AF',
+        'SSG',
+    ];
     buildTypes.forEach((type, i) => {
         if (Input.consumePress(`build_${type}`)) {
             if (game.campaign?.buildTutorial?.active) {
@@ -1283,7 +1421,7 @@ function handleInput() {
                 }
             }
             if (multiSelected.length > 0) {
-                showNoti(`Selected ${multiSelected.length} ${UNIT_STATS[sType]?.name || sType}`, "success");
+                showNoti(`Selected ${multiSelected.length} ${UNIT_STATS[sType]?.name || sType}`, 'success');
                 showMultiSelectPanel();
             }
         }
@@ -1372,10 +1510,19 @@ document.getElementById('menu-restart')?.addEventListener('click', () => {
             const vc = { mode: selectedVictoryMode, param: selectedVictoryParam };
             const fSel = document.getElementById('faction-select');
             const lSel = document.getElementById('leader-select');
-            const hF = fSel ? (parseInt(fSel.value, 10) || 0) : 0;
-            const hL = lSel ? (parseInt(lSel.value, 10) || 0) : 0;
+            const hF = fSel ? parseInt(fSel.value, 10) || 0 : 0;
+            const hL = lSel ? parseInt(lSel.value, 10) || 0 : 0;
             showLoadingThen(() => {
-                initWorld(selectedMapSize, selectedMapStyle, selectedPlayerCount, commanderName, vc, selectedDifficulty, null, { humanFactionId: hF, humanLeaderIdx: hL });
+                initWorld(
+                    selectedMapSize,
+                    selectedMapStyle,
+                    selectedPlayerCount,
+                    commanderName,
+                    vc,
+                    selectedDifficulty,
+                    null,
+                    { humanFactionId: hF, humanLeaderIdx: hL }
+                );
                 hideCampaignQuestPanel();
             });
         }
@@ -1429,7 +1576,7 @@ document.getElementById('menu-quit')?.addEventListener('click', () => {
 //  BUILD UI
 // ============================================================================
 let tooltipTimer = null;
-buildBtns.forEach(btn => {
+buildBtns.forEach((btn) => {
     btn.addEventListener('click', () => {
         const type = btn.dataset.type;
         if (game?.campaign?.buildTutorial?.active) {
@@ -1439,8 +1586,11 @@ buildBtns.forEach(btn => {
                 return;
             }
         }
-        if (selectedBuildType === type) { resetSelection(); return; }
-        buildBtns.forEach(b => b.classList.remove('active'));
+        if (selectedBuildType === type) {
+            resetSelection();
+            return;
+        }
+        buildBtns.forEach((b) => b.classList.remove('active'));
         selectedBuildType = type;
         btn.classList.add('active');
         infoPanel.classList.add('hidden');
@@ -1449,11 +1599,14 @@ buildBtns.forEach(btn => {
         const lvl = def.levels[0];
         const label = def.name.toUpperCase();
         const costStr = `$${lvl.cost}`;
-        const hint = type === 'M'
-            ? 'PLACE on a VISIBLE tile you own or neutral land'
-            : (NAVY_BUILD_TYPES_UI.has(type) ? 'PLACE on your owned, uncontested water'
-            : (type === 'PT' ? 'PLACE on your coastal land (touching water)'
-            : 'PLACE on your own territory (land)'));
+        const hint =
+            type === 'M'
+                ? 'PLACE on a VISIBLE tile you own or neutral land'
+                : NAVY_BUILD_TYPES_UI.has(type)
+                  ? 'PLACE on your owned, uncontested water'
+                  : type === 'PT'
+                    ? 'PLACE on your coastal land (touching water)'
+                    : 'PLACE on your own territory (land)';
         buildModeBanner.innerHTML = `<b>${label}</b> — ${costStr} <span class="dim">· ${hint} · ESC to cancel</span>`;
         buildModeBanner.classList.remove('hidden');
     });
@@ -1541,22 +1694,35 @@ function structureL3PerkHtml(type, levelIdx, opts = {}) {
 /** Build a short, human-readable L3 perk line from the unit's stat flags. Keep < 200 chars. */
 function factionUnitL3Description(fu, lv3) {
     const bits = [];
-    if (lv3.treasuryGoldPctPerSec) bits.push(`+${(lv3.treasuryGoldPctPerSec * 100).toFixed(1)}%/s of treasury (cap ${lv3.treasuryGoldCap}/s)`);
-    if (lv3.killRefundPct && lv3.killRefundRange) bits.push(`+${Math.round(lv3.killRefundPct * 100)}% kill-refund within ${lv3.killRefundRange} hex`);
+    if (lv3.treasuryGoldPctPerSec)
+        bits.push(`+${(lv3.treasuryGoldPctPerSec * 100).toFixed(1)}%/s of treasury (cap ${lv3.treasuryGoldCap}/s)`);
+    if (lv3.killRefundPct && lv3.killRefundRange)
+        bits.push(`+${Math.round(lv3.killRefundPct * 100)}% kill-refund within ${lv3.killRefundRange} hex`);
     else if (lv3.killRefundPct) bits.push(`+${Math.round(lv3.killRefundPct * 100)}% kill-refund`);
     if (lv3.flatGoldPerSec) bits.push(`+$${lv3.flatGoldPerSec}/s base`);
     if (lv3.timeScaledGoldBase != null) bits.push(`gold scales with match time (cap ${lv3.timeScaledGoldCap}/s)`);
-    if (lv3.seaTileGoldRate) bits.push(`+$${lv3.seaTileGoldRate}/sea tile in r${lv3.seaTileGoldRadius} (cap ${lv3.seaTileGoldCap}/s)`);
+    if (lv3.seaTileGoldRate)
+        bits.push(`+$${lv3.seaTileGoldRate}/sea tile in r${lv3.seaTileGoldRadius} (cap ${lv3.seaTileGoldCap}/s)`);
     if (lv3.vaultCap) bits.push(`stores up to $${lv3.vaultCap} (lost on destruction)`);
     if (lv3.repairAura) bits.push(`+${lv3.repairAura} HP/s repair aura in r${lv3.repairAuraRange}`);
-    if (lv3.drAura) bits.push(`friendly structures in r${lv3.drAuraRange} take −${Math.round((1 - lv3.drAura) * 100)}% damage`);
-    if (lv3.mfCostDiscount) bits.push(`adjacent friendly MF cost −${Math.round(lv3.mfCostDiscount * 100)}%, +15% rebate`);
+    if (lv3.drAura)
+        bits.push(`friendly structures in r${lv3.drAuraRange} take −${Math.round((1 - lv3.drAura) * 100)}% damage`);
+    if (lv3.mfCostDiscount)
+        bits.push(`adjacent friendly MF cost −${Math.round(lv3.mfCostDiscount * 100)}%, +15% rebate`);
     if (lv3.mfRateBoost) bits.push(`adjacent friendly MF output +${Math.round(lv3.mfRateBoost * 100)}%`);
-    if (lv3.aasAuraRangeBonus || lv3.aasAuraCapBonus) bits.push(`adjacent AAS: +${lv3.aasAuraRangeBonus || 0} range, +${lv3.aasAuraCapBonus || 0} cap`);
+    if (lv3.aasAuraRangeBonus || lv3.aasAuraCapBonus)
+        bits.push(`adjacent AAS: +${lv3.aasAuraRangeBonus || 0} range, +${lv3.aasAuraCapBonus || 0} cap`);
     if (lv3.launcherRofBoost) bits.push(`adjacent launchers fire +${Math.round(lv3.launcherRofBoost * 100)}% faster`);
-    if (lv3.paintAura) bits.push(`paints target tile: friendly B in r${lv3.paintAura.radius} deal +${Math.round(lv3.paintAura.dmgBonus * 100)}% damage`);
-    if (lv3.flagshipBuff) bits.push(`closest friendly MF: +${Math.round(lv3.flagshipBuff.hp * 100)}% HP, +${Math.round(lv3.flagshipBuff.output * 100)}% output`);
-    if (lv3.pctHpDmg) bits.push(`+${Math.round(lv3.pctHpDmg * 100)}% of target's HP as bonus damage (cap ${lv3.pctHpDmgCap || '∞'})`);
+    if (lv3.paintAura)
+        bits.push(
+            `paints target tile: friendly B in r${lv3.paintAura.radius} deal +${Math.round(lv3.paintAura.dmgBonus * 100)}% damage`
+        );
+    if (lv3.flagshipBuff)
+        bits.push(
+            `closest friendly MF: +${Math.round(lv3.flagshipBuff.hp * 100)}% HP, +${Math.round(lv3.flagshipBuff.output * 100)}% output`
+        );
+    if (lv3.pctHpDmg)
+        bits.push(`+${Math.round(lv3.pctHpDmg * 100)}% of target's HP as bonus damage (cap ${lv3.pctHpDmgCap || '∞'})`);
     if (lv3.interceptable === false) bits.push(`projectile uninterceptable`);
     if (lv3.chargeUpMs) bits.push(`requires ${(lv3.chargeUpMs / 1000) | 0}s warm-up after build`);
     if (lv3.vsFortMult) bits.push(`×${lv3.vsFortMult} damage vs Gov/Barracks/Bunker/Port`);
@@ -1564,26 +1730,49 @@ function factionUnitL3Description(fu, lv3) {
     if (lv3.pierceTargets) bits.push(`line-pierce: chains through ${lv3.pierceTargets} targets (−25%/pierce)`);
     if (lv3.preStock) bits.push(`carries ${lv3.preStock} pre-stocked shots (no missile cost)`);
     if (lv3.lifetimeShots) bits.push(`${lv3.lifetimeShots} lifetime intercepts (no reload)`);
-    if (lv3.reflectIntercept) bits.push(`${Math.round(lv3.reflectIntercept * 100)}% chance reflect intercept back at source (${Math.round(lv3.reflectDmgMult * 100)}% dmg)`);
-    if (lv3.koralSpoof) bits.push(`${Math.round(lv3.koralSpoof * 100)}% chance to redirect enemy missiles in r${lv3.range}`);
-    if (lv3.ballisticOnly) bits.push(`anti-ballistic only (ignores EW jam); ${lv3.interceptsIcbm ? 'intercepts ICBM' : ''}`);
+    if (lv3.reflectIntercept)
+        bits.push(
+            `${Math.round(lv3.reflectIntercept * 100)}% chance reflect intercept back at source (${Math.round(lv3.reflectDmgMult * 100)}% dmg)`
+        );
+    if (lv3.koralSpoof)
+        bits.push(`${Math.round(lv3.koralSpoof * 100)}% chance to redirect enemy missiles in r${lv3.range}`);
+    if (lv3.ballisticOnly)
+        bits.push(`anti-ballistic only (ignores EW jam); ${lv3.interceptsIcbm ? 'intercepts ICBM' : ''}`);
     if (lv3.deathInterceptors) bits.push(`on death, splices ${lv3.deathInterceptors} enemy projectiles`);
     if (lv3.firstShotBonusPct) bits.push(`first-shot of the match deals ×${1 + lv3.firstShotBonusPct} damage`);
-    if (lv3.buildingScaleDmg) bits.push(`+${Math.round(lv3.buildingScaleDmg * 100)}% damage per friendly building (cap +${Math.round(lv3.buildingScaleCap * 100)}%)`);
-    if (lv3.goldPerShot) bits.push(`each shot costs $${lv3.goldPerShot}; +1 damage per $500 held (cap +${lv3.treasuryDmgCap})`);
+    if (lv3.buildingScaleDmg)
+        bits.push(
+            `+${Math.round(lv3.buildingScaleDmg * 100)}% damage per friendly building (cap +${Math.round(lv3.buildingScaleCap * 100)}%)`
+        );
+    if (lv3.goldPerShot)
+        bits.push(`each shot costs $${lv3.goldPerShot}; +1 damage per $500 held (cap +${lv3.treasuryDmgCap})`);
     if (lv3.lowProfile) bits.push(`only targeted within ${lv3.lowProfileRevealRange} hex (low-profile)`);
-    if (lv3.adjacencyDmg) bits.push(`+${Math.round(lv3.adjacencyDmg * 100)}% dmg per adjacent friendly (max ${lv3.adjacencyMax})${lv3.adjAllyHaste ? `; allies +${Math.round(lv3.adjAllyHaste * 100)}% rate` : ''}`);
-    if (lv3.dugInBonus) bits.push(`dug-in (≥${fu.levels[2].dugInMinFriendlyAdj || 2} friendly adj): +${Math.round(lv3.dugInBonus.hp * 100)}% HP, +${lv3.dugInBonus.range} range`);
-    if (lv3.ambushDmgBonus) bits.push(`+${Math.round(lv3.ambushDmgBonus * 100)}% damage when re-firing after ${(lv3.ambushCooldownMs / 1000) | 0}s silence`);
-    if (lv3.vengeanceDmgBonus) bits.push(`+${Math.round(lv3.vengeanceDmgBonus * 100)}% damage if a friendly died nearby in last 8s`);
-    if (lv3.homeTerritoryBonus?.extraProj) bits.push(`+${lv3.homeTerritoryBonus.extraProj} projectile when firing in own territory`);
+    if (lv3.adjacencyDmg)
+        bits.push(
+            `+${Math.round(lv3.adjacencyDmg * 100)}% dmg per adjacent friendly (max ${lv3.adjacencyMax})${lv3.adjAllyHaste ? `; allies +${Math.round(lv3.adjAllyHaste * 100)}% rate` : ''}`
+        );
+    if (lv3.dugInBonus)
+        bits.push(
+            `dug-in (≥${fu.levels[2].dugInMinFriendlyAdj || 2} friendly adj): +${Math.round(lv3.dugInBonus.hp * 100)}% HP, +${lv3.dugInBonus.range} range`
+        );
+    if (lv3.ambushDmgBonus)
+        bits.push(
+            `+${Math.round(lv3.ambushDmgBonus * 100)}% damage when re-firing after ${(lv3.ambushCooldownMs / 1000) | 0}s silence`
+        );
+    if (lv3.vengeanceDmgBonus)
+        bits.push(`+${Math.round(lv3.vengeanceDmgBonus * 100)}% damage if a friendly died nearby in last 8s`);
+    if (lv3.homeTerritoryBonus?.extraProj)
+        bits.push(`+${lv3.homeTerritoryBonus.extraProj} projectile when firing in own territory`);
     if (lv3.stealthExtraProj) bits.push(`1 projectile per volley is stealth (uninterceptable)`);
-    if (lv3.martyrMissileMs) bits.push(`below 50% HP, generates 1 free missile every ${(lv3.martyrMissileMs / 1000) | 0}s`);
+    if (lv3.martyrMissileMs)
+        bits.push(`below 50% HP, generates 1 free missile every ${(lv3.martyrMissileMs / 1000) | 0}s`);
     if (lv3.regenSelf) bits.push(`self-regen +${lv3.regenSelf} HP/s`);
     if (lv3.splashResist) bits.push(`−${Math.round(lv3.splashResist * 100)}% splash damage taken`);
-    if (lv3.killBonusGold && lv3.killBonusRange) bits.push(`+$${lv3.killBonusGold} per enemy kill within ${lv3.killBonusRange} hex`);
+    if (lv3.killBonusGold && lv3.killBonusRange)
+        bits.push(`+$${lv3.killBonusGold} per enemy kill within ${lv3.killBonusRange} hex`);
     if (lv3.interceptRefundGold) bits.push(`refunds $${lv3.interceptRefundGold} per intercept`);
-    if (lv3.afPierceChance) bits.push(`${Math.round(lv3.afPierceChance * 100)}% chance projectile pierces first AF intercept`);
+    if (lv3.afPierceChance)
+        bits.push(`${Math.round(lv3.afPierceChance * 100)}% chance projectile pierces first AF intercept`);
     if (lv3.lakePatrolRegen) bits.push(`+${lv3.lakePatrolRegen} HP/s in home water; reveals stealth in r3`);
     return bits.join(' · ');
 }
@@ -1614,9 +1803,12 @@ function summarizeLevelForTooltip(type, lv, factionId = null) {
     if (lv.missilesPerShot != null && lv.missilesPerShot > 1) parts.push(`×${lv.missilesPerShot} msl`);
     if (lv.projectiles != null && lv.projectiles > 1) parts.push(`×${lv.projectiles} proj`);
     if (lv.splash) {
-        parts.push(`splash ${Math.round(GAME_CONFIG.RL_L3_SPLASH_CHANCE * 100)}% → ${Math.round(GAME_CONFIG.RL_L3_SPLASH_MULT * 100)}% adj`);
+        parts.push(
+            `splash ${Math.round(GAME_CONFIG.RL_L3_SPLASH_CHANCE * 100)}% → ${Math.round(GAME_CONFIG.RL_L3_SPLASH_MULT * 100)}% adj`
+        );
     }
-    if (lv.jamming) parts.push(`jam −${Math.round((GAME_CONFIG.DRONE_L3_RECHARGE_DEBUFF_MULT - 1) * 100)}% enemy recharge`);
+    if (lv.jamming)
+        parts.push(`jam −${Math.round((GAME_CONFIG.DRONE_L3_RECHARGE_DEBUFF_MULT - 1) * 100)}% enemy recharge`);
     if (lv.signatureJam) {
         const sig = factionId != null ? getFactionSignatureL3(factionId) : null;
         parts.push(sig ? `doctrine: ${sig.label}` : 'faction-unique doctrine');
@@ -1636,7 +1828,7 @@ function showBuildTooltip(btn) {
     const l1 = def.levels[0];
 
     const localFactionId = game?.players?.[0]?.factionId ?? 0;
-    const headerName = (type === 'SU') ? getSpecialUnitName(localFactionId) : def.name;
+    const headerName = type === 'SU' ? getSpecialUnitName(localFactionId) : def.name;
     let html = `<h4>${headerName.toUpperCase()}</h4>`;
     const stats = [
         l1.hp && ['HP', l1.hp],
@@ -1652,7 +1844,10 @@ function showBuildTooltip(btn) {
         l1.interceptable != null && ['Interceptable', l1.interceptable ? 'Yes' : 'No'],
         l1.missilesProduced && ['Produces', `${l1.missilesProduced}/cycle`],
         l1.produceInterval && ['Cycle', `${(l1.produceInterval / 1000).toFixed(1)}s`],
-        l1.rechargeInterval && ['Recharge', `${(l1.rechargeInterval / 1000).toFixed(0)}s (×${l1.missilesRecharged || 1})`],
+        l1.rechargeInterval && [
+            'Recharge',
+            `${(l1.rechargeInterval / 1000).toFixed(0)}s (×${l1.missilesRecharged || 1})`,
+        ],
         l1.chargeCap && ['Capacity', l1.chargeCap],
     ].filter(Boolean);
 
@@ -1780,14 +1975,14 @@ function resetSelection() {
     selectedBuildType = null;
     selectedBuildLevel = 0;
     if (renderer) renderer.buildGhostType = null;
-    buildBtns.forEach(b => b.classList.remove('active'));
+    buildBtns.forEach((b) => b.classList.remove('active'));
     buildModeBanner.classList.add('hidden');
 }
 
 function refreshBuildAffordability() {
     if (!game) return;
     const p = game.players[0];
-    buildBtns.forEach(btn => {
+    buildBtns.forEach((btn) => {
         const type = btn.dataset.type;
         const def = UNIT_STATS[type];
         if (!def) return;
@@ -1810,7 +2005,10 @@ function updateHoverChip(tile, mx, my) {
     }
     const def = UNIT_STATS[tile.structure.type];
     const next = def?.levels?.[tile.structure.level + 1];
-    if (!next) { hoverChip.classList.add('hidden'); return; }
+    if (!next) {
+        hoverChip.classList.add('hidden');
+        return;
+    }
 
     const discCost = Math.floor(next.cost * GAME_CONFIG.UPGRADE_COST_MULT);
     const canAfford = game.players[0].gold >= discCost;
@@ -1847,20 +2045,15 @@ function selectTile(tile) {
         }
         if (game.isVisibleTo(tile, 1) || game.isExploredBy(tile, 1)) {
             const owner = tile.owner;
-            const name = owner
-                ? (game.players[owner - 1]?.name || `Player ${owner}`)
-                : 'Neutral';
-            const kind = tile.buildable
-                ? 'Land'
-                : (tile.shoreIncome ? 'Shore water' : 'Open sea');
+            const name = owner ? game.players[owner - 1]?.name || `Player ${owner}` : 'Neutral';
+            const kind = tile.buildable ? 'Land' : tile.shoreIncome ? 'Shore water' : 'Open sea';
             const g = game.previewGoldPerSecOnTile(tile);
             const gStr = g > 0 ? `+$${g.toFixed(2)}/s` : '$0/s';
-            const lineCont = tile.contested
-                ? '<p class="supply-line bad">Contested — no income while tied.</p>'
-                : '';
-            const seaNote = !tile.buildable && !tile.shoreIncome
-                ? `<p class="hint dim">Open sea: earns <b>+$${GAME_CONFIG.SEA_TRADE_GOLD_PER_TILE_TICK}/s sea trade</b> per owned tile (no Gov needed). Build navy only on <b>water you control</b>.</p>`
-                : '';
+            const lineCont = tile.contested ? '<p class="supply-line bad">Contested — no income while tied.</p>' : '';
+            const seaNote =
+                !tile.buildable && !tile.shoreIncome
+                    ? `<p class="hint dim">Open sea: earns <b>+$${GAME_CONFIG.SEA_TRADE_GOLD_PER_TILE_TICK}/s sea trade</b> per owned tile (no Gov needed). Build navy only on <b>water you control</b>.</p>`
+                    : '';
             infoPanel.classList.remove('hidden');
             infoContent.innerHTML = `
                 <h4>${kind.toUpperCase()}</h4>
@@ -1940,12 +2133,19 @@ function selectTile(tile) {
         statRows.push(infoStatRow('Missiles / shot', String(stats.missilesPerShot)));
     }
     if (stats.projectiles > 1) statRows.push(infoStatRow('Projectiles / volley', String(stats.projectiles)));
-    if (effectiveRadius != null && (stype === 'G' || stype === 'B' || stype === 'PT' || (stype === 'M' && stats.radius))) {
+    if (
+        effectiveRadius != null &&
+        (stype === 'G' || stype === 'B' || stype === 'PT' || (stype === 'M' && stats.radius))
+    ) {
         const rv = String(effectiveRadius);
-        const label = stype === 'G' ? 'Inf. range'
-            : stype === 'PT' ? 'Sea inf. range'
-            : stype === 'M' ? 'Inf. radius'
-            : 'Cmd radius';
+        const label =
+            stype === 'G'
+                ? 'Inf. range'
+                : stype === 'PT'
+                  ? 'Sea inf. range'
+                  : stype === 'M'
+                    ? 'Inf. radius'
+                    : 'Cmd radius';
         statRows.push(infoStatRow(label, rv));
     }
     if (stats.influence) statRows.push(infoStatRow('Influence', String(stats.influence)));
@@ -1953,12 +2153,19 @@ function selectTile(tile) {
     if (stats.vision) statRows.push(infoStatRow('Vision', String(stats.vision)));
     if (stats.interval) statRows.push(infoStatRow('Fire interval', `${(stats.interval / 1000).toFixed(1)}s`));
     else if (stats.rechargeInterval) {
-        statRows.push(infoStatRow('Recharge', `${(stats.rechargeInterval / 1000).toFixed(1)}s ×${stats.missilesRecharged || 1}`));
+        statRows.push(
+            infoStatRow('Recharge', `${(stats.rechargeInterval / 1000).toFixed(1)}s ×${stats.missilesRecharged || 1}`)
+        );
     } else if (stats.produceInterval && stype === 'MF') {
         const raw = stats.missilesProduced || 0;
         const eff = Math.floor(raw * GAME_CONFIG.MF_GLOBAL_PRODUCTION_MULT);
         statRows.push(infoStatRow('Cycle', `${(stats.produceInterval / 1000).toFixed(1)}s`));
-        statRows.push(infoStatRow('Missiles / cycle', `${eff} <span class="dim">(${raw}×${GAME_CONFIG.MF_GLOBAL_PRODUCTION_MULT})</span>`));
+        statRows.push(
+            infoStatRow(
+                'Missiles / cycle',
+                `${eff} <span class="dim">(${raw}×${GAME_CONFIG.MF_GLOBAL_PRODUCTION_MULT})</span>`
+            )
+        );
     } else if (stats.produceInterval) {
         statRows.push(infoStatRow('Cycle', `${(stats.produceInterval / 1000).toFixed(1)}s`));
     }
@@ -1966,11 +2173,12 @@ function selectTile(tile) {
         statRows.push(infoStatRow('Charges', `${tile.structure.charge || 0} / ${stats.chargeCap || 10}`));
     }
 
-    const supplyLine = (stats.interval || stats.produceInterval || stats.rechargeInterval)
-        ? `<p class="supply-line ${inSupply ? 'ok' : 'bad'}">${inSupply ? 'IN SUPPLY' : 'OUT OF SUPPLY'}</p>`
-        : '';
+    const supplyLine =
+        stats.interval || stats.produceInterval || stats.rechargeInterval
+            ? `<p class="supply-line ${inSupply ? 'ok' : 'bad'}">${inSupply ? 'IN SUPPLY' : 'OUT OF SUPPLY'}</p>`
+            : '';
     const contestLine = tile.contested ? `<p class="supply-line bad">PARALYZED — CONTESTED</p>` : '';
-    const hint = (attacker && isOwn) ? `<p class="hint">Drag to assign target.</p>` : '';
+    const hint = attacker && isOwn ? `<p class="hint">Drag to assign target.</p>` : '';
     let doctrineLine = '';
     if (!isOwn && stype === 'G' && game.isVisibleTo(tile, 1)) {
         const owner = game.players[tile.owner - 1];
@@ -1990,11 +2198,11 @@ function selectTile(tile) {
 
     const owner = game.players[tile.owner - 1];
     const perk = structureL3PerkHtml(stype, levelIdx, { factionId: owner?.factionId ?? 0 });
-    const govRingHtml = (stype === 'G' && !govWarmupBlock) ? govGoldBandLinesHtml(levelIdx) : '';
+    const govRingHtml = stype === 'G' && !govWarmupBlock ? govGoldBandLinesHtml(levelIdx) : '';
     const titleName = (tile.structure.displayName || stats.displayName || UNIT_STATS[stype].name).toUpperCase();
     infoContent.innerHTML = `
         <h4>${titleName} · LVL ${levelIdx + 1}</h4>
-        <p class="info-owner">Owner: ${game.players[tile.owner - 1]?.name || ('P' + tile.owner)}</p>
+        <p class="info-owner">Owner: ${game.players[tile.owner - 1]?.name || 'P' + tile.owner}</p>
         ${facPlayerLine}
         ${govWarmupBlock}
         <div class="info-card-stats">${statRows.join('')}</div>
@@ -2007,7 +2215,7 @@ function selectTile(tile) {
         clearTargetBtn.classList.remove('hidden');
         clearTargetBtn.onclick = () => {
             game.clearAssignedTarget(tile);
-            showNoti("Target cleared", "success");
+            showNoti('Target cleared', 'success');
             selectTile(tile);
         };
     } else {
@@ -2023,9 +2231,9 @@ function selectTile(tile) {
         upgradeBtn.onclick = () => {
             if (game.upgradeStructure(tile)) {
                 selectTile(tile);
-                showNoti("Upgraded!", "success");
+                showNoti('Upgraded!', 'success');
             } else {
-                showNoti("Not enough gold", "error");
+                showNoti('Not enough gold', 'error');
             }
         };
     } else {
@@ -2043,10 +2251,10 @@ function selectTile(tile) {
             rushBtn.onclick = () => {
                 const spent = game.rushBuildCooldown(tile, 1);
                 if (spent !== false) {
-                    showNoti(`Rushed (-$${spent})`, "success");
+                    showNoti(`Rushed (-$${spent})`, 'success');
                     selectTile(tile);
                 } else {
-                    showNoti("Can't rush", "error");
+                    showNoti("Can't rush", 'error');
                 }
             };
         } else if (rushBtn) {
@@ -2057,22 +2265,23 @@ function selectTile(tile) {
         upgradeAllBtn.onclick = () => {
             const count = game.upgradeAll(1);
             if (count > 0) {
-                showNoti(`Upgraded ${count} structures!`, "success");
+                showNoti(`Upgraded ${count} structures!`, 'success');
                 selectTile(tile);
             } else {
-                showNoti("Nothing to upgrade", "error");
+                showNoti('Nothing to upgrade', 'error');
             }
         };
 
         demolishBtn.classList.remove('hidden');
         let totalCost = def.levels[0]?.cost || 0;
-        for (let i = 1; i <= tile.structure.level; i++) totalCost += Math.floor((def.levels[i]?.cost || 0) * GAME_CONFIG.UPGRADE_COST_MULT);
+        for (let i = 1; i <= tile.structure.level; i++)
+            totalCost += Math.floor((def.levels[i]?.cost || 0) * GAME_CONFIG.UPGRADE_COST_MULT);
         const refund = Math.floor(totalCost * GAME_CONFIG.DEMOLISH_REFUND_MULT);
         demolishBtn.innerText = `DEMOLISH (+$${refund})`;
         demolishBtn.onclick = () => {
             const r = game.demolishStructure(tile, 1);
             if (r !== false) {
-                showNoti(`Demolished (+$${r})`, "success");
+                showNoti(`Demolished (+$${r})`, 'success');
                 infoPanel.classList.add('hidden');
             }
         };
@@ -2083,7 +2292,7 @@ function selectTile(tile) {
 }
 
 function showMultiSelectPanel() {
-    multiSelected = multiSelected.filter(t => t && t.structure && t.owner === 1);
+    multiSelected = multiSelected.filter((t) => t && t.structure && t.owner === 1);
     if (multiSelected.length === 0) {
         infoPanel.classList.add('hidden');
         return;
@@ -2109,11 +2318,14 @@ function showMultiSelectPanel() {
         }
 
         let totalCost = def.levels[0]?.cost || 0;
-        for (let i = 1; i <= tile.structure.level; i++) totalCost += Math.floor((def.levels[i]?.cost || 0) * GAME_CONFIG.UPGRADE_COST_MULT);
+        for (let i = 1; i <= tile.structure.level; i++)
+            totalCost += Math.floor((def.levels[i]?.cost || 0) * GAME_CONFIG.UPGRADE_COST_MULT);
         totalDemolishRefund += Math.floor(totalCost * GAME_CONFIG.DEMOLISH_REFUND_MULT);
     }
 
-    const typeList = Object.entries(types).map(([t, n]) => `${n}× ${UNIT_STATS[t]?.name || t}`).join(', ');
+    const typeList = Object.entries(types)
+        .map(([t, n]) => `${n}× ${UNIT_STATS[t]?.name || t}`)
+        .join(', ');
     infoContent.innerHTML = `
         <h4>MULTI-SELECT · ${count} STRUCTURES</h4>
         <p class="info-owner">${typeList}</p>
@@ -2128,8 +2340,8 @@ function showMultiSelectPanel() {
             for (const tile of multiSelected) {
                 if (game.upgradeStructure(tile)) upgraded++;
             }
-            if (upgraded > 0) showNoti(`Upgraded ${upgraded} structures!`, "success");
-            else showNoti("Can't upgrade", "error");
+            if (upgraded > 0) showNoti(`Upgraded ${upgraded} structures!`, 'success');
+            else showNoti("Can't upgrade", 'error');
             showMultiSelectPanel();
         };
     } else {
@@ -2140,10 +2352,10 @@ function showMultiSelectPanel() {
     upgradeAllBtn.onclick = () => {
         const count = game.upgradeAll(1);
         if (count > 0) {
-            showNoti(`Upgraded ${count} structures!`, "success");
+            showNoti(`Upgraded ${count} structures!`, 'success');
             showMultiSelectPanel();
         } else {
-            showNoti("Nothing to upgrade", "error");
+            showNoti('Nothing to upgrade', 'error');
         }
     };
 
@@ -2155,7 +2367,7 @@ function showMultiSelectPanel() {
             const r = game.demolishStructure(tile, 1);
             if (r !== false) totalRefund += r;
         }
-        if (totalRefund > 0) showNoti(`Demolished ${multiSelected.length} (+$${totalRefund})`, "success");
+        if (totalRefund > 0) showNoti(`Demolished ${multiSelected.length} (+$${totalRefund})`, 'success');
         multiSelected = [];
         infoPanel.classList.add('hidden');
     };
@@ -2163,7 +2375,10 @@ function showMultiSelectPanel() {
     clearTargetBtn.classList.add('hidden');
 }
 
-closeInfoBtn.onclick = () => { infoPanel.classList.add('hidden'); multiSelected = []; };
+closeInfoBtn.onclick = () => {
+    infoPanel.classList.add('hidden');
+    multiSelected = [];
+};
 
 // ============================================================================
 //  NOTIFICATIONS
@@ -2184,14 +2399,20 @@ function showNoti(msg, type) {
         existing.el.style.animation = 'none';
         existing.el.offsetHeight;
         existing.el.style.animation = '';
-        existing.timeout = setTimeout(() => { existing.el.remove(); _notiTimers.delete(key); }, NOTI_DURATION);
+        existing.timeout = setTimeout(() => {
+            existing.el.remove();
+            _notiTimers.delete(key);
+        }, NOTI_DURATION);
         return;
     }
 
     while (container.children.length >= NOTI_MAX) {
         const oldest = container.firstElementChild;
         const oldKey = oldest?.dataset.notiKey;
-        if (oldKey) { clearTimeout(_notiTimers.get(oldKey)?.timeout); _notiTimers.delete(oldKey); }
+        if (oldKey) {
+            clearTimeout(_notiTimers.get(oldKey)?.timeout);
+            _notiTimers.delete(oldKey);
+        }
         oldest?.remove();
     }
 
@@ -2201,7 +2422,10 @@ function showNoti(msg, type) {
     noti.dataset.notiKey = key;
     container.appendChild(noti);
 
-    const timeout = setTimeout(() => { noti.remove(); _notiTimers.delete(key); }, NOTI_DURATION);
+    const timeout = setTimeout(() => {
+        noti.remove();
+        _notiTimers.delete(key);
+    }, NOTI_DURATION);
     _notiTimers.set(key, { el: noti, timeout, count: 1 });
 }
 
@@ -2227,9 +2451,17 @@ function buildPortraitSvg(player, size = 48) {
     </svg>`;
 }
 function escapeXml(s) {
-    return String(s).replace(/[&<>"']/g, c => ({
-        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;'
-    }[c]));
+    return String(s).replace(
+        /[&<>"']/g,
+        (c) =>
+            ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&apos;',
+            })[c]
+    );
 }
 
 // ============================================================================
@@ -2351,7 +2583,7 @@ function renderDiplomacyPanel() {
         }
 
         const power = Math.round(game._aiShared?.power?.get(p.id) || 0);
-        const displayName = met ? (p.name || `P${p.id}`) : 'UNKNOWN COMMANDER';
+        const displayName = met ? p.name || `P${p.id}` : 'UNKNOWN COMMANDER';
         rows.push(`
             <div class="diplo-row ${defeated ? 'dead' : ''} ${!met ? 'unmet' : ''}" style="--player-color: ${color}">
                 <div class="diplo-portrait">${portraitSvg}</div>
@@ -2367,7 +2599,7 @@ function renderDiplomacyPanel() {
 
     diplomacyList.innerHTML = rows.join('') || `<div class="diplo-empty">No other commanders.</div>`;
 
-    diplomacyList.querySelectorAll('[data-act]').forEach(btn => {
+    diplomacyList.querySelectorAll('[data-act]').forEach((btn) => {
         btn.addEventListener('click', () => {
             const id = parseInt(btn.dataset.id, 10);
             const act = btn.dataset.act;
@@ -2409,12 +2641,14 @@ function showIncomingRequestNoti(fromId) {
     const tid = setTimeout(() => noti.remove(), 15000);
     noti.querySelector('.accept').addEventListener('click', () => {
         if (game.acceptPeace(1, fromId)) showNoti(`Peace formed with ${fromName}`, 'success');
-        clearTimeout(tid); noti.remove();
+        clearTimeout(tid);
+        noti.remove();
         if (diplomacyOpen) renderDiplomacyPanel();
     });
     noti.querySelector('.reject').addEventListener('click', () => {
         if (game.rejectPeace(1, fromId)) showNoti(`Rejected peace with ${fromName}`, 'info');
-        clearTimeout(tid); noti.remove();
+        clearTimeout(tid);
+        noti.remove();
         if (diplomacyOpen) renderDiplomacyPanel();
     });
 }
@@ -2522,11 +2756,19 @@ const END_DELAY_MS = 6000;
 function maybeShowEndGame() {
     if (!game || endShown) return;
     const nowReal = performance.now();
-    const outcome = game.winner ? 'over' : (game.defeated.has(1) ? 'defeat' : null);
-    if (!outcome) { endOutcomeAt = 0; return; }
+    const outcome = game.winner ? 'over' : game.defeated.has(1) ? 'defeat' : null;
+    if (!outcome) {
+        endOutcomeAt = 0;
+        return;
+    }
     if (endOutcomeAt === 0) {
         endOutcomeAt = nowReal;
-        showNoti(outcome === 'defeat' ? 'Your forces have fallen. Watching the battlefield…' : 'The theatre is decided. Final sweep…', 'info');
+        showNoti(
+            outcome === 'defeat'
+                ? 'Your forces have fallen. Watching the battlefield…'
+                : 'The theatre is decided. Final sweep…',
+            'info'
+        );
         return;
     }
     if (nowReal - endOutcomeAt < END_DELAY_MS) return;
@@ -2534,18 +2776,18 @@ function maybeShowEndGame() {
     if (game.winner) {
         endShown = true;
         const coWinners = Array.isArray(game.coWinners) ? game.coWinners : null;
-        const humanWon = coWinners ? coWinners.includes(1) : (game.winner === 1);
-        endTitle.textContent = coWinners ? (humanWon ? 'SHARED VICTORY' : 'STANDOFF') : (humanWon ? 'VICTORY' : 'DEFEAT');
+        const humanWon = coWinners ? coWinners.includes(1) : game.winner === 1;
+        endTitle.textContent = coWinners ? (humanWon ? 'SHARED VICTORY' : 'STANDOFF') : humanWon ? 'VICTORY' : 'DEFEAT';
         endTitle.className = humanWon ? 'end-title win' : 'end-title loss';
         if (coWinners) {
-            const names = coWinners.map(id => game.players[id - 1]?.name || `P${id}`).join(' \u2194 ');
+            const names = coWinners.map((id) => game.players[id - 1]?.name || `P${id}`).join(' \u2194 ');
             endSub.textContent = humanWon
                 ? `Allied victory secured with ${names}.`
                 : `The remaining coalition (${names}) holds the theatre.`;
         } else {
             if (game.campaign?.mission && humanWon) {
-                endSub.textContent = game.campaign.mission.debrief
-                    || `Commander ${game.players[0].name} dominates the theatre.`;
+                endSub.textContent =
+                    game.campaign.mission.debrief || `Commander ${game.players[0].name} dominates the theatre.`;
             } else {
                 endSub.textContent = humanWon
                     ? `Commander ${game.players[0].name} dominates the theatre.`
@@ -2574,13 +2816,14 @@ function renderEndStats() {
     const mins = Math.floor(elapsed / 60);
     const secs = Math.floor(elapsed % 60);
 
-    const coalition = Array.isArray(game.coWinners) && game.coWinners.length > 1
-        ? `<div class="end-stat-card end-stat-wide"><div class="stat-label">Coalition</div><div class="stat-value">${game.coWinners.map(id => game.players[id - 1]?.name || `P${id}`).join(' · ')}</div></div>`
-        : '';
+    const coalition =
+        Array.isArray(game.coWinners) && game.coWinners.length > 1
+            ? `<div class="end-stat-card end-stat-wide"><div class="stat-label">Coalition</div><div class="stat-value">${game.coWinners.map((id) => game.players[id - 1]?.name || `P${id}`).join(' · ')}</div></div>`
+            : '';
 
     endStats.innerHTML = `
         ${coalition}
-        <div class="end-stat-card"><div class="stat-label">Time</div><div class="stat-value">${mins}:${String(secs).padStart(2,'0')}</div></div>
+        <div class="end-stat-card"><div class="stat-label">Time</div><div class="stat-value">${mins}:${String(secs).padStart(2, '0')}</div></div>
         <div class="end-stat-card"><div class="stat-label">Built</div><div class="stat-value">${s.structuresBuilt}</div></div>
         <div class="end-stat-card"><div class="stat-label">Destroyed</div><div class="stat-value">${s.structuresDestroyed}</div></div>
         <div class="end-stat-card"><div class="stat-label">Lost</div><div class="stat-value">${s.structuresLost}</div></div>
@@ -2662,9 +2905,7 @@ function refreshMinimapStatsOverlay() {
             minimapStatsLabelEl.textContent = 'TERRITORY';
             {
                 const s = p.seaTileCount | 0;
-                minimapStatsLine1El.textContent = s > 0
-                    ? `${p.tileCount} + ${s} sea`
-                    : `${p.tileCount} tiles`;
+                minimapStatsLine1El.textContent = s > 0 ? `${p.tileCount} + ${s} sea` : `${p.tileCount} tiles`;
             }
             minimapStatsLine2El.textContent = `${bld} structures`;
             break;
@@ -2682,28 +2923,30 @@ function refreshScoreboard() {
     const shared = game._aiShared;
     const humanId = game.humanId;
 
-    const rows = game.players.map(p => {
+    const rows = game.players.map((p) => {
         const alive = !game.defeated.has(p.id);
         const color = COLORS[`PLAYER${p.id}`] || '#888';
-        const name = p.id === humanId ? (p.name || 'YOU') : (p.name || `CPU-${p.id}`);
+        const name = p.id === humanId ? p.name || 'YOU' : p.name || `CPU-${p.id}`;
         const mp = shared?.missileProd?.get(p.id) ?? 0;
         const mc = shared?.missileCons?.get(p.id) ?? 0;
         const bld = sumStructureCount(shared, p.id);
         const s = p.stats;
         let stance = '';
         if (p.id !== humanId && alive && game.diplomacyEnabled) {
-            if (game.areAllied(humanId, p.id)) stance = '<span class="sb-stance allied" title="Allied">\uD83E\uDD1D</span>';
+            if (game.areAllied(humanId, p.id))
+                stance = '<span class="sb-stance allied" title="Allied">\uD83E\uDD1D</span>';
             else {
                 const rel = game.getRelation(humanId, p.id);
-                if (rel && rel.status === 'pending') stance = '<span class="sb-stance pending" title="Pending">\u29D6</span>';
+                if (rel && rel.status === 'pending')
+                    stance = '<span class="sb-stance pending" title="Pending">\u29D6</span>';
             }
         }
         const metrics = alive
             ? (() => {
-                const s = p.seaTileCount | 0;
-                const t = s > 0 ? `${p.tileCount}+${s}` : String(p.tileCount);
-                return `<span class="sb-tiles" title="Land/shore + sea">${t}</span><span class="sb-sep">·</span><span class="sb-gold">$${fmtCompactGold(p.gold)}</span><span class="sb-sep">·</span><span class="sb-miss">M${Math.floor(p.missiles)}</span>`;
-            })()
+                  const s = p.seaTileCount | 0;
+                  const t = s > 0 ? `${p.tileCount}+${s}` : String(p.tileCount);
+                  return `<span class="sb-tiles" title="Land/shore + sea">${t}</span><span class="sb-sep">·</span><span class="sb-gold">$${fmtCompactGold(p.gold)}</span><span class="sb-sep">·</span><span class="sb-miss">M${Math.floor(p.missiles)}</span>`;
+              })()
             : `<span class="sb-tiles">\u2014</span><span class="sb-sep">·</span><span class="sb-gold">\u2014</span><span class="sb-sep">·</span><span class="sb-miss">\u2014</span>`;
         const detail = alive
             ? `+${p.goldRate.toFixed(1)}/s · M +${mp.toFixed(1)}/-${mc.toFixed(1)}/s · DMG ${Math.floor(s.damageDealt)} · INT ${Math.floor(s.missilesIntercepted)} · BLD ${bld}`
@@ -2716,17 +2959,20 @@ function refreshScoreboard() {
         if (b.id === humanId) return 1;
         return b.tileSort - a.tileSort;
     });
-    scoreboardEl.innerHTML = rows.map(r =>
-        `<div class="sb-row ${r.alive ? '' : 'dead'}" data-pid="${r.id}">` +
-            `<div class="sb-line1">` +
+    scoreboardEl.innerHTML = rows
+        .map(
+            (r) =>
+                `<div class="sb-row ${r.alive ? '' : 'dead'}" data-pid="${r.id}">` +
+                `<div class="sb-line1">` +
                 `<span class="sb-dot" style="background:${r.color}"></span>` +
                 `<div class="sb-identity"><span class="sb-name">${escapeXml(r.name)}</span>${r.stance}</div>` +
                 `<div class="sb-metrics">${r.metrics}</div>` +
-            `</div>` +
-            `<div class="sb-line2">${escapeXml(r.detail)}</div>` +
-        `</div>`
-    ).join('');
-    scoreboardEl.querySelectorAll('.sb-row').forEach(row => {
+                `</div>` +
+                `<div class="sb-line2">${escapeXml(r.detail)}</div>` +
+                `</div>`
+        )
+        .join('');
+    scoreboardEl.querySelectorAll('.sb-row').forEach((row) => {
         const pid = parseInt(row.dataset.pid, 10);
         if (pid && pid !== humanId && game.diplomacyEnabled && game.playerCount >= 3) {
             row.addEventListener('click', () => openDiplomacyPanel());
@@ -2766,13 +3012,14 @@ function loop(time) {
             tileEl.title = s > 0 ? 'Land + near-shore (economy) + open-sea hexes' : 'Land + near-shore (economy tiles)';
         }
         missileEl.innerText = p1.missiles;
-        goldRateEl.innerText = `+${(p1.goldRate).toFixed(1)}/s`;
+        goldRateEl.innerText = `+${p1.goldRate.toFixed(1)}/s`;
 
         const shared = game._aiShared;
         const mp = shared?.missileProd?.get(p1.id) ?? 0;
         const mc = shared?.missileCons?.get(p1.id) ?? 0;
         missileRateEl.innerText = `+${mp.toFixed(1)}/s · -${mc.toFixed(1)}/s`;
-        missileRateEl.title = 'Missiles per second: produced (factories) · max consumption (rocket launchers + air bases, if firing continuously)';
+        missileRateEl.title =
+            'Missiles per second: produced (factories) · max consumption (rocket launchers + air bases, if firing continuously)';
 
         refreshMinimapStatsOverlay();
 
@@ -2786,9 +3033,13 @@ function loop(time) {
             missileEl.parentElement.classList.remove('live');
         }
 
-        if (game.campaign?.missionId === 1 && game.campaign.mission?.tutorialNags
-            && !game._m1MfNag
-            && p1.missiles === 0 && hasMissileLauncher) {
+        if (
+            game.campaign?.missionId === 1 &&
+            game.campaign.mission?.tutorialNags &&
+            !game._m1MfNag &&
+            p1.missiles === 0 &&
+            hasMissileLauncher
+        ) {
             game._m1MfNag = true;
             showNoti('Missile Factories (key 4) resupply launchers. No missiles = your rockets sit idle.', 'info');
         }
@@ -2801,11 +3052,9 @@ function loop(time) {
             const dmgSnap = game.players[0].stats.damageTaken;
             const rawDamage = Math.max(0, dmgSnap - lastDamageTakenSample);
             lastDamageTakenSample = dmgSnap;
-            const combatBusy = Math.min(1, threat / 6) * 0.7
-                             + Math.min(1, game.projectiles.length / 40) * 0.3;
+            const combatBusy = Math.min(1, threat / 6) * 0.7 + Math.min(1, game.projectiles.length / 40) * 0.3;
             const recentHit = rawDamage > 0 ? 0.4 : 0;
-            musicIntensitySmoothed = musicIntensitySmoothed * 0.7
-                                   + Math.min(1, combatBusy + recentHit) * 0.3;
+            musicIntensitySmoothed = musicIntensitySmoothed * 0.7 + Math.min(1, combatBusy + recentHit) * 0.3;
             SFX.setMusicIntensity(musicIntensitySmoothed);
             lastMusicIntensityUpdate = time;
         }
@@ -2827,7 +3076,7 @@ function loop(time) {
         if (game.selectedTile && !infoPanel.classList.contains('hidden') && time - lastInfoRefresh > 250) {
             const t = game.selectedTile;
             const hash = t.structure
-                ? `${t.owner}|${t.contested ? 1 : 0}|${t.structure.type}|${t.structure.level}|${Math.round(t.hp)}|${t.maxHp}|${t.structure.target ? (t.structure.target.q+','+t.structure.target.r) : '-'}|${(t.structure.charge ?? '')}|${(t.structure.missilesProduced ?? '')}|${t.structure.displayName || ''}`
+                ? `${t.owner}|${t.contested ? 1 : 0}|${t.structure.type}|${t.structure.level}|${Math.round(t.hp)}|${t.maxHp}|${t.structure.target ? t.structure.target.q + ',' + t.structure.target.r : '-'}|${t.structure.charge ?? ''}|${t.structure.missilesProduced ?? ''}|${t.structure.displayName || ''}`
                 : `${t.owner}|${t.contested ? 1 : 0}|empty`;
             if (hash !== _lastInfoHash) {
                 selectTile(t);
@@ -2912,7 +3161,7 @@ function refreshHomeFactionBrief() {
     const effLines = describeModsList({ ...comb, startMissiles: comb.startMissiles });
     const mrg = document.getElementById('fb-merged');
     if (mrg) {
-        mrg.textContent = effLines.length ? ('Combined: ' + effLines.join(' · ')) : 'Combined: baseline (no modifiers).';
+        mrg.textContent = effLines.length ? 'Combined: ' + effLines.join(' · ') : 'Combined: baseline (no modifiers).';
     }
 }
 
@@ -2946,7 +3195,10 @@ function initHomePageFactionUI() {
             });
             ls.selectedIndex = 0;
         };
-        fs.addEventListener('change', () => { refill(); refreshHomeFactionBrief(); });
+        fs.addEventListener('change', () => {
+            refill();
+            refreshHomeFactionBrief();
+        });
         ls.addEventListener('change', refreshHomeFactionBrief);
         refill();
         refreshHomeFactionBrief();
@@ -2961,4 +3213,3 @@ if (document.readyState === 'loading') {
 } else {
     initHomePageFactionUI();
 }
-

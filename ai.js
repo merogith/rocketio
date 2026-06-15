@@ -33,10 +33,29 @@ import { Hex } from './hexGrid.js?v=sig3';
 
 const PHASES = { EXPAND: 0, FORTIFY: 1, PRESSURE: 2, DOMINATE: 3 };
 
-const KILL_VALUE = { G: 100, AB: 60, SSG: 34, MF: 55, AAS: 45, AF: 42, RL: 40, DDG: 30, B: 35, D: 25, SU: 24, M: 8, BUNK: 5, RC: 14, TH: 50, EW: 38, CV: 55, ICBM: 110 };
+const KILL_VALUE = {
+    G: 100,
+    AB: 60,
+    SSG: 34,
+    MF: 55,
+    AAS: 45,
+    AF: 42,
+    RL: 40,
+    DDG: 30,
+    B: 35,
+    D: 25,
+    SU: 24,
+    M: 8,
+    BUNK: 5,
+    RC: 14,
+    TH: 50,
+    EW: 38,
+    CV: 55,
+    ICBM: 110,
+};
 
 const ATTACKER_TYPES = new Set(['RL', 'B', 'D', 'SU', 'AB', 'M', 'DDG', 'SSG']);
-const COMBAT_TYPES   = new Set(['RL', 'B', 'D', 'SU', 'AB', 'M', 'DDG', 'SSG']);
+const COMBAT_TYPES = new Set(['RL', 'B', 'D', 'SU', 'AB', 'M', 'DDG', 'SSG']);
 
 const DOCTRINE_KEYS = Object.keys(AI_DOCTRINES);
 
@@ -63,7 +82,9 @@ function dPref(doctrine, key, softness = 0.22) {
 // ============================================================================
 //  TINY HELPERS
 // ============================================================================
-function tileKey(t) { return `${t.q},${t.r}`; }
+function tileKey(t) {
+    return `${t.q},${t.r}`;
+}
 
 function weightedPick(weights) {
     const keys = Object.keys(weights);
@@ -71,7 +92,10 @@ function weightedPick(weights) {
     for (const k of keys) total += weights[k];
     if (total <= 0) return keys[0];
     let r = Math.random() * total;
-    for (const k of keys) { r -= weights[k]; if (r <= 0) return k; }
+    for (const k of keys) {
+        r -= weights[k];
+        if (r <= 0) return k;
+    }
     return keys[keys.length - 1];
 }
 
@@ -91,7 +115,9 @@ function canAffordUpgrade(player, tile) {
     return player.gold >= Math.floor(next.cost * GAME_CONFIG.UPGRADE_COST_MULT);
 }
 
-function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
+function clamp(v, lo, hi) {
+    return v < lo ? lo : v > hi ? hi : v;
+}
 
 const MAX_TARGET_GOV = 12;
 
@@ -113,7 +139,7 @@ function playstyleMilitiaExpandMult(doctrine) {
 }
 
 function m0Cost() {
-    return (statsAtLevel('M', 0)?.cost) || 135;
+    return statsAtLevel('M', 0)?.cost || 135;
 }
 
 function counterAggressionScale(game) {
@@ -152,15 +178,38 @@ function counterCompositionMults(snap, game) {
         mult.D *= 0.9;
     }
     if (eB >= 2) mult.AAS *= 0.94;
-    if (eM >= 4 && eAirThreat <= 1) { mult.B *= 1.08; mult.AAS *= 0.9; }
+    if (eM >= 4 && eAirThreat <= 1) {
+        mult.B *= 1.08;
+        mult.AAS *= 0.9;
+    }
 
-    if (eShooters >= 1) { mult.AAS *= 1.1 * s; mult.B *= 1.1 * s; }
-    if (eShooters >= 2) { mult.AAS *= 1.08; mult.B *= 1.06; }
+    if (eShooters >= 1) {
+        mult.AAS *= 1.1 * s;
+        mult.B *= 1.1 * s;
+    }
+    if (eShooters >= 2) {
+        mult.AAS *= 1.08;
+        mult.B *= 1.06;
+    }
 
-    if (eAAS >= 1) { mult.D *= 1.06; mult.RL *= 0.97; mult.AB *= 0.96; }
-    if (eAAS >= 2) { mult.D *= 1.18 * s; mult.RL *= 0.9; mult.AB *= 0.88; }
-    if (eAAS >= 3) { mult.D *= 1.1; mult.RL *= 0.94; mult.AB *= 0.93; }
-    if (eAAS >= 4) { mult.D *= 1.08; }
+    if (eAAS >= 1) {
+        mult.D *= 1.06;
+        mult.RL *= 0.97;
+        mult.AB *= 0.96;
+    }
+    if (eAAS >= 2) {
+        mult.D *= 1.18 * s;
+        mult.RL *= 0.9;
+        mult.AB *= 0.88;
+    }
+    if (eAAS >= 3) {
+        mult.D *= 1.1;
+        mult.RL *= 0.94;
+        mult.AB *= 0.93;
+    }
+    if (eAAS >= 4) {
+        mult.D *= 1.08;
+    }
 
     if (eD >= 2) mult.AAS *= 1.12 * s;
     if (eD >= 4) mult.AAS *= 1.05;
@@ -176,9 +225,7 @@ function counterCompositionMults(snap, game) {
 
 /** Closer to enemy rocket/air than a protected site — so missiles/AA auto aim hits B first. */
 function pickScreenBarracksSpot(game, p, snap) {
-    const threats = snap.visibleEnemies.filter(e =>
-        e.structure.type === 'RL' || e.structure.type === 'AB'
-    );
+    const threats = snap.visibleEnemies.filter((e) => e.structure.type === 'RL' || e.structure.type === 'AB');
     if (threats.length === 0) return null;
 
     const protect = [
@@ -204,7 +251,10 @@ function pickScreenBarracksSpot(game, p, snap) {
                 const dT = Hex.distance(t, en);
                 if (dT < dV) s += (dV - dT) * 2.2;
             }
-            if (s > bestS) { bestS = s; best = t; }
+            if (s > bestS) {
+                bestS = s;
+                best = t;
+            }
         }
     }
     return bestS >= 0.5 ? best : null;
@@ -357,21 +407,30 @@ function computeSharedAssessment(game) {
                 const ms = s.stats;
                 const eff = game.effFor(tile);
                 const sec = (ms.produceInterval * eff) / 1000;
-                missileProd.set(pid, missileProd.get(pid) + (ms.missilesProduced / sec));
+                missileProd.set(pid, missileProd.get(pid) + ms.missilesProduced / sec);
             }
-            if (s.type === 'RL' || s.type === 'AB' || s.type === 'DDG' || s.type === 'SSG'
-                || s.type === 'CV' || s.type === 'ICBM') {
+            if (
+                s.type === 'RL' ||
+                s.type === 'AB' ||
+                s.type === 'DDG' ||
+                s.type === 'SSG' ||
+                s.type === 'CV' ||
+                s.type === 'ICBM'
+            ) {
                 const ms = s.stats;
                 const eff = game.effFor(tile);
                 const sec = (ms.interval * eff) / 1000;
-                missileCons.set(pid, missileCons.get(pid) + (ms.missilesPerShot / sec));
+                missileCons.set(pid, missileCons.get(pid) + ms.missilesPerShot / sec);
             }
         }
     }
 
     const power = new Map();
     for (const p of players) {
-        if (game.defeated.has(p.id)) { power.set(p.id, 0); continue; }
+        if (game.defeated.has(p.id)) {
+            power.set(p.id, 0);
+            continue;
+        }
         const counts = structuresByPlayer.get(p.id) || {};
         const govs = govByPlayer.get(p.id) || [];
 
@@ -389,12 +448,13 @@ function computeSharedAssessment(game) {
             govStrength += (gs.influence || 0) + (gs.radius || 0) * 50;
         }
 
-        const score = p.tileCount * 8
-                    + (p.goldRate || 0) * 25
-                    + militaryStrength * 0.4
-                    + govStrength * 0.05
-                    + (counts.MF || 0) * 30
-                    + (p.missiles || 0) * 1;
+        const score =
+            p.tileCount * 8 +
+            (p.goldRate || 0) * 25 +
+            militaryStrength * 0.4 +
+            govStrength * 0.05 +
+            (counts.MF || 0) * 30 +
+            (p.missiles || 0) * 1;
         power.set(p.id, score);
     }
 
@@ -403,7 +463,10 @@ function computeSharedAssessment(game) {
     for (const p of players) {
         if (game.defeated.has(p.id)) continue;
         const s = power.get(p.id);
-        if (s > leaderScore) { leaderScore = s; leaderId = p.id; }
+        if (s > leaderScore) {
+            leaderScore = s;
+            leaderId = p.id;
+        }
     }
 
     let runawayLeader = false;
@@ -414,14 +477,21 @@ function computeSharedAssessment(game) {
             const s = power.get(p.id);
             if (s > secondBest) secondBest = s;
         }
-        runawayLeader = secondBest > 0 && (leaderScore / secondBest) > 1.4;
+        runawayLeader = secondBest > 0 && leaderScore / secondBest > 1.4;
     }
 
     const shared = {
         time: game.gameTime,
-        power, leaderId, leaderScore, runawayLeader,
-        govByPlayer, structuresByPlayer, allByPlayer,
-        missileProd, missileCons, totalLandTiles,
+        power,
+        leaderId,
+        leaderScore,
+        runawayLeader,
+        govByPlayer,
+        structuresByPlayer,
+        allByPlayer,
+        missileProd,
+        missileCons,
+        totalLandTiles,
     };
     game._aiShared = shared;
     return shared;
@@ -450,7 +520,10 @@ function buildSnapshot(game, p, shared) {
         const nbrs = new Hex(tile.q, tile.r).getNeighbors();
         for (const nh of nbrs) {
             const nt = game.grid.getTile(nh.q, nh.r);
-            if (nt && nt.buildable && nt.owner !== p.id) { frontier.push(tile); break; }
+            if (nt && nt.buildable && nt.owner !== p.id) {
+                frontier.push(tile);
+                break;
+            }
         }
     }
 
@@ -464,39 +537,57 @@ function buildSnapshot(game, p, shared) {
         visibleEnemies.push(tile);
     }
 
-    const govCount = (shared.structuresByPlayer.get(p.id)?.G) || 0;
-    const mfCount  = (shared.structuresByPlayer.get(p.id)?.MF) || 0;
-    const aasCount = (shared.structuresByPlayer.get(p.id)?.AAS) || 0;
+    const govCount = shared.structuresByPlayer.get(p.id)?.G || 0;
+    const mfCount = shared.structuresByPlayer.get(p.id)?.MF || 0;
+    const aasCount = shared.structuresByPlayer.get(p.id)?.AAS || 0;
 
     let primaryEnemyId = null;
     if (shared.leaderId && shared.leaderId !== p.id && !game.areAllied(shared.leaderId, p.id)) {
         primaryEnemyId = shared.leaderId;
     } else {
-        let bestId = null, bestScore = -1;
+        let bestId = null,
+            bestScore = -1;
         for (const otherP of game.players) {
             if (otherP.id === p.id || game.defeated.has(otherP.id)) continue;
             if (game.areAllied(otherP.id, p.id)) continue;
             const s = shared.power.get(otherP.id);
-            if (s > bestScore) { bestScore = s; bestId = otherP.id; }
+            if (s > bestScore) {
+                bestScore = s;
+                bestId = otherP.id;
+            }
         }
         primaryEnemyId = bestId;
     }
 
     // Compute centroid of our territory for directional decisions
-    let cx = 0, cy = 0;
-    for (const t of own) { cx += t.q; cy += t.r; }
-    if (own.length) { cx /= own.length; cy /= own.length; }
+    let cx = 0,
+        cy = 0;
+    for (const t of own) {
+        cx += t.q;
+        cy += t.r;
+    }
+    if (own.length) {
+        cx /= own.length;
+        cy /= own.length;
+    }
 
     // Compute enemy direction vector (toward primary enemy's centroid)
-    let enemyDirQ = 0, enemyDirR = 0;
+    let enemyDirQ = 0,
+        enemyDirR = 0;
     if (primaryEnemyId) {
-        let ex = 0, ey = 0, en = 0;
+        let ex = 0,
+            ey = 0,
+            en = 0;
         for (const tile of game.grid.tiles.values()) {
-            if (tile.owner === primaryEnemyId) { ex += tile.q; ey += tile.r; en++; }
+            if (tile.owner === primaryEnemyId) {
+                ex += tile.q;
+                ey += tile.r;
+                en++;
+            }
         }
         if (en > 0) {
-            enemyDirQ = (ex / en) - cx;
-            enemyDirR = (ey / en) - cy;
+            enemyDirQ = ex / en - cx;
+            enemyDirR = ey / en - cy;
             const mag = Math.sqrt(enemyDirQ * enemyDirQ + enemyDirR * enemyDirR) || 1;
             enemyDirQ /= mag;
             enemyDirR /= mag;
@@ -505,7 +596,7 @@ function buildSnapshot(game, p, shared) {
 
     // Track attack vectors — remember recent damage directions
     if (!p._attackVectors) p._attackVectors = [];
-    const recentHits = p._attackVectors.filter(v => game.gameTime - v.t < 30000);
+    const recentHits = p._attackVectors.filter((v) => game.gameTime - v.t < 30000);
     p._attackVectors = recentHits;
 
     // Nearest enemy structure distance from our frontier
@@ -514,13 +605,16 @@ function buildSnapshot(game, p, shared) {
     for (const en of visibleEnemies) {
         for (const ft of frontier) {
             const d = Hex.distance(ft, en);
-            if (d < nearestEnemyDist) { nearestEnemyDist = d; nearestEnemyTile = en; }
+            if (d < nearestEnemyDist) {
+                nearestEnemyDist = d;
+                nearestEnemyTile = en;
+            }
         }
     }
 
     // Supply coverage check
     const supplySet = game.supplyByPlayer.get(p.id);
-    const inSupplyCount = structures.filter(t => supplySet?.has(tileKey(t))).length;
+    const inSupplyCount = structures.filter((t) => supplySet?.has(tileKey(t))).length;
     const supplyRatio = structures.length > 0 ? inSupplyCount / structures.length : 1;
 
     // Unclaimed buildable hexes next to the frontier (macro pressure — grab land before anything else)
@@ -540,17 +634,25 @@ function buildSnapshot(game, p, shared) {
     }
 
     return {
-        own, structures, emptyOwn, frontier,
+        own,
+        structures,
+        emptyOwn,
+        frontier,
         ownByType,
-        govCount, mfCount, aasCount,
+        govCount,
+        mfCount,
+        aasCount,
         visibleEnemies,
         primaryEnemyId,
-        nearestEnemyDist, nearestEnemyTile,
+        nearestEnemyDist,
+        nearestEnemyTile,
         missileProd: shared.missileProd.get(p.id) || 0,
         missileCons: shared.missileCons.get(p.id) || 0,
         powerScore: shared.power.get(p.id) || 0,
-        centroidQ: cx, centroidR: cy,
-        enemyDirQ, enemyDirR,
+        centroidQ: cx,
+        centroidR: cy,
+        enemyDirQ,
+        enemyDirR,
         attackVectors: recentHits,
         supplyRatio,
         neutralAdjacentToFrontier,
@@ -563,31 +665,34 @@ function buildSnapshot(game, p, shared) {
 // ============================================================================
 function detectPhase(game, p, snap, shared) {
     const tc = p.tileCount;
-    const hasAttacker = (snap.ownByType.RL?.length || 0) + (snap.ownByType.AB?.length || 0) + (snap.ownByType.DDG?.length || 0) + (snap.ownByType.SSG?.length || 0) > 0;
-    const hasDrones   = (snap.ownByType.D?.length || 0) + (snap.ownByType.SU?.length || 0) > 0;
-    const hasCombat   = hasAttacker || hasDrones || (snap.ownByType.B?.length || 0) > 0;
-    const isLeader    = shared.leaderId === p.id;
+    const hasAttacker =
+        (snap.ownByType.RL?.length || 0) +
+            (snap.ownByType.AB?.length || 0) +
+            (snap.ownByType.DDG?.length || 0) +
+            (snap.ownByType.SSG?.length || 0) >
+        0;
+    const hasDrones = (snap.ownByType.D?.length || 0) + (snap.ownByType.SU?.length || 0) > 0;
+    const hasCombat = hasAttacker || hasDrones || (snap.ownByType.B?.length || 0) > 0;
+    const isLeader = shared.leaderId === p.id;
 
     const landScale = Math.max(1, (shared.totalLandTiles || 400) / 400);
     const params = aiParams(game);
     const pas = params.phaseAggressScale ?? 1;
-    const scaledFortify  = Math.round(11 * landScale * pas);
+    const scaledFortify = Math.round(11 * landScale * pas);
     const scaledPressure = Math.round(16 * landScale * pas);
     const scaledDominate = Math.round(36 * landScale * pas);
     const fortifyTileFloor = scaledFortify + (params.fortifyWithOneGovTileBonus || 0);
 
-    if ((p.gold > UNIT_STATS.G.levels[1].cost && hasCombat && tc > scaledPressure) || (tc > scaledDominate && hasCombat))
+    if (
+        (p.gold > UNIT_STATS.G.levels[1].cost && hasCombat && tc > scaledPressure) ||
+        (tc > scaledDominate && hasCombat)
+    )
         return PHASES.DOMINATE;
-    if (tc > scaledPressure && hasCombat)
-        return PHASES.PRESSURE;
-    if (tc >= fortifyTileFloor && snap.govCount >= 2)
-        return PHASES.FORTIFY;
-    if (tc >= fortifyTileFloor + 2 && snap.govCount >= 1 && hasCombat)
-        return PHASES.FORTIFY;
-    if (isLeader && tc >= Math.round(10 * landScale))
-        return PHASES.FORTIFY;
-    if (game.gameTime >= 50000 && tc >= Math.round(8 * landScale))
-        return PHASES.FORTIFY;
+    if (tc > scaledPressure && hasCombat) return PHASES.PRESSURE;
+    if (tc >= fortifyTileFloor && snap.govCount >= 2) return PHASES.FORTIFY;
+    if (tc >= fortifyTileFloor + 2 && snap.govCount >= 1 && hasCombat) return PHASES.FORTIFY;
+    if (isLeader && tc >= Math.round(10 * landScale)) return PHASES.FORTIFY;
+    if (game.gameTime >= 50000 && tc >= Math.round(8 * landScale)) return PHASES.FORTIFY;
     return PHASES.EXPAND;
 }
 
@@ -631,7 +736,7 @@ export function updateAI(game, time) {
         const tickMult = game._difficulty?.tickMult ?? 1;
         p.nextAiAction = time + (baseDelay + Math.random() * 260) * tickMult;
 
-        let actions = phase >= PHASES.DOMINATE ? 4 : (phase >= PHASES.PRESSURE ? 3 : 2);
+        let actions = phase >= PHASES.DOMINATE ? 4 : phase >= PHASES.PRESSURE ? 3 : 2;
         if (phase >= PHASES.DOMINATE) actions += params.extraActionsDominate || 0;
         else if (phase >= PHASES.PRESSURE) actions += params.extraActionsPressure || 0;
         for (let a = 0; a < actions; a++) runAITick(game, p, time);
@@ -663,7 +768,7 @@ function runDiplomacyTick(game, p) {
     for (const rel of Object.values(game.relations)) {
         if (rel.status !== 'pending') continue;
         if (rel.lastRequestFrom === p.id) continue;
-        const otherId = rel.a === p.id ? rel.b : (rel.b === p.id ? rel.a : null);
+        const otherId = rel.a === p.id ? rel.b : rel.b === p.id ? rel.a : null;
         if (otherId == null) continue;
         const otherIsBot = otherId !== game.humanId;
         if (otherIsBot && !isHard) {
@@ -675,17 +780,15 @@ function runDiplomacyTick(game, p) {
         const proposerStrong = otherPower >= myPower * 0.7;
 
         // Check if we share a common strong enemy (geographic threat awareness)
-        const sharedThreat = shared.leaderId &&
-            shared.leaderId !== p.id &&
-            shared.leaderId !== otherId &&
-            shared.runawayLeader;
+        const sharedThreat =
+            shared.leaderId && shared.leaderId !== p.id && shared.leaderId !== otherId && shared.runawayLeader;
 
         if (sharedThreat && !iAmWinning) {
             game.acceptPeace(p.id, otherId);
         } else if (!iAmWinning && proposerStrong) {
             game.acceptPeace(p.id, otherId);
         } else {
-            const acceptChance = sharedThreat ? 0.5 : (iAmWinning ? 0.08 : 0.2);
+            const acceptChance = sharedThreat ? 0.5 : iAmWinning ? 0.08 : 0.2;
             if (Math.random() < acceptChance) game.acceptPeace(p.id, otherId);
             else game.rejectPeace(p.id, otherId);
         }
@@ -748,7 +851,10 @@ function runDiplomacyTick(game, p) {
             }
             if (minDist < 6) score += 0.2;
         }
-        if (score > bestScore) { bestScore = score; bestCandidate = q; }
+        if (score > bestScore) {
+            bestScore = score;
+            bestCandidate = q;
+        }
     }
 
     if (bestCandidate) {
@@ -786,7 +892,10 @@ function runAITick(game, p, time) {
     const tileLoss = p._lastTileCount - p.tileCount;
 
     // Opening build order for first ~60s — deterministic ramp-up
-    if (tryOpeningBuildOrder(game, p, snap, shared, phase)) { goto_done(p); return; }
+    if (tryOpeningBuildOrder(game, p, snap, shared, phase)) {
+        goto_done(p);
+        return;
+    }
 
     // ── PRIORITY 1: GRAB FREE LAND ──
     // Always try to expand with militia FIRST. Free tiles = free gold = everything.
@@ -799,18 +908,28 @@ function runAITick(game, p, time) {
     // Before ANY combat builds, ensure MF capacity is adequate.
     // This prevents the AI from building RL/AB it can't feed.
     if (tryMissileEconomyGate(game, p, snap)) {
-        goto_done(p); return;
+        goto_done(p);
+        return;
     }
 
     // ── PRIORITY 3: EMERGENCY / COUNTER-PLAY ──
-    if (tryEmergencyDefense(game, p, snap, tileLoss)) { goto_done(p); return; }
-    if (tryCounterPlay(game, p, snap)) { goto_done(p); return; }
+    if (tryEmergencyDefense(game, p, snap, tileLoss)) {
+        goto_done(p);
+        return;
+    }
+    if (tryCounterPlay(game, p, snap)) {
+        goto_done(p);
+        return;
+    }
 
     // ── PRIORITY 3b: PROACTIVE BORDER FORTIFICATION ──
     // Build Barracks preemptively along frontier facing enemy territory.
     // Barracks have huge influence (1450+) — they project supply, lock the border,
     // and answer ground swarms that AAS can't touch.
-    if (tryBorderFortify(game, p, snap, phase, shared)) { goto_done(p); return; }
+    if (tryBorderFortify(game, p, snap, phase, shared)) {
+        goto_done(p);
+        return;
+    }
 
     // ── PRIORITY 4: FOCUS FIRE ──
     // Re-target existing attackers to high-value targets
@@ -818,18 +937,30 @@ function runAITick(game, p, time) {
 
     // ── PRIORITY 5: M3 MILITIA HQ FORWARD BASES ──
     // Upgrade distant militia to M3 for flanking attacks + mini-income
-    if (tryMilitiaHQAbuse(game, p, snap, phase)) { goto_done(p); return; }
+    if (tryMilitiaHQAbuse(game, p, snap, phase)) {
+        goto_done(p);
+        return;
+    }
 
     // ── PRIORITY 6: ECONOMY + DOCTRINE-SPECIFIC BUILDS ──
-    if (tryEconomy(game, p, snap, phase, shared, doctrine)) { goto_done(p); return; }
-    if (tryStrategicBuild(game, p, snap, shared, phase, doctrine)) { goto_done(p); return; }
+    if (tryEconomy(game, p, snap, phase, shared, doctrine)) {
+        goto_done(p);
+        return;
+    }
+    if (tryStrategicBuild(game, p, snap, shared, phase, doctrine)) {
+        goto_done(p);
+        return;
+    }
 
-    if (tryNavyOpportunism(game, p, snap)) { goto_done(p); return; }
+    if (tryNavyOpportunism(game, p, snap)) {
+        goto_done(p);
+        return;
+    }
 
     // ── PRIORITY 7: UPGRADE / DEMOLISH ──
     tryMilitiaUpgradeStrategy(game, p, snap, phase) ||
-    tryUpgrade(game, p, snap, doctrine, shared) ||
-    tryDemolish(game, p, snap, shared);
+        tryUpgrade(game, p, snap, doctrine, shared) ||
+        tryDemolish(game, p, snap, shared);
 
     goto_done(p);
 }
@@ -838,7 +969,7 @@ function goto_done(p) {
     const lossThisTick = Math.max(0, (p._lastTileCount ?? p.tileCount) - p.tileCount);
     // Exponentially-decaying sustained loss: catches slow attrition that never spikes
     // tileLoss above the per-tick threshold but still bleeds territory over many ticks.
-    p._sustainedLoss = ((p._sustainedLoss || 0) * 0.92) + lossThisTick;
+    p._sustainedLoss = (p._sustainedLoss || 0) * 0.92 + lossThisTick;
     p._lastTileCount = p.tileCount;
 }
 
@@ -891,10 +1022,12 @@ function tryOpeningBuildOrder(game, p, snap, shared, phase) {
             // RL for range pressure, Drones for AAS saturation. Doctrine only nudges.
             const cMult = counterCompositionMults(snap, game);
             const options = [];
-            if (canAffordType(p, 'B') && p.missiles >= 0) options.push({ type: 'B',  w: 1.20 * dPref(doctrine, 'B') * (cMult.B || 1) });
-            if (canAffordType(p, 'RL') && p.missiles >= 1) options.push({ type: 'RL', w: 1.10 * dPref(doctrine, 'RL') * (cMult.RL || 1) });
-            if (canAffordType(p, 'D'))  options.push({ type: 'D',  w: 1.05 * dPref(doctrine, 'D')  * (cMult.D || 1) });
-            if (canAffordType(p, 'SU')) options.push({ type: 'SU', w: 0.45 * dPref(doctrine, 'D')  * (cMult.D || 1) });
+            if (canAffordType(p, 'B') && p.missiles >= 0)
+                options.push({ type: 'B', w: 1.2 * dPref(doctrine, 'B') * (cMult.B || 1) });
+            if (canAffordType(p, 'RL') && p.missiles >= 1)
+                options.push({ type: 'RL', w: 1.1 * dPref(doctrine, 'RL') * (cMult.RL || 1) });
+            if (canAffordType(p, 'D')) options.push({ type: 'D', w: 1.05 * dPref(doctrine, 'D') * (cMult.D || 1) });
+            if (canAffordType(p, 'SU')) options.push({ type: 'SU', w: 0.45 * dPref(doctrine, 'D') * (cMult.D || 1) });
             if (options.length > 0) {
                 const weights = {};
                 for (const o of options) weights[o.type] = o.w;
@@ -915,26 +1048,24 @@ function tryOpeningBuildOrder(game, p, snap, shared, phase) {
 // ============================================================================
 function tryEmergencyDefense(game, p, snap, tileLoss) {
     const govs = snap.ownByType.G || [];
-    const abs  = snap.ownByType.AB || [];
-    const mfs  = snap.ownByType.MF || [];
+    const abs = snap.ownByType.AB || [];
+    const mfs = snap.ownByType.MF || [];
     const valuable = [...govs, ...abs, ...mfs];
 
     // (a) Incoming projectile threat to high-value structures
     for (const vt of valuable) {
-        const threatened = game.projectiles.some(proj =>
-            proj.owner !== p.id &&
-            proj.interceptable &&
-            proj.targetQR.q === vt.q && proj.targetQR.r === vt.r
+        const threatened = game.projectiles.some(
+            (proj) => proj.owner !== p.id && proj.interceptable && proj.targetQR.q === vt.q && proj.targetQR.r === vt.r
         );
         if (!threatened) continue;
 
-        const protectedByAAS = (snap.ownByType.AAS || []).some(a =>
-            (a.structure.charge || 0) > 0 &&
-            Hex.distance(a, vt) <= a.structure.stats.range
-        ) || (snap.ownByType.AF || []).some(a =>
-            (a.structure.charge || 0) > 0 &&
-            Hex.distance(a, vt) <= a.structure.stats.range
-        );
+        const protectedByAAS =
+            (snap.ownByType.AAS || []).some(
+                (a) => (a.structure.charge || 0) > 0 && Hex.distance(a, vt) <= a.structure.stats.range
+            ) ||
+            (snap.ownByType.AF || []).some(
+                (a) => (a.structure.charge || 0) > 0 && Hex.distance(a, vt) <= a.structure.stats.range
+            );
         if (protectedByAAS) continue;
 
         const spot = findEmptyAdjacent(game, p.id, vt);
@@ -977,17 +1108,19 @@ function tryEmergencyDefense(game, p, snap, tileLoss) {
 
     // (c) Gov unshielded + enemy attackers nearby
     for (const g of govs) {
-        const visEnemyAttackers = snap.visibleEnemies.filter(e =>
-            (e.structure.type === 'RL' || e.structure.type === 'AB' || e.structure.type === 'DDG' || e.structure.type === 'SSG') &&
-            Hex.distance(g, e) <= (e.structure.stats.range || 0) + 2
+        const visEnemyAttackers = snap.visibleEnemies.filter(
+            (e) =>
+                (e.structure.type === 'RL' ||
+                    e.structure.type === 'AB' ||
+                    e.structure.type === 'DDG' ||
+                    e.structure.type === 'SSG') &&
+                Hex.distance(g, e) <= (e.structure.stats.range || 0) + 2
         );
         if (visEnemyAttackers.length === 0) continue;
 
-        const protectedByAAS = (snap.ownByType.AAS || []).some(a =>
-            Hex.distance(a, g) <= a.structure.stats.range
-        ) || (snap.ownByType.AF || []).some(a =>
-            Hex.distance(a, g) <= a.structure.stats.range
-        );
+        const protectedByAAS =
+            (snap.ownByType.AAS || []).some((a) => Hex.distance(a, g) <= a.structure.stats.range) ||
+            (snap.ownByType.AF || []).some((a) => Hex.distance(a, g) <= a.structure.stats.range);
         if (!protectedByAAS && canAffordType(p, 'AAS')) {
             const spot = findEmptyAdjacent(game, p.id, g);
             if (spot) return game.buildStructure(spot, 'AAS', p.id);
@@ -1027,10 +1160,10 @@ function tryCounterPlay(game, p, snap) {
     const nearCnt = (t) => enemyTypeNearMe[t] || 0;
 
     const myAAS = snap.ownByType.AAS?.length || 0;
-    const myB   = snap.ownByType.B?.length || 0;
-    const myD   = (snap.ownByType.D?.length || 0) + (snap.ownByType.SU?.length || 0);
+    const myB = snap.ownByType.B?.length || 0;
+    const myD = (snap.ownByType.D?.length || 0) + (snap.ownByType.SU?.length || 0);
 
-    const enemyAASV  = countNear('AAS');
+    const enemyAASV = countNear('AAS');
     const enemyShotV = countNear('RL') + countNear('AB');
     let enemyShootersN = nearCnt('RL') + nearCnt('AB');
     if (enemyShootersN === 0) enemyShootersN = enemyShotV;
@@ -1039,8 +1172,14 @@ function tryCounterPlay(game, p, snap) {
     if (enemyShootersN >= 1 && canAffordType(p, 'B')) {
         const bWant = 1 + (enemyShotV >= 2 ? 1 : 0) + (enemyShotV >= 3 ? 1 : 0);
         if (myB < bWant) {
-            const sp = pickScreenBarracksSpot(game, p, snap) ||
-                pickDirectionalFrontierSpot(game, p, snap, snap.visibleEnemies.filter(e => e.structure.type === 'RL' || e.structure.type === 'AB'));
+            const sp =
+                pickScreenBarracksSpot(game, p, snap) ||
+                pickDirectionalFrontierSpot(
+                    game,
+                    p,
+                    snap,
+                    snap.visibleEnemies.filter((e) => e.structure.type === 'RL' || e.structure.type === 'AB')
+                );
             if (sp) return game.buildStructure(sp, 'B', p.id);
         }
     }
@@ -1049,14 +1188,24 @@ function tryCounterPlay(game, p, snap) {
     const eGr = countNear('M') + countNear('B');
     const eAirK = countNear('RL') + countNear('AB') + countNear('D') + countNear('SU');
     if (eGr >= 2 && eGr > eAirK && myB < 2 && canAffordType(p, 'B')) {
-        const sp = pickDirectionalFrontierSpot(game, p, snap, snap.visibleEnemies.filter(e => e.structure.type === 'M' || e.structure.type === 'B'));
+        const sp = pickDirectionalFrontierSpot(
+            game,
+            p,
+            snap,
+            snap.visibleEnemies.filter((e) => e.structure.type === 'M' || e.structure.type === 'B')
+        );
         if (sp) return game.buildStructure(sp, 'B', p.id);
     }
 
     // Heavy drone presence → AAS (proportional response)
     const enemyDrones = (enemyTypeNearMe.D || 0) + (enemyTypeNearMe.SU || 0) + countNear('D') + countNear('SU');
     if (enemyDrones >= 2 && myAAS < Math.ceil(enemyDrones / 2) && canAffordType(p, 'AAS')) {
-        const spot = pickDirectionalFrontierSpot(game, p, snap, snap.visibleEnemies.filter(e => e.structure.type === 'D' || e.structure.type === 'SU'));
+        const spot = pickDirectionalFrontierSpot(
+            game,
+            p,
+            snap,
+            snap.visibleEnemies.filter((e) => e.structure.type === 'D' || e.structure.type === 'SU')
+        );
         if (spot) return game.buildStructure(spot, 'AAS', p.id);
     }
 
@@ -1064,43 +1213,67 @@ function tryCounterPlay(game, p, snap) {
     const enemyShooters = (enemyTypeNearMe.RL || 0) + (enemyTypeNearMe.AB || 0);
     if (enemyShooters >= 1 && myAAS === 0) {
         if (canAffordType(p, 'AAS')) {
-            const spot = pickDirectionalFrontierSpot(game, p, snap, snap.visibleEnemies.filter(e => e.structure.type === 'RL' || e.structure.type === 'AB'));
+            const spot = pickDirectionalFrontierSpot(
+                game,
+                p,
+                snap,
+                snap.visibleEnemies.filter((e) => e.structure.type === 'RL' || e.structure.type === 'AB')
+            );
             if (spot) return game.buildStructure(spot, 'AAS', p.id);
         }
     }
 
     // Heavy enemy AAS (visible count): drones to force charges, exhaust intercept, L3 debuff
     if (enemyAASV >= 1 && canAffordType(p, 'D')) {
-        const wantD = 1 + Math.max(0, Math.min(3, Math.floor((enemyAASV - 1) / 2) + (enemyAASV >= 3 ? 1 : 0) + (enemyAASV >= 4 ? 1 : 0)));
+        const wantD =
+            1 +
+            Math.max(
+                0,
+                Math.min(3, Math.floor((enemyAASV - 1) / 2) + (enemyAASV >= 3 ? 1 : 0) + (enemyAASV >= 4 ? 1 : 0))
+            );
         if (myD < wantD) {
-            const spot = pickDirectionalFrontierSpot(game, p, snap, snap.visibleEnemies.filter(e => e.structure.type === 'AAS')) ||
-                pickDirectionalFrontierSpot(game, p, snap, snap.visibleEnemies);
+            const spot =
+                pickDirectionalFrontierSpot(
+                    game,
+                    p,
+                    snap,
+                    snap.visibleEnemies.filter((e) => e.structure.type === 'AAS')
+                ) || pickDirectionalFrontierSpot(game, p, snap, snap.visibleEnemies);
             if (spot) return game.buildStructure(spot, 'D', p.id);
         }
     }
 
     // Militia swarm → Barracks (great area denial + DPS vs cheap units)
     if ((enemyTypeNearMe.M || 0) >= 3 && canAffordType(p, 'B')) {
-        const spot = pickDirectionalFrontierSpot(game, p, snap, snap.visibleEnemies.filter(e => e.structure.type === 'M'));
+        const spot = pickDirectionalFrontierSpot(
+            game,
+            p,
+            snap,
+            snap.visibleEnemies.filter((e) => e.structure.type === 'M')
+        );
         if (spot) return game.buildStructure(spot, 'B', p.id);
     }
 
-    const enemyGovNearFrontier = snap.visibleEnemies.filter(e =>
-        e.structure.type === 'G' &&
-        snap.frontier.some(ft => Hex.distance(ft, e) <= 12)
+    const enemyGovNearFrontier = snap.visibleEnemies.filter(
+        (e) => e.structure.type === 'G' && snap.frontier.some((ft) => Hex.distance(ft, e) <= 12)
     );
-    if (enemyGovNearFrontier.length > 0 &&
+    if (
+        enemyGovNearFrontier.length > 0 &&
         snap.missileProd >= snap.missileCons * 0.7 &&
         p.missiles >= 2 &&
-        snap.mfCount > 0) {
-        const govTargets = enemyGovNearFrontier.map(e => {
-            let md = Infinity;
-            for (const ft of snap.frontier) {
-                const d = Hex.distance(ft, e);
-                if (d < md) md = d;
-            }
-            return { e, md };
-        }).sort((a, b) => a.md - b.md).map(x => x.e);
+        snap.mfCount > 0
+    ) {
+        const govTargets = enemyGovNearFrontier
+            .map((e) => {
+                let md = Infinity;
+                for (const ft of snap.frontier) {
+                    const d = Hex.distance(ft, e);
+                    if (d < md) md = d;
+                }
+                return { e, md };
+            })
+            .sort((a, b) => a.md - b.md)
+            .map((x) => x.e);
         if (canAffordType(p, 'RL')) {
             const spot = pickPlacementForType(game, p, snap, 'RL', govTargets);
             if (spot) return game.buildStructure(spot, 'RL', p.id);
@@ -1120,13 +1293,14 @@ function tryCounterPlay(game, p, snap) {
 function tryFocusFire(game, p, snap, shared) {
     const pr = aiParams(game);
     const humanTargetMult = pr.humanTargetMult ?? 1;
-    const attackers = snap.structures.filter(t =>
-        ATTACKER_TYPES.has(t.structure.type) && t.structure.stats.damage && t.structure.stats.range
+    const attackers = snap.structures.filter(
+        (t) => ATTACKER_TYPES.has(t.structure.type) && t.structure.stats.damage && t.structure.stats.range
     );
     if (attackers.length === 0) return false;
     if (snap.visibleEnemies.length === 0) return false;
 
-    const prod = snap.missileProd, cons = snap.missileCons;
+    const prod = snap.missileProd,
+        cons = snap.missileCons;
     const missileShort = (cons > 0 && prod < cons * 0.85) || (p.missiles < 2 && cons > 0);
     let incomingShooterKeys = null;
     if (missileShort) {
@@ -1149,10 +1323,10 @@ function tryFocusFire(game, p, snap, shared) {
         if (en.owner === game.humanId && humanTargetMult !== 1) value *= humanTargetMult;
 
         if (en.owner === snap.primaryEnemyId) value *= 1.4;
-        if (en.owner === shared.leaderId)     value *= 1.25;
+        if (en.owner === shared.leaderId) value *= 1.25;
 
-        const hpFrac = en.maxHp ? (en.hp / en.maxHp) : 1;
-        if (hpFrac < 0.3)  value *= 2.0;
+        const hpFrac = en.maxHp ? en.hp / en.maxHp : 1;
+        if (hpFrac < 0.3) value *= 2.0;
         else if (hpFrac < 0.5) value *= 1.6;
         else if (hpFrac < 0.7) value *= 1.2;
 
@@ -1186,8 +1360,8 @@ function tryFocusFire(game, p, snap, shared) {
         for (const a of attackers) {
             if (Hex.distance(a, en) <= a.structure.stats.range) {
                 inRangeCount++;
-                totalDpsInRange += (a.structure.stats.damage || 0)
-                                / Math.max(1, (a.structure.stats.interval || 1000) / 1000);
+                totalDpsInRange +=
+                    (a.structure.stats.damage || 0) / Math.max(1, (a.structure.stats.interval || 1000) / 1000);
             }
         }
         if (inRangeCount === 0) continue;
@@ -1215,15 +1389,15 @@ function tryFocusFire(game, p, snap, shared) {
     const secondary = scored.length > 1 ? scored[1].tile : null;
 
     const orderedAttackers = [
-        ...attackers.filter(a => a.structure.type === 'D' || a.structure.type === 'SU'),
-        ...attackers.filter(a => a.structure.type === 'AB' || a.structure.type === 'RL'),
-        ...attackers.filter(a => a.structure.type === 'B'),
-        ...attackers.filter(a => a.structure.type === 'M'),
+        ...attackers.filter((a) => a.structure.type === 'D' || a.structure.type === 'SU'),
+        ...attackers.filter((a) => a.structure.type === 'AB' || a.structure.type === 'RL'),
+        ...attackers.filter((a) => a.structure.type === 'B'),
+        ...attackers.filter((a) => a.structure.type === 'M'),
     ];
 
     let primaryAssigned = 0;
     let acted = false;
-    const capMult = game.aiDifficulty === 'very_hard' ? 0.82 : (game.aiDifficulty === 'hard' ? 0.88 : 1);
+    const capMult = game.aiDifficulty === 'very_hard' ? 0.82 : game.aiDifficulty === 'hard' ? 0.88 : 1;
     const primaryCap = Math.max(2, Math.ceil(orderedAttackers.length * 0.7 * capMult));
 
     for (const atk of orderedAttackers) {
@@ -1235,14 +1409,14 @@ function tryFocusFire(game, p, snap, shared) {
         if (cur) {
             const ct = game.grid.getTile(cur.q, cur.r);
             if (ct?.structure && ct.owner !== p.id) {
-                curPriority = (KILL_VALUE[ct.structure.type] || 0)
-                            * (ct.owner === snap.primaryEnemyId ? 1.4 : 1);
+                curPriority = (KILL_VALUE[ct.structure.type] || 0) * (ct.owner === snap.primaryEnemyId ? 1.4 : 1);
             }
         }
 
         let want = null;
         if (distP <= range && primaryAssigned < primaryCap) {
-            want = primary; primaryAssigned++;
+            want = primary;
+            primaryAssigned++;
         } else if (secondary && distS <= range) {
             want = secondary;
         } else if (distP <= range) {
@@ -1250,8 +1424,7 @@ function tryFocusFire(game, p, snap, shared) {
         }
         if (!want) continue;
 
-        const wantPriority = (KILL_VALUE[want.structure.type] || 0)
-                           * (want.owner === snap.primaryEnemyId ? 1.4 : 1);
+        const wantPriority = (KILL_VALUE[want.structure.type] || 0) * (want.owner === snap.primaryEnemyId ? 1.4 : 1);
         if (wantPriority <= curPriority) continue;
 
         if (game.setAssignedTarget(atk, want)) acted = true;
@@ -1264,7 +1437,8 @@ function tryFocusFire(game, p, snap, shared) {
 // ============================================================================
 function tryEconomy(game, p, snap, phase, shared, doctrine) {
     const pr = aiParams(game);
-    const prod = snap.missileProd, cons = snap.missileCons;
+    const prod = snap.missileProd,
+        cons = snap.missileCons;
     const missileShort = (cons > 0 && prod < cons * 0.85) || (p.missiles < 2 && cons > 0);
 
     if (missileShort) {
@@ -1288,7 +1462,7 @@ function tryEconomy(game, p, snap, phase, shared, doctrine) {
     // +radius captures already-claimed tiles + boosts $/tile across them.
     if (allG.length >= 1 && allG.length <= 2 && snap.govCount < wantG && phase <= PHASES.FORTIFY) {
         const upgradeCandidate = allG
-            .filter(g => !g.contested && g.structure.level < 2 && canAffordUpgrade(p, g))
+            .filter((g) => !g.contested && g.structure.level < 2 && canAffordUpgrade(p, g))
             .sort((a, b) => a.structure.level - b.structure.level)[0];
         if (upgradeCandidate) {
             return game.upgradeStructure(upgradeCandidate);
@@ -1314,9 +1488,13 @@ function tryEconomy(game, p, snap, phase, shared, doctrine) {
     // Only after the basic empire is up (>=2 Govs) and missile economy is healthy.
     const thCount = snap.ownByType.TH?.length || 0;
     const thMax = Math.max(1, snap.govCount - 1);
-    if (snap.govCount >= 2 && thCount < thMax && p.gold >= 550
-        && (snap.missileProd || 0) >= (snap.missileCons || 0) * 0.9
-        && canAffordType(p, 'TH')) {
+    if (
+        snap.govCount >= 2 &&
+        thCount < thMax &&
+        p.gold >= 550 &&
+        (snap.missileProd || 0) >= (snap.missileCons || 0) * 0.9 &&
+        canAffordType(p, 'TH')
+    ) {
         const spot = pickSupplyAwareRearSpot(game, p, snap);
         if (spot) return game.buildStructure(spot, 'TH', p.id);
     }
@@ -1339,14 +1517,17 @@ function tryStrategicBuild(game, p, snap, shared, phase, doctrine) {
 
     // Proactive missile economy: enough MF to feed launchers, capped so we do not wall off the map with factories
     const mfCap = maxMissileFactoriesForPlayer(game, p, snap);
-    const futureConsumers = (snap.ownByType.RL?.length || 0) + (snap.ownByType.AB?.length || 0)
-        + (snap.ownByType.DDG?.length || 0) + (snap.ownByType.SSG?.length || 0)
-        + (snap.ownByType.CV?.length || 0) + (snap.ownByType.ICBM?.length || 0) * 2;
+    const futureConsumers =
+        (snap.ownByType.RL?.length || 0) +
+        (snap.ownByType.AB?.length || 0) +
+        (snap.ownByType.DDG?.length || 0) +
+        (snap.ownByType.SSG?.length || 0) +
+        (snap.ownByType.CV?.length || 0) +
+        (snap.ownByType.ICBM?.length || 0) * 2;
     const wantMf = Math.min(mfCap, 1 + (phase >= PHASES.PRESSURE ? 1 : 0) + (futureConsumers >= 3 ? 1 : 0));
-    const needMoreMF = snap.mfCount < mfCap && (
-        snap.mfCount < wantMf
-        || (futureConsumers > 0 && snap.missileProd < snap.missileCons * 1.1)
-    );
+    const needMoreMF =
+        snap.mfCount < mfCap &&
+        (snap.mfCount < wantMf || (futureConsumers > 0 && snap.missileProd < snap.missileCons * 1.1));
     if (needMoreMF && canAffordType(p, 'MF')) {
         const spot = pickSupplyAwareRearSpot(game, p, snap);
         if (spot) return game.buildStructure(spot, 'MF', p.id);
@@ -1356,7 +1537,7 @@ function tryStrategicBuild(game, p, snap, shared, phase, doctrine) {
     if ((snap.ownByType.G?.length || 0) > 0) {
         const aasArr = snap.ownByType.AAS || [];
         for (const g of snap.ownByType.G) {
-            const protectedByAAS = aasArr.some(a => Hex.distance(a, g) <= a.structure.stats.range);
+            const protectedByAAS = aasArr.some((a) => Hex.distance(a, g) <= a.structure.stats.range);
             if (!protectedByAAS && canAffordType(p, 'AAS')) {
                 const spot = findEmptyAdjacent(game, p.id, g);
                 if (spot) return game.buildStructure(spot, 'AAS', p.id);
@@ -1368,8 +1549,11 @@ function tryStrategicBuild(game, p, snap, shared, phase, doctrine) {
     // Built before combat weighting so defenders prioritise the aura ahead of more launchers.
     {
         const ewCount = snap.ownByType.EW?.length || 0;
-        const enemyMisShooters = (snap.visibleEnemyTypeCounts?.RL || 0) + (snap.visibleEnemyTypeCounts?.AB || 0)
-            + (snap.visibleEnemyTypeCounts?.D || 0) + (snap.visibleEnemyTypeCounts?.SU || 0);
+        const enemyMisShooters =
+            (snap.visibleEnemyTypeCounts?.RL || 0) +
+            (snap.visibleEnemyTypeCounts?.AB || 0) +
+            (snap.visibleEnemyTypeCounts?.D || 0) +
+            (snap.visibleEnemyTypeCounts?.SU || 0);
         if (ewCount < 2 && enemyMisShooters >= 2 && phase >= PHASES.FORTIFY && canAffordType(p, 'EW')) {
             const spot = pickPlacementForType(game, p, snap, 'EW', snap.visibleEnemies);
             if (spot) return game.buildStructure(spot, 'EW', p.id);
@@ -1380,9 +1564,11 @@ function tryStrategicBuild(game, p, snap, shared, phase, doctrine) {
     // or in PRESSURE+ when the frontier is wide enough that we need persistent vision.
     {
         const rcCount = snap.ownByType.RC?.length || 0;
-        const hasStealthThreat = snap.visibleEnemies.some(e =>
-            (e.structure.type === 'AB' && e.structure.level === 2)
-            || (e.structure.type === 'SSG' && e.structure.level === 2));
+        const hasStealthThreat = snap.visibleEnemies.some(
+            (e) =>
+                (e.structure.type === 'AB' && e.structure.level === 2) ||
+                (e.structure.type === 'SSG' && e.structure.level === 2)
+        );
         const wantRecon = hasStealthThreat || (phase >= PHASES.PRESSURE && snap.frontier.length >= 6);
         if (rcCount < 2 && wantRecon && Math.random() < 0.18 && canAffordType(p, 'RC')) {
             const spot = pickPlacementForType(game, p, snap, 'RC', snap.visibleEnemies);
@@ -1392,12 +1578,18 @@ function tryStrategicBuild(game, p, snap, shared, phase, doctrine) {
 
     // Bunker — frontier hardening for defensive doctrines. Soaks damage to anchor a line.
     {
-        const psIsDefend = (doctrine.playstyle === 'defend');
+        const psIsDefend = doctrine.playstyle === 'defend';
         const bunkCount = snap.ownByType.BUNK?.length || 0;
         const bunkCap = psIsDefend ? 4 : 2;
-        const bunkRoll = psIsDefend ? 0.30 : 0.10;
-        if (bunkCount < bunkCap && phase >= PHASES.FORTIFY && snap.frontier.length
-            && snap.visibleEnemies.length > 0 && Math.random() < bunkRoll && canAffordType(p, 'BUNK')) {
+        const bunkRoll = psIsDefend ? 0.3 : 0.1;
+        if (
+            bunkCount < bunkCap &&
+            phase >= PHASES.FORTIFY &&
+            snap.frontier.length &&
+            snap.visibleEnemies.length > 0 &&
+            Math.random() < bunkRoll &&
+            canAffordType(p, 'BUNK')
+        ) {
             const spot = pickPlacementForType(game, p, snap, 'BUNK', snap.visibleEnemies);
             if (spot) return game.buildStructure(spot, 'BUNK', p.id);
         }
@@ -1406,8 +1598,13 @@ function tryStrategicBuild(game, p, snap, shared, phase, doctrine) {
     // ICBM Silo — strategic finisher reserved for DOMINATE phase with healthy missile reserves.
     {
         const icbmCount = snap.ownByType.ICBM?.length || 0;
-        if (phase >= PHASES.DOMINATE && p.gold >= 5200 && p.missiles >= 8
-            && icbmCount === 0 && canAffordType(p, 'ICBM')) {
+        if (
+            phase >= PHASES.DOMINATE &&
+            p.gold >= 5200 &&
+            p.missiles >= 8 &&
+            icbmCount === 0 &&
+            canAffordType(p, 'ICBM')
+        ) {
             const spot = pickPlacementForType(game, p, snap, 'ICBM', snap.visibleEnemies);
             if (spot) return game.buildStructure(spot, 'ICBM', p.id);
         }
@@ -1416,19 +1613,20 @@ function tryStrategicBuild(game, p, snap, shared, phase, doctrine) {
     // Combat builds — start pressure as soon as we see enemies (FORTIFY+).
     // Without visible enemies, allow border-projection builds (mainly B) from FORTIFY onward
     // for defensive playstyles, and from PRESSURE onward otherwise.
-    const psDefend = (doctrine.playstyle === 'defend');
-    const wantCombat = snap.visibleEnemies.length > 0
-        ? (phase >= PHASES.FORTIFY)
-        : (snap.frontier.length > 0 && phase >= (psDefend ? PHASES.FORTIFY : PHASES.PRESSURE));
+    const psDefend = doctrine.playstyle === 'defend';
+    const wantCombat =
+        snap.visibleEnemies.length > 0
+            ? phase >= PHASES.FORTIFY
+            : snap.frontier.length > 0 && phase >= (psDefend ? PHASES.FORTIFY : PHASES.PRESSURE);
     if (wantCombat) {
         const have = (t) => snap.ownByType[t]?.length || 0;
 
         const valuableEnemies = snap.visibleEnemies
-            .filter(e => (KILL_VALUE[e.structure.type] || 0) >= 35)
+            .filter((e) => (KILL_VALUE[e.structure.type] || 0) >= 35)
             .sort((a, b) => (KILL_VALUE[b.structure.type] || 0) - (KILL_VALUE[a.structure.type] || 0));
 
         let enemyBoost = snap.visibleEnemies.length > 0 ? 1 : 0.55;
-        if (humanPressure !== 1 && snap.visibleEnemies.some(e => e.owner === game.humanId)) {
+        if (humanPressure !== 1 && snap.visibleEnemies.some((e) => e.owner === game.humanId)) {
             enemyBoost *= humanPressure;
         }
         // ── ADAPTIVE BASE WEIGHTS ──
@@ -1437,41 +1635,53 @@ function tryStrategicBuild(game, p, snap, shared, phase, doctrine) {
         // softer assets, then RL for range, Drones to crack AAS, AAS to screen our
         // missile producers / Govs. We score each by *board state* first.
         const enemyGround = (snap.visibleEnemyTypeCounts?.M || 0) + (snap.visibleEnemyTypeCounts?.B || 0);
-        const enemyAir    = (snap.visibleEnemyTypeCounts?.RL || 0) + (snap.visibleEnemyTypeCounts?.AB || 0);
-        const enemyAAS    = (snap.visibleEnemyTypeCounts?.AAS || 0) + (snap.visibleEnemyTypeCounts?.AF || 0);
-        const ownB        = have('B');
+        const enemyAir = (snap.visibleEnemyTypeCounts?.RL || 0) + (snap.visibleEnemyTypeCounts?.AB || 0);
+        const enemyAAS = (snap.visibleEnemyTypeCounts?.AAS || 0) + (snap.visibleEnemyTypeCounts?.AF || 0);
+        const ownB = have('B');
         const w = {
             // Barracks: tank front + influence push. Always good when we have <2 or
             // the enemy is grounding us, or we want to claim contested frontier.
-            B:   1.30 * (ownB < 2 ? 1.55 : 1)
-                     * (1 + Math.min(0.5, enemyGround * 0.15))
-                     * (snap.visibleEnemies.length ? 1 : 1.30)
-                     * dPref(doctrine, 'B'),
+            B:
+                1.3 *
+                (ownB < 2 ? 1.55 : 1) *
+                (1 + Math.min(0.5, enemyGround * 0.15)) *
+                (snap.visibleEnemies.length ? 1 : 1.3) *
+                dPref(doctrine, 'B'),
             // Rocket Launcher: ranged pressure, scales with frontier visibility.
-            RL:  1.00 * (have('RL') < 2 ? 1.55 : 1)
-                     * enemyBoost
-                     * dPref(doctrine, 'RL'),
+            RL: 1.0 * (have('RL') < 2 ? 1.55 : 1) * enemyBoost * dPref(doctrine, 'RL'),
             // Drones: cheap AAS-saturators. Scale up with visible AAS.
-            D:   1.00 * (have('D')  < 2 ? 1.40 : 1)
-                     * enemyBoost
-                     * (1 + Math.min(0.45, enemyAAS * 0.14))
-                     * dPref(doctrine, 'D'),
+            D:
+                1.0 *
+                (have('D') < 2 ? 1.4 : 1) *
+                enemyBoost *
+                (1 + Math.min(0.45, enemyAAS * 0.14)) *
+                dPref(doctrine, 'D'),
             // Air Base: late-game alpha strike, weaker when we have no MF runway.
-            AB:  0.85 * (have('AB') < 1 ? 1.45 : 1)
-                     * (phase >= PHASES.DOMINATE ? 1.6 : 1)
-                     * enemyBoost
-                     * dPref(doctrine, 'AB'),
+            AB:
+                0.85 *
+                (have('AB') < 1 ? 1.45 : 1) *
+                (phase >= PHASES.DOMINATE ? 1.6 : 1) *
+                enemyBoost *
+                dPref(doctrine, 'AB'),
             // AAS: shielded by need — surface threats and unprotected Govs/MFs drive it.
-            AAS: 1.00 * ((snap.aasCount < 2 || snap.visibleEnemies.some(e => e.structure.type === 'AB')) ? 1.45 : 0.6)
-                     * (1 + Math.min(0.5, enemyAir * 0.18))
-                     * dPref(doctrine, 'AAS'),
+            AAS:
+                1.0 *
+                (snap.aasCount < 2 || snap.visibleEnemies.some((e) => e.structure.type === 'AB') ? 1.45 : 0.6) *
+                (1 + Math.min(0.5, enemyAir * 0.18)) *
+                dPref(doctrine, 'AAS'),
         };
         // Playstyle: now only a faint personality knob (~±6%).
         const ps = doctrine.playstyle || 'mixed';
         if (ps === 'defend') {
-            w.AAS *= 1.06; w.B *= 1.07; w.RL *= 0.97; w.AB *= 0.97;
+            w.AAS *= 1.06;
+            w.B *= 1.07;
+            w.RL *= 0.97;
+            w.AB *= 0.97;
         } else if (ps === 'raid') {
-            w.RL *= 1.04; w.AB *= 1.03; w.D *= 1.03; w.AAS *= 0.97;
+            w.RL *= 1.04;
+            w.AB *= 1.03;
+            w.D *= 1.03;
+            w.AAS *= 0.97;
         }
 
         const cMult = counterCompositionMults(snap, game);
@@ -1481,9 +1691,11 @@ function tryStrategicBuild(game, p, snap, shared, phase, doctrine) {
 
         // Suppress missile consumers if we can't fuel them — but suggest MF instead
         if (snap.missileProd < snap.missileCons * 0.7 || p.missiles < 3) {
-            w.RL *= 0.2; w.AB *= 0.15;
+            w.RL *= 0.2;
+            w.AB *= 0.15;
             // Redirect toward non-missile units
-            w.D *= 1.5; w.B *= 1.5;
+            w.D *= 1.5;
+            w.B *= 1.5;
         }
 
         for (const t of Object.keys(w)) {
@@ -1496,21 +1708,32 @@ function tryStrategicBuild(game, p, snap, shared, phase, doctrine) {
         const type = weightedPick(w);
 
         // Pre-flight check: if we're about to build RL/AB, make sure we have MF capacity
-        if ((type === 'RL' || type === 'AB' || type === 'DDG' || type === 'SSG') && snap.mfCount === 0 && canAffordType(p, 'MF')) {
+        if (
+            (type === 'RL' || type === 'AB' || type === 'DDG' || type === 'SSG') &&
+            snap.mfCount === 0 &&
+            canAffordType(p, 'MF')
+        ) {
             const mfSpot = pickSupplyAwareRearSpot(game, p, snap);
             if (mfSpot) return game.buildStructure(mfSpot, 'MF', p.id);
         }
 
-        const spot = pickPlacementForType(game, p, snap, type, valuableEnemies.length ? valuableEnemies : snap.visibleEnemies);
+        const spot = pickPlacementForType(
+            game,
+            p,
+            snap,
+            type,
+            valuableEnemies.length ? valuableEnemies : snap.visibleEnemies
+        );
         if (spot) return game.buildStructure(spot, type, p.id);
     }
 
     // Militia push — every AI floods when free land is open; doctrine only tilts.
-    const dM = dPref(doctrine, 'M', 0.20);
-    const psBoost = (doctrine.playstyle === 'raid') ? 1.08 : (doctrine.playstyle === 'defend' ? 0.94 : 1);
+    const dM = dPref(doctrine, 'M', 0.2);
+    const psBoost = doctrine.playstyle === 'raid' ? 1.08 : doctrine.playstyle === 'defend' ? 0.94 : 1;
     const landBoost = 1 + Math.min(0.5, (snap.neutralAdjacentToFrontier || 0) * 0.06);
-    const militiaWeight = (phase === PHASES.EXPAND ? 1 : pr.strategicMilitiaPhaseMult * dM * psBoost * landBoost)
-        * (snap.visibleEnemies.length ? 0.8 : 1.05);
+    const militiaWeight =
+        (phase === PHASES.EXPAND ? 1 : pr.strategicMilitiaPhaseMult * dM * psBoost * landBoost) *
+        (snap.visibleEnemies.length ? 0.8 : 1.05);
     if (Math.random() < militiaWeight) {
         if (tryExpandWithMilitia(game, p, snap, phase, shared)) return true;
     }
@@ -1537,14 +1760,14 @@ function tryBorderFortify(game, p, snap, phase, shared) {
     // How many border B do we want? Scale with frontier length AND threat memory.
     // Cap so we don't pave the whole map with B.
     const myB = snap.ownByType.B?.length || 0;
-    const phaseCap = phase >= PHASES.PRESSURE ? 4 : (phase >= PHASES.FORTIFY ? 3 : 2);
+    const phaseCap = phase >= PHASES.PRESSURE ? 4 : phase >= PHASES.FORTIFY ? 3 : 2;
     const psCap = ps === 'defend' ? phaseCap + 1 : phaseCap;
     if (myB >= psCap) return false;
 
     // Only fire if our gold isn't being saved for a Gov first.
     // Gov save-up is the most important compounding investment — don't undercut it
     // unless we're being actively pressured (visible enemies or sustained loss).
-    const wantG = (shared && doctrine) ? effectiveTargetGovCount(game, p, snap, shared, doctrine) : 2;
+    const wantG = shared && doctrine ? effectiveTargetGovCount(game, p, snap, shared, doctrine) : 2;
     const needGov = snap.govCount < wantG;
     const underPressure = snap.visibleEnemies.length > 0 || (p._sustainedLoss || 0) >= 1.2;
     if (needGov && !underPressure) {
@@ -1589,7 +1812,8 @@ function tryBorderFortify(game, p, snap, phase, shared) {
         for (const b of myBList) {
             const r = (b.structure.stats?.radius ?? 3) + 1;
             if (Hex.distance(t, b) <= r) {
-                alreadyCovered = true; break;
+                alreadyCovered = true;
+                break;
             }
         }
         if (alreadyCovered) continue;
@@ -1616,20 +1840,21 @@ function tryBorderFortify(game, p, snap, phase, shared) {
         // prefer spots that are in supply (B starts producing ground units faster).
         let nearGov = false;
         for (const g of govs) {
-            if (Hex.distance(t, g) <= 1) { nearGov = true; break; }
+            if (Hex.distance(t, g) <= 1) {
+                nearGov = true;
+                break;
+            }
         }
         const supplyBonus = supplySet?.has(tileKey(t)) ? 3 : 0;
         const govPenalty = nearGov ? -3 : 0;
 
         const score =
-            enemyAdjCount * 4
-            + neutralAdjCount * 1.5
-            + threatPull
-            + supplyBonus
-            + govPenalty
-            + Math.random() * 1.2;
+            enemyAdjCount * 4 + neutralAdjCount * 1.5 + threatPull + supplyBonus + govPenalty + Math.random() * 1.2;
 
-        if (score > bestScore) { bestScore = score; best = t; }
+        if (score > bestScore) {
+            bestScore = score;
+            best = t;
+        }
     }
 
     // Require a meaningful score — don't randomly drop B on an irrelevant tile.
@@ -1643,9 +1868,7 @@ function tryNavyOpportunism(game, p, snap) {
     // landlocked AIs rarely waste a tick on it.
     const portRadius = UNIT_STATS.PT?.levels?.[0]?.radius ?? 4;
     const portCount = snap.ownByType.PT?.length || 0;
-    const candidatePort = portCount === 0 && canAffordType(p, 'PT')
-        ? findBestPortSpot(game, p.id, portRadius)
-        : null;
+    const candidatePort = portCount === 0 && canAffordType(p, 'PT') ? findBestPortSpot(game, p.id, portRadius) : null;
     const coastalBoost = candidatePort ? 3.0 : 1.0;
     if (Math.random() > 0.034 * coastalBoost) return false;
 
@@ -1653,7 +1876,8 @@ function tryNavyOpportunism(game, p, snap) {
     if (candidatePort && game.buildStructure(candidatePort, 'PT', p.id)) return true;
 
     if (p.missiles < 3) return false;
-    const navyCount = (snap.ownByType.DDG?.length || 0) + (snap.ownByType.AF?.length || 0) + (snap.ownByType.SSG?.length || 0);
+    const navyCount =
+        (snap.ownByType.DDG?.length || 0) + (snap.ownByType.AF?.length || 0) + (snap.ownByType.SSG?.length || 0);
     if (navyCount >= 4) return false;
     if ((snap.missileProd || 0) < (snap.missileCons || 0) * 0.8) return false;
     const spot = findFirstNavyWater(game, p.id);
@@ -1663,7 +1887,12 @@ function tryNavyOpportunism(game, p, snap) {
     if (canAffordType(p, 'AF') && p.missiles >= 0) w.AF = 0.38;
     if (canAffordType(p, 'SSG') && p.missiles >= 2) w.SSG = 0.12;
     // Carrier — premium air-projection. Heavy missile cost; gate behind missile economy and Port.
-    if (canAffordType(p, 'CV') && p.missiles >= 3 && portCount >= 1 && (snap.missileProd || 0) >= (snap.missileCons || 0)) {
+    if (
+        canAffordType(p, 'CV') &&
+        p.missiles >= 3 &&
+        portCount >= 1 &&
+        (snap.missileProd || 0) >= (snap.missileCons || 0)
+    ) {
         w.CV = 0.16;
     }
     if (Object.keys(w).length === 0) return false;
@@ -1690,7 +1919,7 @@ function tryMissileEconomyGate(game, p, snap) {
 
     // Comfortable buffer: enough production, stockpile, and not over factory cap
     if (cons > 0 && prod >= cons * 1.05 && missiles >= wantBuf) return false;
-    if (mfCount >= cap && prod >= (cons || 0.01) * 0.85 && missiles >= 3 + Math.min(4, (cons || 0))) return false;
+    if (mfCount >= cap && prod >= (cons || 0.01) * 0.85 && missiles >= 3 + Math.min(4, cons || 0)) return false;
     if (mfCount > cap && prod > cons * 1.12 && missiles >= 3) return false;
 
     // Missile-starved — build or upgrade MF, respect cap
@@ -1719,7 +1948,7 @@ function tryMissileEconomyGate(game, p, snap) {
 // ============================================================================
 function tryMilitiaHQAbuse(game, p, snap, phase) {
     const doctrine = p.doctrine;
-    const raider = (doctrine?.playstyle === 'raid' || (doctrine?.M ?? 0) >= 3.2);
+    const raider = doctrine?.playstyle === 'raid' || (doctrine?.M ?? 0) >= 3.2;
     // Default: M3 from FORTIFY+. Raid / high-M doctrines: M3 in EXPAND for forward HQs
     if (phase === PHASES.EXPAND && !raider) return false;
 
@@ -1747,7 +1976,10 @@ function tryMilitiaHQAbuse(game, p, snap, phase) {
         // Check if near enemies (offensive position)
         let nearEnemy = false;
         for (const en of snap.visibleEnemies) {
-            if (Hex.distance(m, en) <= 5) { nearEnemy = true; break; }
+            if (Hex.distance(m, en) <= 5) {
+                nearEnemy = true;
+                break;
+            }
         }
 
         let score = 0;
@@ -1755,16 +1987,16 @@ function tryMilitiaHQAbuse(game, p, snap, phase) {
         // M2→M3 (Militia HQ): Best when FAR from govs and near enemies
         // This creates forward operating bases for flanking
         if (level === 1) {
-            score = 8 + Math.min(8, minGovDist) * 2.0;  // Distance from home = more valuable
-            if (nearEnemy) score += 8;     // Near enemy = perfect flanking position
-            if (!isFront) score += 2;      // Slightly prefer non-frontier (survives longer)
-            if (!inSupply) score += 3;     // Out of supply = needs its own supply projection (M3 provides it!)
+            score = 8 + Math.min(8, minGovDist) * 2.0; // Distance from home = more valuable
+            if (nearEnemy) score += 8; // Near enemy = perfect flanking position
+            if (!isFront) score += 2; // Slightly prefer non-frontier (survives longer)
+            if (!inSupply) score += 3; // Out of supply = needs its own supply projection (M3 provides it!)
             if (raider && phase === PHASES.EXPAND) score += 4;
         }
         // M1→M2: upgrade for better range + damage on frontline
         else if (level === 0) {
             score = 4;
-            if (isFront) score += 3;       // Frontline M1 benefits most from range upgrade
+            if (isFront) score += 3; // Frontline M1 benefits most from range upgrade
             if (nearEnemy) score += 2;
         }
 
@@ -1791,14 +2023,14 @@ function tryMilitiaHQAbuse(game, p, snap, phase) {
 function tryMilitiaUpgradeStrategy(game, p, snap, phase) {
     // tryMilitiaHQAbuse handles M2→M3 now. This handles leftover M1→M2.
     if (phase < PHASES.EXPAND) return false;
-    const militias = (snap.ownByType.M || []).filter(m =>
-        m.structure.level === 0 && !m.contested && canAffordUpgrade(p, m)
+    const militias = (snap.ownByType.M || []).filter(
+        (m) => m.structure.level === 0 && !m.contested && canAffordUpgrade(p, m)
     );
     if (militias.length === 0) return false;
 
     // Upgrade frontline M1 to M2 (range 2→3 is a big deal)
     const frontierKeys = new Set(snap.frontier.map(tileKey));
-    const front = militias.filter(m => frontierKeys.has(tileKey(m)));
+    const front = militias.filter((m) => frontierKeys.has(tileKey(m)));
     const target = front.length > 0 ? front[0] : militias[0];
 
     if (p.gold > 200) {
@@ -1815,7 +2047,7 @@ const UPGRADE_VALUE = { G: 6, MF: 5, AB: 5, RL: 4, AAS: 4, B: 3, D: 3, M: 2 };
 function tryUpgrade(game, p, snap, doctrine, shared) {
     const pr = aiParams(game);
     const effBias = Math.min(0.93, doctrine.upgradeBias * (pr.upgradeBiasScale ?? 1));
-    if (Math.random() > effBias && (p.gold < 600)) return false;
+    if (Math.random() > effBias && p.gold < 600) return false;
 
     const frontierKeys = new Set(snap.frontier.map(tileKey));
     const supplySet = game.supplyByPlayer.get(p.id);
@@ -1837,7 +2069,7 @@ function tryUpgrade(game, p, snap, doctrine, shared) {
         let value = UPGRADE_VALUE[typ] || 1;
         const isFront = frontierKeys.has(tileKey(tile));
         if (!isFront) value *= 1.4;
-        value += (3 - curLv);
+        value += 3 - curLv;
 
         if (typ === 'MF' && snap.missileProd > snap.missileCons * 1.4) value *= 0.4;
         if (typ === 'MF' && snap.missileProd < snap.missileCons * 1.1) value *= 1.35;
@@ -1869,7 +2101,7 @@ function tryUpgrade(game, p, snap, doctrine, shared) {
 
         // Prefer upgrading structures that are actively contributing (have targets in range)
         if (ATTACKER_TYPES.has(typ) && st.range) {
-            const hasTarget = snap.visibleEnemies.some(e => Hex.distance(tile, e) <= st.range);
+            const hasTarget = snap.visibleEnemies.some((e) => Hex.distance(tile, e) <= st.range);
             if (hasTarget) value *= 1.5;
         }
 
@@ -1903,7 +2135,7 @@ function tryDemolish(game, p, snap, shared) {
         if (ATTACKER_TYPES.has(s.type) && s.type !== 'M' && s.stats.range) {
             const isFront = frontierKeys.has(tileKey(tile));
             if (!isFront) {
-                const hasAnyTarget = snap.visibleEnemies.some(e => Hex.distance(tile, e) <= s.stats.range);
+                const hasAnyTarget = snap.visibleEnemies.some((e) => Hex.distance(tile, e) <= s.stats.range);
                 if (!hasAnyTarget && !supplySet?.has(tileKey(tile))) {
                     return game.demolishStructure(tile, p.id);
                 }
@@ -1913,8 +2145,8 @@ function tryDemolish(game, p, snap, shared) {
         // Demolish redundant AAS far from anything worth protecting
         if (s.type === 'AAS' && snap.aasCount > 2) {
             const govs = snap.ownByType.G || [];
-            const nearGov = govs.some(g => Hex.distance(tile, g) <= 6);
-            const nearAB = (snap.ownByType.AB || []).some(a => Hex.distance(tile, a) <= 4);
+            const nearGov = govs.some((g) => Hex.distance(tile, g) <= 6);
+            const nearAB = (snap.ownByType.AB || []).some((a) => Hex.distance(tile, a) <= 4);
             if (!nearGov && !nearAB) {
                 return game.demolishStructure(tile, p.id);
             }
@@ -1937,7 +2169,10 @@ function pickDirectionalFrontierSpot(game, p, snap, targetEnemies) {
         const nbrs = new Hex(t.q, t.r).getNeighbors();
         let isFrontierAdj = false;
         for (const nh of nbrs) {
-            if (frontierKeys.has(`${nh.q},${nh.r}`)) { isFrontierAdj = true; break; }
+            if (frontierKeys.has(`${nh.q},${nh.r}`)) {
+                isFrontierAdj = true;
+                break;
+            }
         }
         if (!isFrontierAdj) continue;
 
@@ -1966,9 +2201,9 @@ function pickDirectionalFrontierSpot(game, p, snap, targetEnemies) {
 
     if (candidates.length === 0) {
         // Fallback: frontier tiles themselves
-        const empties = snap.frontier.filter(f => !f.structure && !f.contested);
+        const empties = snap.frontier.filter((f) => !f.structure && !f.contested);
         if (empties.length) return empties[Math.floor(Math.random() * empties.length)];
-        return snap.emptyOwn.find(t => !t.contested) || null;
+        return snap.emptyOwn.find((t) => !t.contested) || null;
     }
 
     candidates.sort((a, b) => b.score - a.score);
@@ -1982,13 +2217,17 @@ function pickSpotTowardDirection(game, p, snap, dirQ, dirR) {
     dirQ /= mag;
     dirR /= mag;
 
-    let best = null, bestDot = -Infinity;
+    let best = null,
+        bestDot = -Infinity;
     for (const t of snap.emptyOwn) {
         if (t.contested) continue;
         const dq = t.q - snap.centroidQ;
         const dr = t.r - snap.centroidR;
         const dot = dq * dirQ + dr * dirR;
-        if (dot > bestDot) { bestDot = dot; best = t; }
+        if (dot > bestDot) {
+            bestDot = dot;
+            best = t;
+        }
     }
     return best;
 }
@@ -2020,7 +2259,10 @@ function findBestPortSpot(game, ownerId, radius = 4) {
                 else if (!nt.owner && !nt.contested) cov += 0.4; // unclaimed sea — Port will pull it in via influence
             }
         }
-        if (cov > bestScore) { bestScore = cov; best = t; }
+        if (cov > bestScore) {
+            bestScore = cov;
+            best = t;
+        }
     }
     return bestScore >= 4 ? best : null;
 }
@@ -2035,37 +2277,37 @@ function ownerHasPort(snap) {
 function pickPlacementForType(game, p, snap, type, valuableEnemies) {
     if (type === 'AAS') {
         const aasArr = snap.ownByType.AAS || [];
-        const valuable = [
-            ...(snap.ownByType.G  || []),
-            ...(snap.ownByType.AB || []),
-            ...(snap.ownByType.MF || []),
-        ];
+        const valuable = [...(snap.ownByType.G || []), ...(snap.ownByType.AB || []), ...(snap.ownByType.MF || [])];
         for (const v of valuable) {
-            const covered = aasArr.some(a => Hex.distance(a, v) <= a.structure.stats.range);
+            const covered = aasArr.some((a) => Hex.distance(a, v) <= a.structure.stats.range);
             if (!covered) {
                 const sp = findEmptyAdjacent(game, p.id, v);
                 if (sp) return sp;
             }
         }
-        return pickDirectionalFrontierSpot(game, p, snap, snap.visibleEnemies) ||
-               pickSupplyAwareRearSpot(game, p, snap);
+        return (
+            pickDirectionalFrontierSpot(game, p, snap, snap.visibleEnemies) || pickSupplyAwareRearSpot(game, p, snap)
+        );
     }
 
     if (type === 'DDG' || type === 'AF' || type === 'SSG' || type === 'CV') {
-        return findFirstNavyWater(game, p.id) ||
-            null;
+        return findFirstNavyWater(game, p.id) || null;
     }
 
     if (type === 'BUNK') {
         // Place on the frontier facing enemies — soaks damage and anchors a chokepoint.
-        return pickDirectionalFrontierSpot(game, p, snap, valuableEnemies || snap.visibleEnemies)
-            || pickScreenBarracksSpot(game, p, snap);
+        return (
+            pickDirectionalFrontierSpot(game, p, snap, valuableEnemies || snap.visibleEnemies) ||
+            pickScreenBarracksSpot(game, p, snap)
+        );
     }
 
     if (type === 'RC') {
         // Recon — push forward toward the frontier so its vision reaches into enemy territory.
-        return pickDirectionalFrontierSpot(game, p, snap, valuableEnemies || snap.visibleEnemies)
-            || pickSupplyAwareRearSpot(game, p, snap);
+        return (
+            pickDirectionalFrontierSpot(game, p, snap, valuableEnemies || snap.visibleEnemies) ||
+            pickSupplyAwareRearSpot(game, p, snap)
+        );
     }
 
     if (type === 'TH' || type === 'ICBM') {
@@ -2075,11 +2317,7 @@ function pickPlacementForType(game, p, snap, type, valuableEnemies) {
 
     if (type === 'EW') {
         // Project the aura over our valuable cluster (Gov + MF). Build adjacent to the densest cluster.
-        const cluster = [
-            ...(snap.ownByType.G  || []),
-            ...(snap.ownByType.MF || []),
-            ...(snap.ownByType.AB || []),
-        ];
+        const cluster = [...(snap.ownByType.G || []), ...(snap.ownByType.MF || []), ...(snap.ownByType.AB || [])];
         for (const v of cluster) {
             const sp = findEmptyAdjacent(game, p.id, v);
             if (sp && !sp.contested) return sp;
@@ -2109,12 +2347,15 @@ function pickPlacementForType(game, p, snap, type, valuableEnemies) {
                 const d = Hex.distance(t, en);
                 if (d < nearestEnemy) nearestEnemy = d;
             }
-            const safetyBonus = nearestEnemy >= 3 ? 3 : (nearestEnemy >= 2 ? 1.5 : 0);
+            const safetyBonus = nearestEnemy >= 3 ? 3 : nearestEnemy >= 2 ? 1.5 : 0;
             // Prefer spots in supply
             const supplySet = game.supplyByPlayer.get(p.id);
             const supplyBonus = supplySet?.has(tileKey(t)) ? 2 : 0;
             const score = inRange * 5 + safetyBonus + supplyBonus;
-            if (score > bestScore) { bestScore = score; bestSpot = t; }
+            if (score > bestScore) {
+                bestScore = score;
+                bestSpot = t;
+            }
         }
         if (bestSpot) return bestSpot;
         return pickDirectionalFrontierSpot(game, p, snap, valuableEnemies);
@@ -2143,7 +2384,10 @@ function pickPlacementForType(game, p, snap, type, valuableEnemies) {
                 if (en.structure.type === 'AAS' && Hex.distance(t, en) <= range) aasInRange++;
             }
             const score = inRange * 3 + droneCluster * 1.5 + aasInRange * 2.5 + Math.random();
-            if (score > bestScore) { bestScore = score; bestSpot = t; }
+            if (score > bestScore) {
+                bestScore = score;
+                bestSpot = t;
+            }
         }
         return bestSpot || pickDirectionalFrontierSpot(game, p, snap, snap.visibleEnemies);
     }
@@ -2157,7 +2401,7 @@ function pickPlacementForType(game, p, snap, type, valuableEnemies) {
     }
 
     if (type === 'MF') return pickSupplyAwareRearSpot(game, p, snap);
-    if (type === 'G')  return findGovSpot(game, p.id, snap);
+    if (type === 'G') return findGovSpot(game, p.id, snap);
 
     return pickDirectionalFrontierSpot(game, p, snap, snap.visibleEnemies);
 }
@@ -2171,7 +2415,8 @@ function pickSupplyAwareRearSpot(game, p, snap) {
     const frontierKeys = new Set(snap.frontier.map(tileKey));
     const supplySet = game.supplyByPlayer.get(p.id);
 
-    let best = null, bestScore = -Infinity;
+    let best = null,
+        bestScore = -Infinity;
     for (const t of snap.emptyOwn) {
         if (t.contested) continue;
         let minFrontDist = Infinity;
@@ -2185,7 +2430,10 @@ function pickSupplyAwareRearSpot(game, p, snap) {
         // In-supply dominates: out-of-supply structures run ~1.6x slower (game.js SUPPLY_OUT_MULT).
         // Rear is a tiebreaker, not an alternative.
         const score = (inSupply ? 60 : 0) + Math.min(minFrontDist, 6) * 1.5 + Math.random() * 0.5;
-        if (score > bestScore) { bestScore = score; best = t; }
+        if (score > bestScore) {
+            bestScore = score;
+            best = t;
+        }
     }
     return best;
 }
@@ -2206,7 +2454,7 @@ function findEmptyAdjacent(game, ownerId, tile) {
 // ============================================================================
 function findGovSpot(game, playerId, snap) {
     const govs = snap.ownByType.G || [];
-    const candidates = snap.emptyOwn.filter(t => !t.contested);
+    const candidates = snap.emptyOwn.filter((t) => !t.contested);
     if (!candidates.length) return null;
 
     const govStats = statsAtLevel('G', 0);
@@ -2226,7 +2474,10 @@ function findGovSpot(game, playerId, snap) {
                 let coveredByExisting = false;
                 for (const g of govs) {
                     const gRadius = g.structure.stats.radius || 4;
-                    if (Hex.distance(nt, g) <= gRadius) { coveredByExisting = true; break; }
+                    if (Hex.distance(nt, g) <= gRadius) {
+                        coveredByExisting = true;
+                        break;
+                    }
                 }
                 if (!coveredByExisting) newTileCoverage++;
             }
@@ -2252,7 +2503,10 @@ function findGovSpot(game, playerId, snap) {
 
         // Primary: new tile coverage (anti-overlap). Secondary: neutrals. Tertiary: safety.
         const score = newTileCoverage * 2.0 + neutralAround * 0.5 + safeBonus * 1.0;
-        if (score > bestScore) { bestScore = score; best = t; }
+        if (score > bestScore) {
+            bestScore = score;
+            best = t;
+        }
     }
     return best;
 }
@@ -2283,11 +2537,11 @@ function findMilitiaSpot(game, playerId, snap) {
         const bDot = (b.q - snap.centroidQ) * snap.enemyDirQ + (b.r - snap.centroidR) * snap.enemyDirR;
         if (Math.abs(aDot - bDot) > 0.5) return bDot - aDot;
 
-        const an = new Hex(a.q, a.r).getNeighbors().filter(nh => {
+        const an = new Hex(a.q, a.r).getNeighbors().filter((nh) => {
             const t = game.grid.getTile(nh.q, nh.r);
             return t && t.buildable && t.owner !== playerId;
         }).length;
-        const bn = new Hex(b.q, b.r).getNeighbors().filter(nh => {
+        const bn = new Hex(b.q, b.r).getNeighbors().filter((nh) => {
             const t = game.grid.getTile(nh.q, nh.r);
             return t && t.buildable && t.owner !== playerId;
         }).length;
@@ -2310,20 +2564,18 @@ function tryExpandWithMilitia(game, p, snap, phase, shared) {
 
     // Tighter reserve when there is a lot of free land (tiles > doctrine — always scale the map)
     const landUrgency = neutralNearby >= 8 ? 0.55 : neutralNearby >= 4 ? 0.72 : neutralNearby >= 1 ? 0.9 : 1;
-    const baseRes = phase >= PHASES.DOMINATE ? 90 : (phase >= PHASES.PRESSURE ? 150 : 95);
-    let reserveGold = baseRes * landUrgency / expandW;
+    const baseRes = phase >= PHASES.DOMINATE ? 90 : phase >= PHASES.PRESSURE ? 150 : 95;
+    let reserveGold = (baseRes * landUrgency) / expandW;
 
     // ── GOV SAVE-UP GATE ──
     // Captured tiles only pay out under a Gov's influence. If we still need Govs, refuse
     // to drain gold below a save-up floor — otherwise we'd hit militia cap with 1 Gov
     // and never accumulate the 1525+ gold for a second/third one.
-    const wantG = (shared && doctrine)
-        ? effectiveTargetGovCount(game, p, snap, shared, doctrine)
-        : 2;
+    const wantG = shared && doctrine ? effectiveTargetGovCount(game, p, snap, shared, doctrine) : 2;
     const govCost = statsAtLevel('G', 0)?.cost || 1525;
     const needGov = snap.govCount < wantG;
     const allG = snap.ownByType.G || [];
-    const upgradableG = allG.find(g => !g.contested && g.structure.level < 2);
+    const upgradableG = allG.find((g) => !g.contested && g.structure.level < 2);
     const wantGovUpgrade = !!upgradableG && allG.length <= 2 && phase <= PHASES.FORTIFY;
 
     if (needGov || wantGovUpgrade) {
@@ -2343,9 +2595,7 @@ function tryExpandWithMilitia(game, p, snap, phase, shared) {
             const aggressiveLand = neutralNearby >= 7;
             // Reserve a sizeable fraction of the target so each militia purchase doesn't
             // strand the bot far from its next Gov. Lots of free land softens the floor.
-            const saveupFloor = aggressiveLand
-                ? Math.min(target * 0.42, 520)
-                : Math.min(target * 0.62, 980);
+            const saveupFloor = aggressiveLand ? Math.min(target * 0.42, 520) : Math.min(target * 0.62, 980);
             reserveGold = Math.max(reserveGold, saveupFloor);
         }
     }

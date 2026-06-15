@@ -12,15 +12,17 @@ export class Hex {
     }
 
     static distance(a, b) {
-        return (Math.abs(a.q - b.q) + 
-                Math.abs(a.q + a.r - b.q - b.r) + 
-                Math.abs(a.r - b.r)) / 2;
+        return (Math.abs(a.q - b.q) + Math.abs(a.q + a.r - b.q - b.r) + Math.abs(a.r - b.r)) / 2;
     }
 
     getNeighbors() {
         const directions = [
-            [1, 0], [1, -1], [0, -1],
-            [-1, 0], [-1, 1], [0, 1]
+            [1, 0],
+            [1, -1],
+            [0, -1],
+            [-1, 0],
+            [-1, 1],
+            [0, 1],
         ];
         return directions.map(([dq, dr]) => new Hex(this.q + dq, this.r + dr));
     }
@@ -31,11 +33,12 @@ export class Hex {
 }
 
 function mulberry32(seed) {
-    return function() {
-        seed |= 0; seed = seed + 0x6D2B79F5 | 0;
-        let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
-        t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
-        return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    return function () {
+        seed |= 0;
+        seed = (seed + 0x6d2b79f5) | 0;
+        let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
     };
 }
 
@@ -54,29 +57,39 @@ function createGradientNoise(rng) {
     }
     for (let i = 0; i < 256; i++) perm[i + 256] = perm[i];
 
-    function fade(t) { return t * t * t * (t * (t * 6 - 15) + 10); }
+    function fade(t) {
+        return t * t * t * (t * (t * 6 - 15) + 10);
+    }
 
-    return function(x, y) {
-        const X = Math.floor(x) & 255, Y = Math.floor(y) & 255;
-        const xf = x - Math.floor(x), yf = y - Math.floor(y);
-        const u = fade(xf), v = fade(yf);
+    return function (x, y) {
+        const X = Math.floor(x) & 255,
+            Y = Math.floor(y) & 255;
+        const xf = x - Math.floor(x),
+            yf = y - Math.floor(y);
+        const u = fade(xf),
+            v = fade(yf);
         const aa = perm[perm[X] + Y] & 255;
         const ab = perm[perm[X] + Y + 1] & 255;
         const ba = perm[perm[X + 1] + Y] & 255;
         const bb = perm[perm[X + 1] + Y + 1] & 255;
         const mix = (a, b, t) => a + t * (b - a);
-        return mix(
-            mix(grad[aa][0] * xf + grad[aa][1] * yf,
-                grad[ba][0] * (xf - 1) + grad[ba][1] * yf, u),
-            mix(grad[ab][0] * xf + grad[ab][1] * (yf - 1),
-                grad[bb][0] * (xf - 1) + grad[bb][1] * (yf - 1), u),
-            v
-        ) * 0.5 + 0.5;
+        return (
+            mix(
+                mix(grad[aa][0] * xf + grad[aa][1] * yf, grad[ba][0] * (xf - 1) + grad[ba][1] * yf, u),
+                mix(grad[ab][0] * xf + grad[ab][1] * (yf - 1), grad[bb][0] * (xf - 1) + grad[bb][1] * (yf - 1), u),
+                v
+            ) *
+                0.5 +
+            0.5
+        );
     };
 }
 
 function fbm(noiseFn, x, y, octaves = 4, lacunarity = 2.0, gain = 0.5) {
-    let val = 0, amp = 1, freq = 1, total = 0;
+    let val = 0,
+        amp = 1,
+        freq = 1,
+        total = 0;
     for (let i = 0; i < octaves; i++) {
         val += noiseFn(x * freq, y * freq) * amp;
         total += amp;
@@ -92,7 +105,7 @@ function carvePangaea(tiles, radius, rng) {
     const noise = createGradientNoise(rng);
     const nScale = 0.08 + rng() * 0.05;
     const nOff = (rng() - 0.5) * 40;
-    const threshold = (radius - 2) + (rng() * 1.1 - 0.55);
+    const threshold = radius - 2 + (rng() * 1.1 - 0.55);
     for (const tile of tiles.values()) {
         const dist = Hex.distance(origin, tile);
         const coastNoise = fbm(noise, (tile.q + nOff) * nScale, (tile.r - nOff * 0.3) * nScale, 3) * 3.5 - 1.75;
@@ -124,7 +137,7 @@ function carveContinents(tiles, radius, rng, playerCount) {
             tile.buildable = false;
             continue;
         }
-        const dists = centers.map(c => Hex.distance(c, tile)).sort((a, b) => a - b);
+        const dists = centers.map((c) => Hex.distance(c, tile)).sort((a, b) => a - b);
         if (dists.length >= 2 && dists[0] > 0) {
             const ratio = dists[0] / dists[1];
             const boundary = straitTight + fbm(noise, tile.q * nScale + 50, tile.r * nScale + 50, 2) * 0.18 - 0.09;
@@ -142,7 +155,10 @@ function carveArchipelago(tiles, radius, rng) {
 
     for (const tile of tiles.values()) {
         const dist = Hex.distance(origin, tile);
-        if (dist > radius - 1) { tile.buildable = false; continue; }
+        if (dist > radius - 1) {
+            tile.buildable = false;
+            continue;
+        }
         const edgeFalloff = Math.max(0, 1 - Math.pow(dist / (radius - 1), edgePow));
         const n = fbm(noise, tile.q * nScale, tile.r * nScale, 4);
         if (n - edgeFalloff * 0.25 < landCut) tile.buildable = false;
@@ -176,7 +192,10 @@ function carveFractal(tiles, radius, rng) {
 
     for (const tile of tiles.values()) {
         const dist = Hex.distance(origin, tile);
-        if (dist > radius - 1) { tile.buildable = false; continue; }
+        if (dist > radius - 1) {
+            tile.buildable = false;
+            continue;
+        }
         const edgeFactor = 1 - Math.pow(dist / radius, 2);
         const warpX = fbm(warpNoise, tile.q * 0.06, tile.r * 0.06, 3) * wAmp - wAmp / 2;
         const warpY = fbm(warpNoise, tile.q * 0.06 + 100, tile.r * 0.06 + 100, 3) * wAmp - wAmp / 2;
@@ -200,8 +219,8 @@ function cellularAutomataPass(tiles, passes = 1) {
         const changes = [];
         for (const tile of tiles.values()) {
             const neighbors = getNeighborTiles(tiles, tile.q, tile.r);
-            const waterCount = neighbors.filter(n => !n.buildable).length;
-            const landCount = neighbors.filter(n => n.buildable).length;
+            const waterCount = neighbors.filter((n) => !n.buildable).length;
+            const landCount = neighbors.filter((n) => n.buildable).length;
             if (tile.buildable && waterCount >= 4) {
                 changes.push({ key: `${tile.q},${tile.r}`, buildable: false });
             } else if (!tile.buildable && landCount >= 5) {
@@ -216,7 +235,14 @@ function cellularAutomataPass(tiles, passes = 1) {
 }
 
 function getNeighborTiles(tiles, q, r) {
-    const dirs = [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]];
+    const dirs = [
+        [1, 0],
+        [1, -1],
+        [0, -1],
+        [-1, 0],
+        [-1, 1],
+        [0, 1],
+    ];
     const result = [];
     for (const [dq, dr] of dirs) {
         const t = tiles.get(`${q + dq},${r + dr}`);
@@ -235,7 +261,14 @@ function floodFill(tiles, startKey, visited) {
         if (!tile || !tile.buildable) continue;
         visited.add(key);
         component.push(key);
-        const dirs = [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]];
+        const dirs = [
+            [1, 0],
+            [1, -1],
+            [0, -1],
+            [-1, 0],
+            [-1, 1],
+            [0, 1],
+        ];
         for (const [dq, dr] of dirs) {
             const nk = `${tile.q + dq},${tile.r + dr}`;
             if (!visited.has(nk)) stack.push(nk);
@@ -272,13 +305,23 @@ function removeSmallIslands(tiles, minSize) {
 function assignTerrain(tiles, rng, radius) {
     const elevNoise = createGradientNoise(rng);
     const moistNoise = createGradientNoise(rng);
-    const dirs = [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]];
+    const dirs = [
+        [1, 0],
+        [1, -1],
+        [0, -1],
+        [-1, 0],
+        [-1, 1],
+        [0, 1],
+    ];
 
     // BFS from water tiles to compute distance-to-water for land tiles
     const dtw = new Map();
     const queue = [];
     for (const [key, tile] of tiles) {
-        if (!tile.buildable) { dtw.set(key, 0); queue.push(key); }
+        if (!tile.buildable) {
+            dtw.set(key, 0);
+            queue.push(key);
+        }
     }
     let head = 0;
     while (head < queue.length) {
@@ -298,7 +341,10 @@ function assignTerrain(tiles, rng, radius) {
     const wd = new Map();
     const wq = [];
     for (const [key, tile] of tiles) {
-        if (tile.buildable) { wd.set(key, 0); wq.push(key); }
+        if (tile.buildable) {
+            wd.set(key, 0);
+            wq.push(key);
+        }
     }
     head = 0;
     while (head < wq.length) {
@@ -333,11 +379,11 @@ function assignTerrain(tiles, rng, radius) {
         tile.elevation = e * 0.55 + coastPull * 0.45;
         tile.moisture = m;
 
-        if (distWater <= 1)              tile.biome = 'shore';
-        else if (tile.elevation < 0.38)  tile.biome = tile.moisture > 0.55 ? 'marsh' : 'plains';
-        else if (tile.elevation < 0.55)  tile.biome = tile.moisture > 0.5 ? 'forest' : 'plains';
-        else if (tile.elevation < 0.72)  tile.biome = 'hills';
-        else                             tile.biome = 'highland';
+        if (distWater <= 1) tile.biome = 'shore';
+        else if (tile.elevation < 0.38) tile.biome = tile.moisture > 0.55 ? 'marsh' : 'plains';
+        else if (tile.elevation < 0.55) tile.biome = tile.moisture > 0.5 ? 'forest' : 'plains';
+        else if (tile.elevation < 0.72) tile.biome = 'hills';
+        else tile.biome = 'highland';
     }
     markShoreIncomeFromLand(tiles);
 }
@@ -355,7 +401,14 @@ function markShoreIncomeFromLand(tiles, maxD = 3) {
             t.distToLand = INF;
         }
     }
-    const dirs = [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]];
+    const dirs = [
+        [1, 0],
+        [1, -1],
+        [0, -1],
+        [-1, 0],
+        [-1, 1],
+        [0, 1],
+    ];
     let qi = 0;
     while (qi < q.length) {
         const t = q[qi++];
@@ -400,7 +453,8 @@ export class HexGrid {
             let r2 = Math.min(radius, -q + radius);
             for (let r = r1; r <= r2; r++) {
                 this.tiles.set(`${q},${r}`, {
-                    q, r,
+                    q,
+                    r,
                     owner: null,
                     structure: null,
                     hp: 0,
@@ -514,7 +568,7 @@ export class HexGrid {
         if (this.islands.length === 0 || playerCount <= 0) return [];
 
         // Assign players round-robin across islands large enough to host them
-        const usableIslands = this.islands.filter(isl => isl.length >= 12);
+        const usableIslands = this.islands.filter((isl) => isl.length >= 12);
         if (usableIslands.length === 0) return [];
 
         // Must match `Game.start` free Government — G3, max tier (`sumG3SoloDiskGoldValue` / `countBuildableInGovDisk`).
@@ -531,9 +585,7 @@ export class HexGrid {
             islandMaxGovValue.set(isl, m);
         }
         // Round-robin uses island order: put the best G3 economic potential landmasses first for fairer splits.
-        usableIslands.sort((a, b) =>
-            (islandMaxGovValue.get(b) - islandMaxGovValue.get(a)) || (b.length - a.length)
-        );
+        usableIslands.sort((a, b) => islandMaxGovValue.get(b) - islandMaxGovValue.get(a) || b.length - a.length);
 
         // Vary the "first spawn" bias so games don't all anchor the same way vs map center
         const rot = ((this.seed >>> 0) % 6283) / 1000;
@@ -599,8 +651,7 @@ export class HexGrid {
                         minDist = Hex.distance(firstSpawnBias, tile);
                     }
 
-                    if (govValue > bestGovScore ||
-                        (govValue === bestGovScore && minDist > bestMinDist)) {
+                    if (govValue > bestGovScore || (govValue === bestGovScore && minDist > bestMinDist)) {
                         bestGovScore = govValue;
                         bestMinDist = minDist;
                         bestTile = tile;
@@ -618,13 +669,13 @@ export class HexGrid {
 
     hexToPixel(q, r) {
         const x = this.hexSize * Math.sqrt(3) * (q + r / 2);
-        const y = this.hexSize * 3 / 2 * r;
+        const y = ((this.hexSize * 3) / 2) * r;
         return { x, y };
     }
 
     pixelToHex(x, y) {
-        const q = (Math.sqrt(3) / 3 * x - 1 / 3 * y) / this.hexSize;
-        const r = (2 / 3 * y) / this.hexSize;
+        const q = ((Math.sqrt(3) / 3) * x - (1 / 3) * y) / this.hexSize;
+        const r = ((2 / 3) * y) / this.hexSize;
         return this.hexRound(q, r);
     }
 
@@ -674,14 +725,14 @@ export class Camera {
     screenToWorld(sx, sy, width, height) {
         return {
             x: (sx - width / 2) / this.scale - this.x,
-            y: (sy - height / 2) / this.scale - this.y
+            y: (sy - height / 2) / this.scale - this.y,
         };
     }
 
     worldToScreen(wx, wy, width, height) {
         return {
             x: (wx + this.x) * this.scale + width / 2,
-            y: (wy + this.y) * this.scale + height / 2
+            y: (wy + this.y) * this.scale + height / 2,
         };
     }
 

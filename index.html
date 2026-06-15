@@ -1,630 +1,865 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RocketIO — Modern Warfare Hex Strategy</title>
-    <meta name="description" content="RocketIO is a real-time hex-grid strategy game: command one of 14 world powers, each with unique units and doctrines, across skirmish and campaign battles of missiles, economy and interception.">
-    <meta name="theme-color" content="#00e5ff">
-    <!-- Inline SVG favicon (rocket motif) — no binary asset required -->
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230a0e17'/%3E%3Cpath d='M16 4c4 3 6 7 6 12 0 3-1 5-2 7l-4-3-4 3c-1-2-2-4-2-7 0-5 2-9 6-12z' fill='%2300e5ff'/%3E%3Ccircle cx='16' cy='13' r='2.2' fill='%230a0e17'/%3E%3Cpath d='M13 23l-2 4 3-1.5M19 23l2 4-3-1.5' fill='%23ff5252'/%3E%3C/svg%3E">
-    <!-- Open Graph / social preview -->
-    <meta property="og:type" content="website">
-    <meta property="og:title" content="RocketIO — Modern Warfare Hex Strategy">
-    <meta property="og:description" content="Command one of 14 world powers across hex-grid battles of missiles, economy and interception. A vanilla-JS + Canvas strategy game.">
-    <meta property="og:image" content="assets/social-preview.png">
-    <meta name="twitter:card" content="summary_large_image">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=units3">
-</head>
-<body>
-
-    <!-- ==================== HOMEPAGE ==================== -->
-    <div id="homepage">
-        <div class="stars"></div>
-        <div class="scanline-overlay"></div>
-        <div class="homepage-content">
-            <div class="logo-section">
-                <h1 class="game-title">ROCKET<span class="accent">IO</span></h1>
-                <p class="tagline">Hex Warfare. Total Domination.</p>
-            </div>
-
-            <div class="menu-card">
-                <div class="input-group">
-                    <label for="player-name">COMMANDER NAME</label>
-                    <input type="text" id="player-name" placeholder="Enter your callsign..." maxlength="16" autocomplete="off" spellcheck="false">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>RocketIO — Modern Warfare Hex Strategy</title>
+        <meta
+            name="description"
+            content="RocketIO is a real-time hex-grid strategy game: command one of 14 world powers, each with unique units and doctrines, across skirmish and campaign battles of missiles, economy and interception."
+        />
+        <meta name="theme-color" content="#00e5ff" />
+        <!-- Inline SVG favicon (rocket motif) — no binary asset required -->
+        <link
+            rel="icon"
+            href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230a0e17'/%3E%3Cpath d='M16 4c4 3 6 7 6 12 0 3-1 5-2 7l-4-3-4 3c-1-2-2-4-2-7 0-5 2-9 6-12z' fill='%2300e5ff'/%3E%3Ccircle cx='16' cy='13' r='2.2' fill='%230a0e17'/%3E%3Cpath d='M13 23l-2 4 3-1.5M19 23l2 4-3-1.5' fill='%23ff5252'/%3E%3C/svg%3E"
+        />
+        <!-- Open Graph / social preview -->
+        <meta property="og:type" content="website" />
+        <meta property="og:title" content="RocketIO — Modern Warfare Hex Strategy" />
+        <meta
+            property="og:description"
+            content="Command one of 14 world powers across hex-grid battles of missiles, economy and interception. A vanilla-JS + Canvas strategy game."
+        />
+        <meta property="og:image" content="assets/social-preview.png" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
+            rel="stylesheet"
+        />
+        <link rel="stylesheet" href="style.css?v=units3" />
+    </head>
+    <body>
+        <!-- ==================== HOMEPAGE ==================== -->
+        <div id="homepage">
+            <div class="stars"></div>
+            <div class="scanline-overlay"></div>
+            <div class="homepage-content">
+                <div class="logo-section">
+                    <h1 class="game-title">ROCKET<span class="accent">IO</span></h1>
+                    <p class="tagline">Hex Warfare. Total Domination.</p>
                 </div>
 
-                <div class="input-group">
-                    <label>OPPONENTS</label>
-                    <div class="option-row" id="player-count-row">
-                        <button class="option-btn" data-value="2">2</button>
-                        <button class="option-btn" data-value="3">3</button>
-                        <button class="option-btn selected" data-value="4">4</button>
-                        <button class="option-btn" data-value="5">5</button>
-                        <button class="option-btn" data-value="6">6</button>
-                        <button class="option-btn" data-value="7">7</button>
+                <div class="menu-card">
+                    <div class="input-group">
+                        <label for="player-name">COMMANDER NAME</label>
+                        <input
+                            type="text"
+                            id="player-name"
+                            placeholder="Enter your callsign..."
+                            maxlength="16"
+                            autocomplete="off"
+                            spellcheck="false"
+                        />
                     </div>
-                    <p id="diplomacy-player-hint" class="input-hint hidden">Peace alliances require 3+ players (1v1 has no alliance slots).</p>
-                </div>
 
-                <div class="input-group">
-                    <label>MAP SIZE</label>
-                    <div class="option-row" id="map-size-row">
-                        <button class="option-btn map-btn" data-value="small"><span class="opt-icon">&#9632;</span><span>Small</span></button>
-                        <button class="option-btn map-btn selected" data-value="medium"><span class="opt-icon">&#9632;&#9632;</span><span>Medium</span></button>
-                        <button class="option-btn map-btn" data-value="large"><span class="opt-icon">&#9632;&#9632;&#9632;</span><span>Large</span></button>
+                    <div class="input-group">
+                        <label>OPPONENTS</label>
+                        <div class="option-row" id="player-count-row">
+                            <button class="option-btn" data-value="2">2</button>
+                            <button class="option-btn" data-value="3">3</button>
+                            <button class="option-btn selected" data-value="4">4</button>
+                            <button class="option-btn" data-value="5">5</button>
+                            <button class="option-btn" data-value="6">6</button>
+                            <button class="option-btn" data-value="7">7</button>
+                        </div>
+                        <p id="diplomacy-player-hint" class="input-hint hidden">
+                            Peace alliances require 3+ players (1v1 has no alliance slots).
+                        </p>
                     </div>
-                </div>
 
-                <div class="input-group">
-                    <label>MAP STYLE</label>
-                    <div class="option-row" id="map-style-row">
-                        <button class="option-btn selected" data-value="pangaea">Pangaea</button>
-                        <button class="option-btn" data-value="continents">Continents</button>
-                        <button class="option-btn" data-value="archipelago">Archipelago</button>
-                        <button class="option-btn" data-value="inland_sea">Inland Sea</button>
-                        <button class="option-btn" data-value="fractal">Fractal</button>
-                        <button class="option-btn" data-value="mediterranean" title="Hand-authored real-world coastline">Mediterranean</button>
-                        <button class="option-btn" data-value="british_isles" title="Hand-authored real-world coastline">British Isles</button>
-                        <button class="option-btn" data-value="japan" title="Hand-authored real-world coastline">Japan</button>
-                        <button class="option-btn" data-value="caribbean" title="Hand-authored real-world coastline">Caribbean</button>
-                    </div>
-                </div>
-
-                <div class="input-group">
-                    <label for="faction-select">FACTION</label>
-                    <select id="faction-select" class="menu-select" title="Nation perks + special unit name"></select>
-                </div>
-                <div class="input-group">
-                    <label for="leader-select">LEADER</label>
-                    <select id="leader-select" class="menu-select" title="Stacking modifiers on top of nation"></select>
-                </div>
-
-                <div id="faction-brief" class="faction-brief" aria-live="polite">
-                    <div class="fb-header" id="fb-header" style="--fb-accent: linear-gradient(120deg,#0d1524,#1a3a4a)">
-                        <div id="fb-flag" class="fb-flag" title="Faction"></div>
-                        <div class="fb-headings">
-                            <div id="fb-faction-line" class="fb-fline"></div>
-                            <div id="fb-subline" class="fb-sub"></div>
+                    <div class="input-group">
+                        <label>MAP SIZE</label>
+                        <div class="option-row" id="map-size-row">
+                            <button class="option-btn map-btn" data-value="small">
+                                <span class="opt-icon">&#9632;</span><span>Small</span>
+                            </button>
+                            <button class="option-btn map-btn selected" data-value="medium">
+                                <span class="opt-icon">&#9632;&#9632;</span><span>Medium</span>
+                            </button>
+                            <button class="option-btn map-btn" data-value="large">
+                                <span class="opt-icon">&#9632;&#9632;&#9632;</span><span>Large</span>
+                            </button>
                         </div>
                     </div>
-                    <div class="fb-body">
-                        <div class="fb-col">
-                            <h4 class="fb-h4">NATION BUFFS</h4>
-                            <ul id="fb-nation" class="fb-list"></ul>
-                        </div>
-                        <div class="fb-col">
-                            <h4 class="fb-h4">LEADER BUFF (STACKS)</h4>
-                            <p id="fb-leader-lore" class="fb-lore"></p>
-                            <ul id="fb-leader" class="fb-list"></ul>
-                        </div>
-                        <div class="fb-col fb-su">
-                            <h4 class="fb-h4">SIGNATURE UNIT (SU) · F10</h4>
-                            <p id="fb-special" class="fb-para"></p>
-                        </div>
-                    </div>
-                    <div class="fb-leader-card">
-                        <img id="fb-portrait" class="fb-portrait" src="" width="80" height="80" alt="" />
-                        <div>
-                            <div id="fb-lname" class="fb-lname"></div>
-                            <p id="fb-merged" class="fb-merged">Combined (nation×leader) modifiers are applied in-game.</p>
-                        </div>
-                    </div>
-                </div>
 
-                <div class="input-group">
-                    <label>DIFFICULTY</label>
-                    <div class="option-row" id="difficulty-row">
-                        <button class="option-btn" data-value="easy">Easy</button>
-                        <button class="option-btn selected" data-value="normal">Normal</button>
-                        <button class="option-btn" data-value="hard">Hard</button>
-                        <button class="option-btn" data-value="very_hard">Very Hard</button>
-                    </div>
-                </div>
-
-                <div class="input-group">
-                    <label>VICTORY CONDITION</label>
-                    <div class="option-row" id="victory-mode-row">
-                        <button class="option-btn selected" data-value="conquest">Conquest</button>
-                        <button class="option-btn" data-value="domination">Domination</button>
-                        <button class="option-btn" data-value="regime_change">Regime Change</button>
-                        <button class="option-btn" data-value="blitz">Blitz</button>
-                        <button class="option-btn" data-value="last_stand">Last Stand</button>
-                    </div>
-                    <div id="victory-sub-picker" class="option-row sub-picker hidden"></div>
-                </div>
-
-                <button type="button" id="play-btn" class="play-button">
-                    <span class="play-icon">&#9654;</span> LAUNCH GAME
-                </button>
-
-                <button type="button" id="campaign-btn" class="play-button campaign-entry-btn" title="Single-player campaign (linear ops, local progress)"
-                    onclick="return rocketioCampaignEntry(event)">
-                    <span class="play-icon" aria-hidden="true">◈</span> SENTINEL CAMPAIGN
-                </button>
-
-                <div class="menu-bottom-row">
-                    <button type="button" id="tutorial-btn" class="tutorial-button">HOW TO PLAY</button>
-                    <button type="button" id="settings-btn-home" class="tutorial-button">SETTINGS</button>
-                </div>
-            </div>
-
-            <div class="version-tag">v0.3 &mdash; Land Control · Air Base · Map Styles · Victory Modes</div>
-        </div>
-    </div>
-
-    <!-- ==================== CAMPAIGN (mission list) ==================== -->
-    <div id="campaign-screen" class="hidden">
-        <div class="stars"></div>
-        <div class="scanline-overlay"></div>
-        <div class="homepage-content">
-            <div class="logo-section">
-                <h1 class="game-title">SENTINEL <span class="accent">OPS</span></h1>
-                <p class="tagline" id="campaign-tagline">Linear campaign · same-PC progress</p>
-            </div>
-            <div class="menu-card campaign-mission-card">
-                <h3 class="campaign-mission-h3">SELECT OPERATION</h3>
-                <div id="campaign-mission-list" class="campaign-mission-list"></div>
-            </div>
-            <div class="menu-bottom-row" style="margin-top:12px">
-                <button type="button" id="campaign-back" class="tutorial-button">BACK</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- ==================== TUTORIAL ==================== -->
-    <div id="tutorial-overlay" class="hidden">
-        <div class="tutorial-backdrop"></div>
-        <div class="tutorial-container glass">
-            <div class="tutorial-header">
-                <h2>HOW TO PLAY</h2>
-                <div class="tutorial-progress">
-                    <span id="tut-step-label">1 / 5</span>
-                    <div class="progress-bar"><div id="tut-progress-fill" class="progress-fill" style="width:20%"></div></div>
-                </div>
-            </div>
-            <div class="tutorial-body" id="tutorial-body"></div>
-            <div class="tutorial-footer">
-                <button id="tut-prev" class="tut-nav-btn" disabled>BACK</button>
-                <button id="tut-next" class="tut-nav-btn primary">NEXT</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- ==================== SETTINGS ==================== -->
-    <div id="settings-overlay" class="hidden">
-        <div class="tutorial-backdrop"></div>
-        <div class="tutorial-container glass settings-container">
-            <div class="tutorial-header">
-                <h2>SETTINGS</h2>
-                <button id="settings-close" class="tut-nav-btn">CLOSE</button>
-            </div>
-            <div class="tutorial-body settings-body" id="settings-body">
-                <h3>KEYBINDS</h3>
-                <div id="keybind-list" class="keybind-list"></div>
-                <button id="reset-keybinds-btn" class="action-btn" style="margin-top:12px">RESET TO DEFAULTS</button>
-
-                <h3 style="margin-top:24px">GAMEPLAY</h3>
-                <div class="settings-toggles">
-                    <label class="toggle-row"><input type="checkbox" id="opt-quick-build" checked><span>Quick Build Mode</span><span class="toggle-desc">Build mode stays active after placement</span></label>
-                    <label class="toggle-row"><input type="checkbox" id="opt-hover-upgrade" checked><span>Hover Upgrade</span><span class="toggle-desc">Space upgrades hovered structure</span></label>
-                    <label class="toggle-row"><input type="checkbox" id="opt-drag-paint" checked><span>Drag-Paint Build</span><span class="toggle-desc">Drag to place structures on multiple hexes</span></label>
-                    <label class="toggle-row"><input type="checkbox" id="opt-auto-pause-hidden" checked><span>Auto-pause when tab is hidden</span><span class="toggle-desc">Pause the game while this window is in the background</span></label>
-                    <label class="toggle-row"><input type="checkbox" id="opt-diplomacy" checked><span>Diplomacy</span><span class="toggle-desc">Peace alliances (3+ players; unavailable in 1v1)</span></label>
-                </div>
-
-                <h3 style="margin-top:24px">VISUALS</h3>
-                <div class="settings-toggles">
-                    <label class="toggle-row"><input type="checkbox" id="opt-screen-shake"><span>Screen Shake</span></label>
-                    <label class="toggle-row"><input type="checkbox" id="opt-threat-rings" checked><span>Threat rings &amp; warnings</span><span class="toggle-desc">Damage pulse, incoming missile rings on your tiles</span></label>
-                    <label class="toggle-row"><input type="checkbox" id="opt-hover-range" checked><span>Hover range preview</span><span class="toggle-desc">Show weapon / aura range when hovering a friendly structure</span></label>
-                    <div class="settings-option-block">
-                        <span class="settings-inline-label">Projectile density</span>
-                        <span class="toggle-desc" style="display:block;margin:4px 0 8px">Limits drawn missiles/tracers (gameplay unchanged). Thin stacks to the same hex &amp; type. None hides projectiles entirely; impacts &amp; damage numbers still show.</span>
-                        <div class="option-row settings-projectile-row" id="opt-projectile-visual-row">
-                            <button type="button" class="option-btn" data-value="none">None</button>
-                            <button type="button" class="option-btn" data-value="low">Low</button>
-                            <button type="button" class="option-btn selected" data-value="medium">Med</button>
-                            <button type="button" class="option-btn" data-value="high">High</button>
-                            <button type="button" class="option-btn" data-value="unlimited">All</button>
+                    <div class="input-group">
+                        <label>MAP STYLE</label>
+                        <div class="option-row" id="map-style-row">
+                            <button class="option-btn selected" data-value="pangaea">Pangaea</button>
+                            <button class="option-btn" data-value="continents">Continents</button>
+                            <button class="option-btn" data-value="archipelago">Archipelago</button>
+                            <button class="option-btn" data-value="inland_sea">Inland Sea</button>
+                            <button class="option-btn" data-value="fractal">Fractal</button>
+                            <button
+                                class="option-btn"
+                                data-value="mediterranean"
+                                title="Hand-authored real-world coastline"
+                            >
+                                Mediterranean
+                            </button>
+                            <button
+                                class="option-btn"
+                                data-value="british_isles"
+                                title="Hand-authored real-world coastline"
+                            >
+                                British Isles
+                            </button>
+                            <button class="option-btn" data-value="japan" title="Hand-authored real-world coastline">
+                                Japan
+                            </button>
+                            <button
+                                class="option-btn"
+                                data-value="caribbean"
+                                title="Hand-authored real-world coastline"
+                            >
+                                Caribbean
+                            </button>
                         </div>
                     </div>
-                    <label class="toggle-row"><input type="checkbox" id="opt-fullscreen"><span>Fullscreen</span><span class="toggle-desc">Toggle browser fullscreen mode</span></label>
-                </div>
 
-                <h3 style="margin-top:24px">SOUND EFFECTS</h3>
-                <div class="settings-toggles">
-                    <label class="toggle-row"><input type="checkbox" id="opt-sfx" checked><span>Enable SFX</span><span class="toggle-desc">Weapon fire, impacts, interceptions</span></label>
-                    <label class="toggle-row"><span>SFX Volume</span><input type="range" id="opt-sfx-volume" min="0" max="100" value="70" style="flex:1;margin-left:12px"></label>
-                </div>
-
-                <h3 style="margin-top:24px">MUSIC</h3>
-                <div class="settings-toggles">
-                    <label class="toggle-row"><input type="checkbox" id="opt-music" checked><span>Enable Music</span><span class="toggle-desc">Ambient score, intensifies under attack</span></label>
-                    <label class="toggle-row"><span>Music Volume</span><input type="range" id="opt-music-volume" min="0" max="100" value="70" style="flex:1;margin-left:12px"></label>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- ==================== GAME ==================== -->
-    <div id="app" class="hidden">
-        <canvas id="gameCanvas"></canvas>
-        <div class="scanline-overlay game-scanlines"></div>
-
-        <div id="ui-overlay">
-
-            <!-- TOP HUD -->
-            <div id="top-bar" class="glass hud-panel">
-                <div id="player-portrait" class="player-portrait hidden"></div>
-                <div id="player-label" class="player-name-label"></div>
-
-                <div class="resource">
-                    <span class="label">GOLD</span>
-                    <span id="gold-count" class="value">0</span>
-                    <span id="gold-rate" class="rate">+0/s</span>
-                </div>
-                <div class="resource">
-                    <span class="label">MISSILES</span>
-                    <span id="missile-count" class="value">0</span>
-                    <span id="missile-rate" class="rate"></span>
-                </div>
-                <div class="resource">
-                    <span class="label">TILES</span>
-                    <span id="tile-count" class="value">0</span>
-                </div>
-                <div class="resource threat">
-                    <span class="label">THREAT</span>
-                    <span id="threat-count" class="value">0</span>
-                </div>
-
-                <div class="speed-controls">
-                    <button id="speed-pause" class="speed-btn" title="Pause (P)">⏸</button>
-                    <button id="speed-1x" class="speed-btn active" title="1x">▶</button>
-                    <button id="speed-2x" class="speed-btn" title="2x">⏩</button>
-                    <button id="speed-3x" class="speed-btn" title="3x">⏭</button>
-                </div>
-
-                <button id="diplomacy-btn" class="gear-button diplomacy-btn hidden" title="Diplomacy">🕊<span id="diplomacy-badge" class="diplo-badge hidden">0</span></button>
-                <button id="gear-btn" class="gear-button" title="Menu">⚙</button>
-            </div>
-
-            <div id="campaign-quest" class="campaign-quest glass hidden">
-                <div class="cq-label">OBJECTIVE</div>
-                <div id="campaign-quest-primary" class="cq-text cq-primary"></div>
-                <div id="campaign-quest-hint" class="cq-text cq-hint"></div>
-            </div>
-
-            <!-- BUILD PANEL -->
-            <div id="side-panel" class="glass hud-panel">
-                <h3>ECONOMY</h3>
-                <div class="build-group">
-                    <button class="build-btn" data-type="G" title="[1] Government: Expand Borders">
-                        <div class="shortcut-tag">1</div>
-                        <div class="icon">🏛️</div>
-                        <div class="name">Gov</div>
-                        <div class="cost">$1525</div>
-                    </button>
-                    <button class="build-btn" data-type="MF" title="[2] Missile Factory: Production">
-                        <div class="shortcut-tag">2</div>
-                        <div class="icon">🏭</div>
-                        <div class="name">Factory</div>
-                        <div class="cost">$230</div>
-                    </button>
-                    <button class="build-btn" data-type="TH" title="[3] Trade Hub: non-combat economy. Income scales with friendly Govs (and Ports at L3). Rewards a wide connected empire.">
-                        <div class="shortcut-tag">3</div>
-                        <div class="icon">💰</div>
-                        <div class="name">Trade</div>
-                        <div class="cost">$425</div>
-                    </button>
-                    <button class="build-btn" data-type="PT" title="[4] Port: coastal land, sea influence + sea-trade gold, supplies navy">
-                        <div class="shortcut-tag">4</div>
-                        <div class="icon">⚓</div>
-                        <div class="name">Port</div>
-                        <div class="cost">$600</div>
-                    </button>
-                </div>
-                <h3>DEFENSE</h3>
-                <div class="build-group">
-                    <button class="build-btn" data-type="AAS" title="[5] Anti-Air System: intercepts incoming missiles">
-                        <div class="shortcut-tag">5</div>
-                        <div class="icon">🛡️</div>
-                        <div class="name">AAS</div>
-                        <div class="cost">$205</div>
-                    </button>
-                    <button class="build-btn" data-type="EW" title="[6] EW Jammer: soft-kill defense. Reduces damage from incoming interceptable missiles in range. L3 has a chance to fully spoof.">
-                        <div class="shortcut-tag">6</div>
-                        <div class="icon">📶</div>
-                        <div class="name">EW Jam</div>
-                        <div class="cost">$375</div>
-                    </button>
-                    <button class="build-btn" data-type="BUNK" title="[7] Bunker: pure HP wall. No attack, no income — soaks damage to anchor chokepoints. Lv3 takes 25% less damage.">
-                        <div class="shortcut-tag">7</div>
-                        <div class="icon">🧱</div>
-                        <div class="name">Bunker</div>
-                        <div class="cost">$300</div>
-                    </button>
-                    <button class="build-btn" data-type="RC" title="[8] Recon Outpost: cheap fog-breaker. Huge vision, fragile. Counters stealth & ambush.">
-                        <div class="shortcut-tag">8</div>
-                        <div class="icon">🛰️</div>
-                        <div class="name">Recon</div>
-                        <div class="cost">$175</div>
-                    </button>
-                </div>
-                <h3>OFFENSE</h3>
-                <div class="build-group">
-                    <button class="build-btn" data-type="RL" title="[9] Rocket Launcher: standard strike building">
-                        <div class="shortcut-tag">9</div>
-                        <div class="icon">🚀</div>
-                        <div class="name">RL</div>
-                        <div class="cost">$225</div>
-                    </button>
-                    <button class="build-btn" data-type="AB" title="[0] Air Base: Heavy Interceptable Strike">
-                        <div class="shortcut-tag">0</div>
-                        <div class="icon">✈️</div>
-                        <div class="name">Air Base</div>
-                        <div class="cost">$350</div>
-                    </button>
-                    <button class="build-btn" data-type="ICBM" title="[I] ICBM Silo: strategic finisher. $5000, 90s recharge, 2500 dmg with 100% adjacent splash. Only Lv3 AAS / Lv3 AF can intercept.">
-                        <div class="shortcut-tag">I</div>
-                        <div class="icon">☢️</div>
-                        <div class="name">ICBM</div>
-                        <div class="cost">$5000</div>
-                    </button>
-                    <button class="build-btn" data-type="SU" title="[F2] Signature: faction-unique glass cannon. L3 doctrine depends on your nation — hover the unit to see active bonus.">
-                        <div class="shortcut-tag">F2</div>
-                        <div class="icon">🎯</div>
-                        <div class="name">Sig</div>
-                        <div class="cost">$158</div>
-                    </button>
-                </div>
-                <h3>GROUND</h3>
-                <div class="build-group">
-                    <button class="build-btn" data-type="B" title="[F3] Barracks: Ground Troops, Supply Hub">
-                        <div class="shortcut-tag">F3</div>
-                        <div class="icon">🪖</div>
-                        <div class="name">Barracks</div>
-                        <div class="cost">$425</div>
-                    </button>
-                    <button class="build-btn" data-type="M" title="[F4] Militia: Disrupt Enemy Ground">
-                        <div class="shortcut-tag">F4</div>
-                        <div class="icon">🔫</div>
-                        <div class="name">Militia</div>
-                        <div class="cost">$135</div>
-                    </button>
-                    <button class="build-btn" data-type="D" title="[F6] Drone: Saturation Fire">
-                        <div class="shortcut-tag">F6</div>
-                        <div class="icon">🚁</div>
-                        <div class="name">Drone</div>
-                        <div class="cost">$155</div>
-                    </button>
-                </div>
-                <h3>NAVY <span class="dim" style="font-size:0.7em">(water)</span></h3>
-                <div class="build-group">
-                    <button class="build-btn" data-type="CV" title="[F7] Carrier Group: naval air-projection. Long range, multi-sortie volleys. Built on owned water. L3 adds a stealth sortie.">
-                        <div class="shortcut-tag">F7</div>
-                        <div class="icon">🛩️</div>
-                        <div class="name">Carrier</div>
-                        <div class="cost">$700</div>
-                    </button>
-                    <button class="build-btn" data-type="DDG" title="[F8] Destroyer: anti-ship missiles (sea)">
-                        <div class="shortcut-tag">F8</div>
-                        <div class="icon">🛳️</div>
-                        <div class="name">DDG</div>
-                        <div class="cost">$270</div>
-                    </button>
-                    <button class="build-btn" data-type="AF" title="[F9] Aegis (sea): intercept, sea AA">
-                        <div class="shortcut-tag">F9</div>
-                        <div class="icon">📡</div>
-                        <div class="name">Aegis</div>
-                        <div class="cost">$250</div>
-                    </button>
-                    <button class="build-btn" data-type="SSG" title="[F10] Cruise sub: heavy cruise strike">
-                        <div class="shortcut-tag">F10</div>
-                        <div class="icon">🫧</div>
-                        <div class="name">SSG</div>
-                        <div class="cost">$430</div>
-                    </button>
-                </div>
-                <h3>NATIONAL <span class="dim" style="font-size:0.7em">(faction)</span></h3>
-                <div class="build-group" id="faction-build-group">
-                    <button class="build-btn faction-slot" id="fbtn-eco" data-faction-slot="eco" title="Faction Economy">
-                        <div class="shortcut-tag">·</div>
-                        <div class="icon">💼</div>
-                        <div class="name">—</div>
-                        <div class="cost">—</div>
-                    </button>
-                    <button class="build-btn faction-slot" id="fbtn-def" data-faction-slot="def" title="Faction Defense">
-                        <div class="shortcut-tag">·</div>
-                        <div class="icon">🛡️</div>
-                        <div class="name">—</div>
-                        <div class="cost">—</div>
-                    </button>
-                    <button class="build-btn faction-slot" id="fbtn-off" data-faction-slot="off" title="Faction Offense">
-                        <div class="shortcut-tag">·</div>
-                        <div class="icon">💥</div>
-                        <div class="name">—</div>
-                        <div class="cost">—</div>
-                    </button>
-                    <button class="build-btn faction-slot" id="fbtn-gnd" data-faction-slot="gnd" title="Faction Ground">
-                        <div class="shortcut-tag">·</div>
-                        <div class="icon">🪖</div>
-                        <div class="name">—</div>
-                        <div class="cost">—</div>
-                    </button>
-                    <button class="build-btn faction-slot" id="fbtn-nav" data-faction-slot="nav" title="Faction Navy (water)">
-                        <div class="shortcut-tag">·</div>
-                        <div class="icon">⚓</div>
-                        <div class="name">—</div>
-                        <div class="cost">—</div>
-                    </button>
-                </div>
-            </div>
-
-            <div id="right-hud">
-            <!-- INFO PANEL -->
-            <div id="info-panel" class="glass hud-panel hidden">
-                <div id="info-content"></div>
-                <button id="rush-btn" class="action-btn rush-btn hidden">RUSH</button>
-                <button id="upgrade-btn" class="action-btn hidden">UPGRADE</button>
-                <button id="upgrade-all-btn" class="action-btn upgrade-all-btn hidden">UPGRADE ALL [U]</button>
-                <button id="demolish-btn" class="action-btn demolish-btn hidden">DEMOLISH</button>
-                <button id="clear-target-btn" class="action-btn hidden">CLEAR TARGET</button>
-                <button id="close-info" class="action-btn">CLOSE</button>
-            </div>
-
-            <!-- MINIMAP -->
-            <div id="minimap-wrap" class="glass hud-panel">
-                <div class="minimap-label">TACTICAL MAP</div>
-                <div class="minimap-canvas-wrap">
-                    <canvas id="minimap" width="220" height="180"></canvas>
-                </div>
-                <div id="minimap-stats" class="minimap-stats" aria-live="polite">
-                    <div class="minimap-stats-head">
-                        <button type="button" id="minimap-stats-prev" class="minimap-stats-btn" aria-label="Previous intel panel">◀</button>
-                        <span id="minimap-stats-label" class="minimap-stats-label">ECONOMY</span>
-                        <button type="button" id="minimap-stats-next" class="minimap-stats-btn" aria-label="Next intel panel">▶</button>
+                    <div class="input-group">
+                        <label for="faction-select">FACTION</label>
+                        <select
+                            id="faction-select"
+                            class="menu-select"
+                            title="Nation perks + special unit name"
+                        ></select>
                     </div>
-                    <div id="minimap-stats-line1" class="minimap-stats-line1">—</div>
-                    <div id="minimap-stats-line2" class="minimap-stats-line2"></div>
+                    <div class="input-group">
+                        <label for="leader-select">LEADER</label>
+                        <select
+                            id="leader-select"
+                            class="menu-select"
+                            title="Stacking modifiers on top of nation"
+                        ></select>
+                    </div>
+
+                    <div id="faction-brief" class="faction-brief" aria-live="polite">
+                        <div
+                            class="fb-header"
+                            id="fb-header"
+                            style="--fb-accent: linear-gradient(120deg, #0d1524, #1a3a4a)"
+                        >
+                            <div id="fb-flag" class="fb-flag" title="Faction"></div>
+                            <div class="fb-headings">
+                                <div id="fb-faction-line" class="fb-fline"></div>
+                                <div id="fb-subline" class="fb-sub"></div>
+                            </div>
+                        </div>
+                        <div class="fb-body">
+                            <div class="fb-col">
+                                <h4 class="fb-h4">NATION BUFFS</h4>
+                                <ul id="fb-nation" class="fb-list"></ul>
+                            </div>
+                            <div class="fb-col">
+                                <h4 class="fb-h4">LEADER BUFF (STACKS)</h4>
+                                <p id="fb-leader-lore" class="fb-lore"></p>
+                                <ul id="fb-leader" class="fb-list"></ul>
+                            </div>
+                            <div class="fb-col fb-su">
+                                <h4 class="fb-h4">SIGNATURE UNIT (SU) · F10</h4>
+                                <p id="fb-special" class="fb-para"></p>
+                            </div>
+                        </div>
+                        <div class="fb-leader-card">
+                            <img id="fb-portrait" class="fb-portrait" src="" width="80" height="80" alt="" />
+                            <div>
+                                <div id="fb-lname" class="fb-lname"></div>
+                                <p id="fb-merged" class="fb-merged">
+                                    Combined (nation×leader) modifiers are applied in-game.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <label>DIFFICULTY</label>
+                        <div class="option-row" id="difficulty-row">
+                            <button class="option-btn" data-value="easy">Easy</button>
+                            <button class="option-btn selected" data-value="normal">Normal</button>
+                            <button class="option-btn" data-value="hard">Hard</button>
+                            <button class="option-btn" data-value="very_hard">Very Hard</button>
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <label>VICTORY CONDITION</label>
+                        <div class="option-row" id="victory-mode-row">
+                            <button class="option-btn selected" data-value="conquest">Conquest</button>
+                            <button class="option-btn" data-value="domination">Domination</button>
+                            <button class="option-btn" data-value="regime_change">Regime Change</button>
+                            <button class="option-btn" data-value="blitz">Blitz</button>
+                            <button class="option-btn" data-value="last_stand">Last Stand</button>
+                        </div>
+                        <div id="victory-sub-picker" class="option-row sub-picker hidden"></div>
+                    </div>
+
+                    <button type="button" id="play-btn" class="play-button">
+                        <span class="play-icon">&#9654;</span> LAUNCH GAME
+                    </button>
+
+                    <button
+                        type="button"
+                        id="campaign-btn"
+                        class="play-button campaign-entry-btn"
+                        title="Single-player campaign (linear ops, local progress)"
+                        onclick="return rocketioCampaignEntry(event);"
+                    >
+                        <span class="play-icon" aria-hidden="true">◈</span> SENTINEL CAMPAIGN
+                    </button>
+
+                    <div class="menu-bottom-row">
+                        <button type="button" id="tutorial-btn" class="tutorial-button">HOW TO PLAY</button>
+                        <button type="button" id="settings-btn-home" class="tutorial-button">SETTINGS</button>
+                    </div>
                 </div>
-                <div id="scoreboard" class="scoreboard"></div>
+
+                <div class="version-tag">v0.3 &mdash; Land Control · Air Base · Map Styles · Victory Modes</div>
             </div>
-            </div>
+        </div>
 
-            <!-- HOVER UPGRADE CHIP -->
-            <div id="hover-chip" class="hidden"></div>
-
-            <!-- BUILD TOOLTIP -->
-            <div id="build-tooltip" class="glass hidden"></div>
-
-            <!-- BUILD MODE BANNER -->
-            <div id="build-mode-banner" class="glass hud-panel hidden"></div>
-
-            <!-- COMBAT LOG -->
-            <div id="combat-log" class="glass hud-panel">
-                <div class="combat-log-header">
-                    <span class="minimap-label">COMBAT LOG</span>
-                    <button id="combat-log-toggle" class="log-toggle-btn">−</button>
+        <!-- ==================== CAMPAIGN (mission list) ==================== -->
+        <div id="campaign-screen" class="hidden">
+            <div class="stars"></div>
+            <div class="scanline-overlay"></div>
+            <div class="homepage-content">
+                <div class="logo-section">
+                    <h1 class="game-title">SENTINEL <span class="accent">OPS</span></h1>
+                    <p class="tagline" id="campaign-tagline">Linear campaign · same-PC progress</p>
                 </div>
-                <div id="combat-log-entries" class="combat-log-entries"></div>
-            </div>
-
-            <div id="notis"></div>
-        </div>
-
-        <button id="help-toggle" class="glass" title="Keyboard shortcuts" aria-label="Keyboard shortcuts">?</button>
-        <div id="instructions" class="glass hidden">
-            <div class="help-section">
-                <div class="help-head">CAMERA</div>
-                <p><b>WASD</b> pan · <b>Scroll</b> zoom · <b>H</b> center on Gov · <b>J</b> last hit</p>
-            </div>
-            <div class="help-section">
-                <div class="help-head">BUILD</div>
-                <p><b>1–0</b> quick build (Economy → Offense) · <b>I</b> ICBM · <b>F2–F10</b> Sig &amp; Ground &amp; Navy</p>
-                <p><b>Space</b> upgrade · <b>U</b> upgrade all · <b>X</b> demolish</p>
-            </div>
-            <div class="help-section">
-                <div class="help-head">SELECT &amp; CONTROL</div>
-                <p><b>Q</b> select all of type · <b>Ctrl+Click</b> multi-select · Drag from attacker to assign target</p>
-            </div>
-            <div class="help-section">
-                <div class="help-head">GAME</div>
-                <p><b>P</b> pause · <b>+ / −</b> speed · <b>L</b> log · <b>]</b> cycle minimap intel · <b>ESC</b> menu</p>
+                <div class="menu-card campaign-mission-card">
+                    <h3 class="campaign-mission-h3">SELECT OPERATION</h3>
+                    <div id="campaign-mission-list" class="campaign-mission-list"></div>
+                </div>
+                <div class="menu-bottom-row" style="margin-top: 12px">
+                    <button type="button" id="campaign-back" class="tutorial-button">BACK</button>
+                </div>
             </div>
         </div>
 
-        <!-- PAUSE OVERLAY -->
-        <div id="pause-overlay" class="hidden">
-            <div class="pause-text">PAUSED</div>
-            <p class="pause-sub">Press P to resume</p>
-        </div>
-
-        <!-- CAMPAIGN BRIEFING (in-game) -->
-        <div id="campaign-briefing-overlay" class="hidden">
+        <!-- ==================== TUTORIAL ==================== -->
+        <div id="tutorial-overlay" class="hidden">
             <div class="tutorial-backdrop"></div>
-            <div class="tutorial-container glass campaign-briefing-box">
-                <h2 id="campaign-briefing-title" class="campaign-briefing-h2">BRIEFING</h2>
-                <div id="campaign-briefing-body" class="campaign-briefing-body"></div>
-                <button type="button" id="campaign-briefing-begin" class="play-button" style="margin-top:16px">
-                    <span class="play-icon">&#9654;</span> BEGIN OP
+            <div class="tutorial-container glass">
+                <div class="tutorial-header">
+                    <h2>HOW TO PLAY</h2>
+                    <div class="tutorial-progress">
+                        <span id="tut-step-label">1 / 5</span>
+                        <div class="progress-bar">
+                            <div id="tut-progress-fill" class="progress-fill" style="width: 20%"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="tutorial-body" id="tutorial-body"></div>
+                <div class="tutorial-footer">
+                    <button id="tut-prev" class="tut-nav-btn" disabled>BACK</button>
+                    <button id="tut-next" class="tut-nav-btn primary">NEXT</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SETTINGS ==================== -->
+        <div id="settings-overlay" class="hidden">
+            <div class="tutorial-backdrop"></div>
+            <div class="tutorial-container glass settings-container">
+                <div class="tutorial-header">
+                    <h2>SETTINGS</h2>
+                    <button id="settings-close" class="tut-nav-btn">CLOSE</button>
+                </div>
+                <div class="tutorial-body settings-body" id="settings-body">
+                    <h3>KEYBINDS</h3>
+                    <div id="keybind-list" class="keybind-list"></div>
+                    <button id="reset-keybinds-btn" class="action-btn" style="margin-top: 12px">
+                        RESET TO DEFAULTS
+                    </button>
+
+                    <h3 style="margin-top: 24px">GAMEPLAY</h3>
+                    <div class="settings-toggles">
+                        <label class="toggle-row"
+                            ><input type="checkbox" id="opt-quick-build" checked /><span>Quick Build Mode</span
+                            ><span class="toggle-desc">Build mode stays active after placement</span></label
+                        >
+                        <label class="toggle-row"
+                            ><input type="checkbox" id="opt-hover-upgrade" checked /><span>Hover Upgrade</span
+                            ><span class="toggle-desc">Space upgrades hovered structure</span></label
+                        >
+                        <label class="toggle-row"
+                            ><input type="checkbox" id="opt-drag-paint" checked /><span>Drag-Paint Build</span
+                            ><span class="toggle-desc">Drag to place structures on multiple hexes</span></label
+                        >
+                        <label class="toggle-row"
+                            ><input type="checkbox" id="opt-auto-pause-hidden" checked /><span
+                                >Auto-pause when tab is hidden</span
+                            ><span class="toggle-desc"
+                                >Pause the game while this window is in the background</span
+                            ></label
+                        >
+                        <label class="toggle-row"
+                            ><input type="checkbox" id="opt-diplomacy" checked /><span>Diplomacy</span
+                            ><span class="toggle-desc">Peace alliances (3+ players; unavailable in 1v1)</span></label
+                        >
+                    </div>
+
+                    <h3 style="margin-top: 24px">VISUALS</h3>
+                    <div class="settings-toggles">
+                        <label class="toggle-row"
+                            ><input type="checkbox" id="opt-screen-shake" /><span>Screen Shake</span></label
+                        >
+                        <label class="toggle-row"
+                            ><input type="checkbox" id="opt-threat-rings" checked /><span
+                                >Threat rings &amp; warnings</span
+                            ><span class="toggle-desc">Damage pulse, incoming missile rings on your tiles</span></label
+                        >
+                        <label class="toggle-row"
+                            ><input type="checkbox" id="opt-hover-range" checked /><span>Hover range preview</span
+                            ><span class="toggle-desc"
+                                >Show weapon / aura range when hovering a friendly structure</span
+                            ></label
+                        >
+                        <div class="settings-option-block">
+                            <span class="settings-inline-label">Projectile density</span>
+                            <span class="toggle-desc" style="display: block; margin: 4px 0 8px"
+                                >Limits drawn missiles/tracers (gameplay unchanged). Thin stacks to the same hex &amp;
+                                type. None hides projectiles entirely; impacts &amp; damage numbers still show.</span
+                            >
+                            <div class="option-row settings-projectile-row" id="opt-projectile-visual-row">
+                                <button type="button" class="option-btn" data-value="none">None</button>
+                                <button type="button" class="option-btn" data-value="low">Low</button>
+                                <button type="button" class="option-btn selected" data-value="medium">Med</button>
+                                <button type="button" class="option-btn" data-value="high">High</button>
+                                <button type="button" class="option-btn" data-value="unlimited">All</button>
+                            </div>
+                        </div>
+                        <label class="toggle-row"
+                            ><input type="checkbox" id="opt-fullscreen" /><span>Fullscreen</span
+                            ><span class="toggle-desc">Toggle browser fullscreen mode</span></label
+                        >
+                    </div>
+
+                    <h3 style="margin-top: 24px">SOUND EFFECTS</h3>
+                    <div class="settings-toggles">
+                        <label class="toggle-row"
+                            ><input type="checkbox" id="opt-sfx" checked /><span>Enable SFX</span
+                            ><span class="toggle-desc">Weapon fire, impacts, interceptions</span></label
+                        >
+                        <label class="toggle-row"
+                            ><span>SFX Volume</span
+                            ><input
+                                type="range"
+                                id="opt-sfx-volume"
+                                min="0"
+                                max="100"
+                                value="70"
+                                style="flex: 1; margin-left: 12px"
+                        /></label>
+                    </div>
+
+                    <h3 style="margin-top: 24px">MUSIC</h3>
+                    <div class="settings-toggles">
+                        <label class="toggle-row"
+                            ><input type="checkbox" id="opt-music" checked /><span>Enable Music</span
+                            ><span class="toggle-desc">Ambient score, intensifies under attack</span></label
+                        >
+                        <label class="toggle-row"
+                            ><span>Music Volume</span
+                            ><input
+                                type="range"
+                                id="opt-music-volume"
+                                min="0"
+                                max="100"
+                                value="70"
+                                style="flex: 1; margin-left: 12px"
+                        /></label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== GAME ==================== -->
+        <div id="app" class="hidden">
+            <canvas id="gameCanvas"></canvas>
+            <div class="scanline-overlay game-scanlines"></div>
+
+            <div id="ui-overlay">
+                <!-- TOP HUD -->
+                <div id="top-bar" class="glass hud-panel">
+                    <div id="player-portrait" class="player-portrait hidden"></div>
+                    <div id="player-label" class="player-name-label"></div>
+
+                    <div class="resource">
+                        <span class="label">GOLD</span>
+                        <span id="gold-count" class="value">0</span>
+                        <span id="gold-rate" class="rate">+0/s</span>
+                    </div>
+                    <div class="resource">
+                        <span class="label">MISSILES</span>
+                        <span id="missile-count" class="value">0</span>
+                        <span id="missile-rate" class="rate"></span>
+                    </div>
+                    <div class="resource">
+                        <span class="label">TILES</span>
+                        <span id="tile-count" class="value">0</span>
+                    </div>
+                    <div class="resource threat">
+                        <span class="label">THREAT</span>
+                        <span id="threat-count" class="value">0</span>
+                    </div>
+
+                    <div class="speed-controls">
+                        <button id="speed-pause" class="speed-btn" title="Pause (P)">⏸</button>
+                        <button id="speed-1x" class="speed-btn active" title="1x">▶</button>
+                        <button id="speed-2x" class="speed-btn" title="2x">⏩</button>
+                        <button id="speed-3x" class="speed-btn" title="3x">⏭</button>
+                    </div>
+
+                    <button id="diplomacy-btn" class="gear-button diplomacy-btn hidden" title="Diplomacy">
+                        🕊<span id="diplomacy-badge" class="diplo-badge hidden">0</span>
+                    </button>
+                    <button id="gear-btn" class="gear-button" title="Menu">⚙</button>
+                </div>
+
+                <div id="campaign-quest" class="campaign-quest glass hidden">
+                    <div class="cq-label">OBJECTIVE</div>
+                    <div id="campaign-quest-primary" class="cq-text cq-primary"></div>
+                    <div id="campaign-quest-hint" class="cq-text cq-hint"></div>
+                </div>
+
+                <!-- BUILD PANEL -->
+                <div id="side-panel" class="glass hud-panel">
+                    <h3>ECONOMY</h3>
+                    <div class="build-group">
+                        <button class="build-btn" data-type="G" title="[1] Government: Expand Borders">
+                            <div class="shortcut-tag">1</div>
+                            <div class="icon">🏛️</div>
+                            <div class="name">Gov</div>
+                            <div class="cost">$1525</div>
+                        </button>
+                        <button class="build-btn" data-type="MF" title="[2] Missile Factory: Production">
+                            <div class="shortcut-tag">2</div>
+                            <div class="icon">🏭</div>
+                            <div class="name">Factory</div>
+                            <div class="cost">$230</div>
+                        </button>
+                        <button
+                            class="build-btn"
+                            data-type="TH"
+                            title="[3] Trade Hub: non-combat economy. Income scales with friendly Govs (and Ports at L3). Rewards a wide connected empire."
+                        >
+                            <div class="shortcut-tag">3</div>
+                            <div class="icon">💰</div>
+                            <div class="name">Trade</div>
+                            <div class="cost">$425</div>
+                        </button>
+                        <button
+                            class="build-btn"
+                            data-type="PT"
+                            title="[4] Port: coastal land, sea influence + sea-trade gold, supplies navy"
+                        >
+                            <div class="shortcut-tag">4</div>
+                            <div class="icon">⚓</div>
+                            <div class="name">Port</div>
+                            <div class="cost">$600</div>
+                        </button>
+                    </div>
+                    <h3>DEFENSE</h3>
+                    <div class="build-group">
+                        <button
+                            class="build-btn"
+                            data-type="AAS"
+                            title="[5] Anti-Air System: intercepts incoming missiles"
+                        >
+                            <div class="shortcut-tag">5</div>
+                            <div class="icon">🛡️</div>
+                            <div class="name">AAS</div>
+                            <div class="cost">$205</div>
+                        </button>
+                        <button
+                            class="build-btn"
+                            data-type="EW"
+                            title="[6] EW Jammer: soft-kill defense. Reduces damage from incoming interceptable missiles in range. L3 has a chance to fully spoof."
+                        >
+                            <div class="shortcut-tag">6</div>
+                            <div class="icon">📶</div>
+                            <div class="name">EW Jam</div>
+                            <div class="cost">$375</div>
+                        </button>
+                        <button
+                            class="build-btn"
+                            data-type="BUNK"
+                            title="[7] Bunker: pure HP wall. No attack, no income — soaks damage to anchor chokepoints. Lv3 takes 25% less damage."
+                        >
+                            <div class="shortcut-tag">7</div>
+                            <div class="icon">🧱</div>
+                            <div class="name">Bunker</div>
+                            <div class="cost">$300</div>
+                        </button>
+                        <button
+                            class="build-btn"
+                            data-type="RC"
+                            title="[8] Recon Outpost: cheap fog-breaker. Huge vision, fragile. Counters stealth & ambush."
+                        >
+                            <div class="shortcut-tag">8</div>
+                            <div class="icon">🛰️</div>
+                            <div class="name">Recon</div>
+                            <div class="cost">$175</div>
+                        </button>
+                    </div>
+                    <h3>OFFENSE</h3>
+                    <div class="build-group">
+                        <button class="build-btn" data-type="RL" title="[9] Rocket Launcher: standard strike building">
+                            <div class="shortcut-tag">9</div>
+                            <div class="icon">🚀</div>
+                            <div class="name">RL</div>
+                            <div class="cost">$225</div>
+                        </button>
+                        <button class="build-btn" data-type="AB" title="[0] Air Base: Heavy Interceptable Strike">
+                            <div class="shortcut-tag">0</div>
+                            <div class="icon">✈️</div>
+                            <div class="name">Air Base</div>
+                            <div class="cost">$350</div>
+                        </button>
+                        <button
+                            class="build-btn"
+                            data-type="ICBM"
+                            title="[I] ICBM Silo: strategic finisher. $5000, 90s recharge, 2500 dmg with 100% adjacent splash. Only Lv3 AAS / Lv3 AF can intercept."
+                        >
+                            <div class="shortcut-tag">I</div>
+                            <div class="icon">☢️</div>
+                            <div class="name">ICBM</div>
+                            <div class="cost">$5000</div>
+                        </button>
+                        <button
+                            class="build-btn"
+                            data-type="SU"
+                            title="[F2] Signature: faction-unique glass cannon. L3 doctrine depends on your nation — hover the unit to see active bonus."
+                        >
+                            <div class="shortcut-tag">F2</div>
+                            <div class="icon">🎯</div>
+                            <div class="name">Sig</div>
+                            <div class="cost">$158</div>
+                        </button>
+                    </div>
+                    <h3>GROUND</h3>
+                    <div class="build-group">
+                        <button class="build-btn" data-type="B" title="[F3] Barracks: Ground Troops, Supply Hub">
+                            <div class="shortcut-tag">F3</div>
+                            <div class="icon">🪖</div>
+                            <div class="name">Barracks</div>
+                            <div class="cost">$425</div>
+                        </button>
+                        <button class="build-btn" data-type="M" title="[F4] Militia: Disrupt Enemy Ground">
+                            <div class="shortcut-tag">F4</div>
+                            <div class="icon">🔫</div>
+                            <div class="name">Militia</div>
+                            <div class="cost">$135</div>
+                        </button>
+                        <button class="build-btn" data-type="D" title="[F6] Drone: Saturation Fire">
+                            <div class="shortcut-tag">F6</div>
+                            <div class="icon">🚁</div>
+                            <div class="name">Drone</div>
+                            <div class="cost">$155</div>
+                        </button>
+                    </div>
+                    <h3>NAVY <span class="dim" style="font-size: 0.7em">(water)</span></h3>
+                    <div class="build-group">
+                        <button
+                            class="build-btn"
+                            data-type="CV"
+                            title="[F7] Carrier Group: naval air-projection. Long range, multi-sortie volleys. Built on owned water. L3 adds a stealth sortie."
+                        >
+                            <div class="shortcut-tag">F7</div>
+                            <div class="icon">🛩️</div>
+                            <div class="name">Carrier</div>
+                            <div class="cost">$700</div>
+                        </button>
+                        <button class="build-btn" data-type="DDG" title="[F8] Destroyer: anti-ship missiles (sea)">
+                            <div class="shortcut-tag">F8</div>
+                            <div class="icon">🛳️</div>
+                            <div class="name">DDG</div>
+                            <div class="cost">$270</div>
+                        </button>
+                        <button class="build-btn" data-type="AF" title="[F9] Aegis (sea): intercept, sea AA">
+                            <div class="shortcut-tag">F9</div>
+                            <div class="icon">📡</div>
+                            <div class="name">Aegis</div>
+                            <div class="cost">$250</div>
+                        </button>
+                        <button class="build-btn" data-type="SSG" title="[F10] Cruise sub: heavy cruise strike">
+                            <div class="shortcut-tag">F10</div>
+                            <div class="icon">🫧</div>
+                            <div class="name">SSG</div>
+                            <div class="cost">$430</div>
+                        </button>
+                    </div>
+                    <h3>NATIONAL <span class="dim" style="font-size: 0.7em">(faction)</span></h3>
+                    <div class="build-group" id="faction-build-group">
+                        <button
+                            class="build-btn faction-slot"
+                            id="fbtn-eco"
+                            data-faction-slot="eco"
+                            title="Faction Economy"
+                        >
+                            <div class="shortcut-tag">·</div>
+                            <div class="icon">💼</div>
+                            <div class="name">—</div>
+                            <div class="cost">—</div>
+                        </button>
+                        <button
+                            class="build-btn faction-slot"
+                            id="fbtn-def"
+                            data-faction-slot="def"
+                            title="Faction Defense"
+                        >
+                            <div class="shortcut-tag">·</div>
+                            <div class="icon">🛡️</div>
+                            <div class="name">—</div>
+                            <div class="cost">—</div>
+                        </button>
+                        <button
+                            class="build-btn faction-slot"
+                            id="fbtn-off"
+                            data-faction-slot="off"
+                            title="Faction Offense"
+                        >
+                            <div class="shortcut-tag">·</div>
+                            <div class="icon">💥</div>
+                            <div class="name">—</div>
+                            <div class="cost">—</div>
+                        </button>
+                        <button
+                            class="build-btn faction-slot"
+                            id="fbtn-gnd"
+                            data-faction-slot="gnd"
+                            title="Faction Ground"
+                        >
+                            <div class="shortcut-tag">·</div>
+                            <div class="icon">🪖</div>
+                            <div class="name">—</div>
+                            <div class="cost">—</div>
+                        </button>
+                        <button
+                            class="build-btn faction-slot"
+                            id="fbtn-nav"
+                            data-faction-slot="nav"
+                            title="Faction Navy (water)"
+                        >
+                            <div class="shortcut-tag">·</div>
+                            <div class="icon">⚓</div>
+                            <div class="name">—</div>
+                            <div class="cost">—</div>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="right-hud">
+                    <!-- INFO PANEL -->
+                    <div id="info-panel" class="glass hud-panel hidden">
+                        <div id="info-content"></div>
+                        <button id="rush-btn" class="action-btn rush-btn hidden">RUSH</button>
+                        <button id="upgrade-btn" class="action-btn hidden">UPGRADE</button>
+                        <button id="upgrade-all-btn" class="action-btn upgrade-all-btn hidden">UPGRADE ALL [U]</button>
+                        <button id="demolish-btn" class="action-btn demolish-btn hidden">DEMOLISH</button>
+                        <button id="clear-target-btn" class="action-btn hidden">CLEAR TARGET</button>
+                        <button id="close-info" class="action-btn">CLOSE</button>
+                    </div>
+
+                    <!-- MINIMAP -->
+                    <div id="minimap-wrap" class="glass hud-panel">
+                        <div class="minimap-label">TACTICAL MAP</div>
+                        <div class="minimap-canvas-wrap">
+                            <canvas id="minimap" width="220" height="180"></canvas>
+                        </div>
+                        <div id="minimap-stats" class="minimap-stats" aria-live="polite">
+                            <div class="minimap-stats-head">
+                                <button
+                                    type="button"
+                                    id="minimap-stats-prev"
+                                    class="minimap-stats-btn"
+                                    aria-label="Previous intel panel"
+                                >
+                                    ◀
+                                </button>
+                                <span id="minimap-stats-label" class="minimap-stats-label">ECONOMY</span>
+                                <button
+                                    type="button"
+                                    id="minimap-stats-next"
+                                    class="minimap-stats-btn"
+                                    aria-label="Next intel panel"
+                                >
+                                    ▶
+                                </button>
+                            </div>
+                            <div id="minimap-stats-line1" class="minimap-stats-line1">—</div>
+                            <div id="minimap-stats-line2" class="minimap-stats-line2"></div>
+                        </div>
+                        <div id="scoreboard" class="scoreboard"></div>
+                    </div>
+                </div>
+
+                <!-- HOVER UPGRADE CHIP -->
+                <div id="hover-chip" class="hidden"></div>
+
+                <!-- BUILD TOOLTIP -->
+                <div id="build-tooltip" class="glass hidden"></div>
+
+                <!-- BUILD MODE BANNER -->
+                <div id="build-mode-banner" class="glass hud-panel hidden"></div>
+
+                <!-- COMBAT LOG -->
+                <div id="combat-log" class="glass hud-panel">
+                    <div class="combat-log-header">
+                        <span class="minimap-label">COMBAT LOG</span>
+                        <button id="combat-log-toggle" class="log-toggle-btn">−</button>
+                    </div>
+                    <div id="combat-log-entries" class="combat-log-entries"></div>
+                </div>
+
+                <div id="notis"></div>
+            </div>
+
+            <button id="help-toggle" class="glass" title="Keyboard shortcuts" aria-label="Keyboard shortcuts">?</button>
+            <div id="instructions" class="glass hidden">
+                <div class="help-section">
+                    <div class="help-head">CAMERA</div>
+                    <p><b>WASD</b> pan · <b>Scroll</b> zoom · <b>H</b> center on Gov · <b>J</b> last hit</p>
+                </div>
+                <div class="help-section">
+                    <div class="help-head">BUILD</div>
+                    <p>
+                        <b>1–0</b> quick build (Economy → Offense) · <b>I</b> ICBM · <b>F2–F10</b> Sig &amp; Ground
+                        &amp; Navy
+                    </p>
+                    <p><b>Space</b> upgrade · <b>U</b> upgrade all · <b>X</b> demolish</p>
+                </div>
+                <div class="help-section">
+                    <div class="help-head">SELECT &amp; CONTROL</div>
+                    <p>
+                        <b>Q</b> select all of type · <b>Ctrl+Click</b> multi-select · Drag from attacker to assign
+                        target
+                    </p>
+                </div>
+                <div class="help-section">
+                    <div class="help-head">GAME</div>
+                    <p>
+                        <b>P</b> pause · <b>+ / −</b> speed · <b>L</b> log · <b>]</b> cycle minimap intel ·
+                        <b>ESC</b> menu
+                    </p>
+                </div>
+            </div>
+
+            <!-- PAUSE OVERLAY -->
+            <div id="pause-overlay" class="hidden">
+                <div class="pause-text">PAUSED</div>
+                <p class="pause-sub">Press P to resume</p>
+            </div>
+
+            <!-- CAMPAIGN BRIEFING (in-game) -->
+            <div id="campaign-briefing-overlay" class="hidden">
+                <div class="tutorial-backdrop"></div>
+                <div class="tutorial-container glass campaign-briefing-box">
+                    <h2 id="campaign-briefing-title" class="campaign-briefing-h2">BRIEFING</h2>
+                    <div id="campaign-briefing-body" class="campaign-briefing-body"></div>
+                    <button type="button" id="campaign-briefing-begin" class="play-button" style="margin-top: 16px">
+                        <span class="play-icon">&#9654;</span> BEGIN OP
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== GAME MENU ==================== -->
+        <div id="game-menu" class="hidden">
+            <div class="tutorial-backdrop"></div>
+            <div class="end-card glass" style="min-width: 320px">
+                <h2
+                    style="
+                        font-family: var(--font-title);
+                        color: var(--accent-blue);
+                        letter-spacing: 3px;
+                        margin-bottom: 20px;
+                    "
+                >
+                    MENU
+                </h2>
+                <button id="menu-resume" class="menu-action-btn">RESUME</button>
+                <button id="menu-settings" class="menu-action-btn">SETTINGS</button>
+                <button id="menu-restart" class="menu-action-btn">RESTART</button>
+                <button id="menu-surrender" class="menu-action-btn danger">SURRENDER</button>
+                <button id="menu-quit" class="menu-action-btn danger">RETURN TO MENU</button>
+            </div>
+        </div>
+
+        <!-- ==================== DIPLOMACY PANEL ==================== -->
+        <div id="diplomacy-panel" class="hidden">
+            <div class="tutorial-backdrop"></div>
+            <div class="tutorial-container glass diplomacy-container">
+                <div class="tutorial-header">
+                    <h2>DIPLOMACY</h2>
+                    <div class="diplo-cap-label">
+                        <span id="diplomacy-cap-used">0</span>/<span id="diplomacy-cap-max">0</span> PEACES
+                    </div>
+                    <button id="diplomacy-close" class="tut-nav-btn">CLOSE</button>
+                </div>
+                <div class="tutorial-body diplomacy-body" id="diplomacy-list"></div>
+            </div>
+        </div>
+
+        <!-- ==================== END OVERLAY ==================== -->
+        <div id="end-overlay" class="hidden">
+            <div class="end-backdrop"></div>
+            <div class="end-card glass">
+                <h1 id="end-title" class="end-title">VICTORY</h1>
+                <p id="end-sub" class="end-sub"></p>
+                <div id="end-stats" class="end-stats"></div>
+                <button id="end-restart" class="play-button">
+                    <span class="play-icon">&#9654;</span> RETURN TO COMMAND
                 </button>
             </div>
         </div>
-    </div>
 
-    <!-- ==================== GAME MENU ==================== -->
-    <div id="game-menu" class="hidden">
-        <div class="tutorial-backdrop"></div>
-        <div class="end-card glass" style="min-width:320px">
-            <h2 style="font-family:var(--font-title);color:var(--accent-blue);letter-spacing:3px;margin-bottom:20px">MENU</h2>
-            <button id="menu-resume" class="menu-action-btn">RESUME</button>
-            <button id="menu-settings" class="menu-action-btn">SETTINGS</button>
-            <button id="menu-restart" class="menu-action-btn">RESTART</button>
-            <button id="menu-surrender" class="menu-action-btn danger">SURRENDER</button>
-            <button id="menu-quit" class="menu-action-btn danger">RETURN TO MENU</button>
-        </div>
-    </div>
-
-    <!-- ==================== DIPLOMACY PANEL ==================== -->
-    <div id="diplomacy-panel" class="hidden">
-        <div class="tutorial-backdrop"></div>
-        <div class="tutorial-container glass diplomacy-container">
-            <div class="tutorial-header">
-                <h2>DIPLOMACY</h2>
-                <div class="diplo-cap-label"><span id="diplomacy-cap-used">0</span>/<span id="diplomacy-cap-max">0</span> PEACES</div>
-                <button id="diplomacy-close" class="tut-nav-btn">CLOSE</button>
+        <!-- LOADING OVERLAY (shown while a world/map is generated) -->
+        <div id="loading-overlay" class="hidden" role="status" aria-live="polite">
+            <div class="loading-backdrop"></div>
+            <div class="loading-card">
+                <div class="loading-spinner" aria-hidden="true"></div>
+                <div class="loading-text">GENERATING WORLD</div>
+                <div class="loading-sub">Deploying forces&hellip;</div>
             </div>
-            <div class="tutorial-body diplomacy-body" id="diplomacy-list"></div>
         </div>
-    </div>
 
-    <!-- ==================== END OVERLAY ==================== -->
-    <div id="end-overlay" class="hidden">
-        <div class="end-backdrop"></div>
-        <div class="end-card glass">
-            <h1 id="end-title" class="end-title">VICTORY</h1>
-            <p id="end-sub" class="end-sub"></p>
-            <div id="end-stats" class="end-stats"></div>
-            <button id="end-restart" class="play-button">
-                <span class="play-icon">&#9654;</span> RETURN TO COMMAND
-            </button>
-        </div>
-    </div>
-
-    <!-- LOADING OVERLAY (shown while a world/map is generated) -->
-    <div id="loading-overlay" class="hidden" role="status" aria-live="polite">
-        <div class="loading-backdrop"></div>
-        <div class="loading-card">
-            <div class="loading-spinner" aria-hidden="true"></div>
-            <div class="loading-text">GENERATING WORLD</div>
-            <div class="loading-sub">Deploying forces&hellip;</div>
-        </div>
-    </div>
-
-    <!-- Synchronous: onclick runs before the ES module may be ready. Wait for main.js, then open (never show an empty op list from a bare DOM toggle). -->
-    <script>
-    function rocketioCampaignEntry(e) {
-        if (e) { e.preventDefault(); e.stopPropagation(); }
-        if (typeof window.rocketioOpenCampaign === 'function') {
-            try { window.rocketioOpenCampaign(e); } catch (err) { console.error('Campaign:', err); }
-            return false;
-        }
-        var n = 0;
-        var id = setInterval(function () {
-            if (typeof window.rocketioOpenCampaign === 'function') {
-                clearInterval(id);
-                try { window.rocketioOpenCampaign(e); } catch (err) { console.error('Campaign:', err); }
-            } else if (++n > 400) {
-                clearInterval(id);
+        <!-- Synchronous: onclick runs before the ES module may be ready. Wait for main.js, then open (never show an empty op list from a bare DOM toggle). -->
+        <script>
+            function rocketioCampaignEntry(e) {
+                if (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+                if (typeof window.rocketioOpenCampaign === 'function') {
+                    try {
+                        window.rocketioOpenCampaign(e);
+                    } catch (err) {
+                        console.error('Campaign:', err);
+                    }
+                    return false;
+                }
+                var n = 0;
+                var id = setInterval(function () {
+                    if (typeof window.rocketioOpenCampaign === 'function') {
+                        clearInterval(id);
+                        try {
+                            window.rocketioOpenCampaign(e);
+                        } catch (err) {
+                            console.error('Campaign:', err);
+                        }
+                    } else if (++n > 400) {
+                        clearInterval(id);
+                    }
+                }, 50);
+                return false;
             }
-        }, 50);
-        return false;
-    }
-    </script>
-    <script type="module" src="main.js?v=units3"></script>
-    <script defer src="uiPanels.js?v=ui1"></script>
-</body>
+        </script>
+        <script type="module" src="main.js?v=units3"></script>
+        <script defer src="uiPanels.js?v=ui1"></script>
+    </body>
 </html>
