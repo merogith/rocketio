@@ -1,3 +1,20 @@
+// ============================================================================
+//  GAME — the authoritative simulation.
+//
+//  The Game class owns all mutable game state and advances it one frame at a
+//  time. update() drives the major sections below (search the banners to jump):
+//    UPDATE / TICK ........ gold income, missile production, militia, regen
+//    SUPPLY ............... missile stockpiles vs consumption
+//    FOG OF WAR ........... visibility + remembered enemy positions
+//    DIPLOMACY ............ alliances, peace, co-victory
+//    STRUCTURE TICK LOGIC . per-structure behaviour (factories, AA, auras)
+//    FIRING ............... target selection, damage model, faction mechanics
+//    PROJECTILES .......... movement, interception, impact resolution
+//    VICTORY .............. per-mode win/lose evaluation
+//
+//  Has no DOM/Canvas dependencies, so it runs headless (see tests/smoke.test.js
+//  and tools/balance-harness.html).
+// ============================================================================
 import { UNIT_STATS, COLORS, GAME_CONFIG, DIFFICULTY, DIPLOMACY, govGoldForDistance } from './constants.js';
 import { getPlayerMods, getSpecialUnitLabelForPlayer, getFactionSignatureL3 } from '../data/factions.js';
 import { FACTION_UNIT_STATS, FACTION_UNITS_BY_CODE, isFactionUnit, factionUnitCategory } from '../data/factionUnits.js';

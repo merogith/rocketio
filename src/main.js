@@ -1,3 +1,15 @@
+// ============================================================================
+//  MAIN — application entry point.
+//
+//  Wires the DOM/menus to the simulation and runs the requestAnimationFrame
+//  loop. Holds the single authoritative `game` reference and passes it to the
+//  AI and renderer each frame. Major sections (search the banners to jump):
+//    DOM / WORLD / INIT INPUT ...... element refs, world setup, input model
+//    HOMEPAGE / TUTORIAL / SETTINGS  menu and configuration wiring
+//    BUILD UI / INFO PANEL / DIPLOMACY UI / COMBAT LOG ... in-game HUD
+//    END-GAME ...................... victory/defeat presentation
+//    MAIN LOOP ..................... input → game.update → updateAI → render
+// ============================================================================
 import { Hex, HexGrid, Camera } from './core/hexGrid.js';
 import { getRealWorldMap, parseTemplate } from './data/realWorldMaps.js';
 import { Game } from './core/game.js';
