@@ -40,3 +40,32 @@ describe('unit data integrity', () => {
         }
     });
 });
+
+/**
+ * Balance guardrail: no standard combat structure should exceed an absolute
+ * damage-per-gold-per-second ceiling. This catches gross efficiency outliers (the
+ * pre-rebalance Houdong Swarm sat at 0.125 — ~4.4x its naval peers). Superweapons
+ * (cost >= 3000, e.g. ICBM) and 0-damage support/aura units are exempt.
+ * See docs/BALANCE.md for the methodology behind this threshold.
+ */
+describe('balance: damage efficiency ceiling', () => {
+    const DPC_CEILING = 0.085;
+
+    function dpsPerCost(lv) {
+        const dps = ((lv.damage || 0) * (lv.projectiles || 0)) / ((lv.interval || 1) / 1000);
+        const cost = lv.cost || 0;
+        if (!dps || !cost) return null;
+        return dps / cost;
+    }
+
+    it('keeps every non-superweapon combat unit at or under the DPS/gold ceiling', () => {
+        for (const { key, levels } of allUnitDefs()) {
+            for (const lv of levels) {
+                if ((lv.cost || 0) >= 3000) continue; // superweapons priced as finishers
+                const dpc = dpsPerCost(lv);
+                if (dpc == null) continue; // support / interceptor / economy unit
+                expect(dpc, `${key}/${lv.id} dps-per-gold`).toBeLessThanOrEqual(DPC_CEILING);
+            }
+        }
+    });
+});
