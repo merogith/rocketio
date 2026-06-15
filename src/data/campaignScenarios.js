@@ -2,8 +2,8 @@
 //  Hand-tuned map changes after base Game.start (mission-specific)
 // ============================================================================
 
-import { Hex } from './hexGrid.js?v=sig3';
-import { UNIT_STATS } from './constants.js?v=sig3';
+import { Hex } from '../core/hexGrid.js';
+import { UNIT_STATS } from '../core/constants.js';
 
 function findGovTile(game, ownerId) {
     for (const t of game.grid.tiles.values()) {
@@ -22,7 +22,7 @@ function findMfTile(game, ownerId) {
 /**
  * @param {import('./game.js').Game} game
  * @param {string} type
- * @param {import('./hexGrid.js').Hex} tile
+ * @param {import('../core/hexGrid.js').Hex} tile
  * @returns {{ ok: boolean, msg?: string }}
  */
 export function m1BuildTutorialCheckPlace(game, type, tile) {
@@ -45,7 +45,7 @@ export function m1BuildTutorialCheckPlace(game, type, tile) {
 /**
  * @param {import('./game.js').Game} game
  * @param {string} type
- * @param {import('./hexGrid.js').Hex} tile
+ * @param {import('../core/hexGrid.js').Hex} tile
  * @param {boolean} [placementSucceeded]
  * @returns {{ nudge: 'next' } | { nudge: 'complete' } | void}
  */
@@ -335,7 +335,7 @@ function applyMission2(game, grid) {
 
 /**
  * @param {import('./game.js').Game} game
- * @param {import('./hexGrid.js').HexGrid} grid
+ * @param {import('../core/hexGrid.js').HexGrid} grid
  * @param {number} missionId
  */
 export function applyCampaignScenario(game, grid, missionId) {

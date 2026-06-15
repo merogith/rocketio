@@ -1,5 +1,5 @@
 // Home menu / UI copy: banners, leader flavor text. Logic stays in factions.js.
-import { FACTIONS, getFaction, getSpecialUnitIcon } from './factions.js';
+import { FACTIONS, getFaction, getSpecialUnitIcon } from '../data/factions.js';
 
 export const PLACEHOLDER_LEADER_PORTRAIT = 'assets/placeholders/leader.svg';
 

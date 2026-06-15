@@ -4,7 +4,7 @@ import {
     govGoldForDistance,
     totalSoloGovDiskGoldPerSec,
     getEffectiveMapRadius,
-} from '../constants.js';
+} from '../src/core/constants.js';
 
 describe('hexDiskTileCount', () => {
     it('matches the centered-hexagonal-number sequence', () => {

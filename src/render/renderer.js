@@ -1,6 +1,6 @@
-import { COLORS, UNIT_STATS, PROJECTILE_VISUAL_PRESETS } from './constants.js?v=sig3';
-import { getSpecialUnitIcon } from './factions.js?v=sig3';
-import { FACTION_UNIT_STATS } from './factionUnits.js?v=fu1';
+import { COLORS, UNIT_STATS, PROJECTILE_VISUAL_PRESETS } from '../core/constants.js';
+import { getSpecialUnitIcon } from '../data/factions.js';
+import { FACTION_UNIT_STATS } from '../data/factionUnits.js';
 
 const TARGETABLE_TYPES = new Set(['RL', 'B', 'D', 'SU', 'M', 'AB', 'DDG', 'SSG']);
 const NAVY_BUILD_GHOST = new Set(['DDG', 'AF', 'SSG', 'CV']);

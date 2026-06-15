@@ -1,4 +1,4 @@
-import { DEFAULT_KEYBINDS, DEFAULT_SETTINGS } from './constants.js?v=sig3';
+import { DEFAULT_KEYBINDS, DEFAULT_SETTINGS } from '../core/constants.js';
 
 const keybinds = {};
 const settings = {};

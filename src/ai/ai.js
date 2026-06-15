@@ -28,8 +28,8 @@
 //         j. Demolish              — reclaim gold from trapped/redundant structures
 // ============================================================================
 
-import { UNIT_STATS, AI_DOCTRINES, GAME_CONFIG, DIPLOMACY } from './constants.js?v=sig3';
-import { Hex } from './hexGrid.js?v=sig3';
+import { UNIT_STATS, AI_DOCTRINES, GAME_CONFIG, DIPLOMACY } from '../core/constants.js';
+import { Hex } from '../core/hexGrid.js';
 
 const PHASES = { EXPAND: 0, FORTIFY: 1, PRESSURE: 2, DOMINATE: 3 };
 

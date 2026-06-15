@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { Hex } from '../hexGrid.js';
+import { Hex } from '../src/core/hexGrid.js';
 
 describe('Hex.distance', () => {
     it('is zero to itself', () => {

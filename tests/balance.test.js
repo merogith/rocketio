@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { UNIT_STATS } from '../constants.js';
-import { FACTION_UNIT_STATS } from '../factionUnits.js';
+import { UNIT_STATS } from '../src/core/constants.js';
+import { FACTION_UNIT_STATS } from '../src/data/factionUnits.js';
 
 /** Flatten every unit definition into { id, levels[] } records from both rosters. */
 function allUnitDefs() {

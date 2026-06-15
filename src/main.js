@@ -1,7 +1,7 @@
-import { Hex, HexGrid, Camera } from './hexGrid.js?v=units3';
-import { getRealWorldMap, parseTemplate } from './realWorldMaps.js?v=rw1';
-import { Game } from './game.js?v=units3';
-import { Renderer } from './renderer.js?v=units3';
+import { Hex, HexGrid, Camera } from './core/hexGrid.js';
+import { getRealWorldMap, parseTemplate } from './data/realWorldMaps.js';
+import { Game } from './core/game.js';
+import { Renderer } from './render/renderer.js';
 import {
     UNIT_STATS,
     GAME_CONFIG,
@@ -10,23 +10,25 @@ import {
     COLORS,
     DIPLOMACY,
     govGoldBandLinesHtml,
-} from './constants.js?v=units3';
-import { getFactionSignatureL3, getSpecialUnitName, getSpecialUnitIcon } from './factions.js?v=units3';
-import { FACTION_UNITS_BY_CODE, FACTION_UNIT_STATS } from './factionUnits.js?v=fu1';
-import { TUTORIAL_PAGES } from './tutorial.js?v=units3';
-import { getMissionById, CAMPAIGN_MISSIONS } from './campaignData.js?v=units3';
-import { loadCampaignProgress, canStartMission, markMissionBeaten } from './campaignProgress.js?v=units3';
-import { applyCampaignScenario, m1BuildTutorialCheckPlace, m1OnBuildPlaced } from './campaignScenarios.js?v=units3';
-import { Input } from './input.js?v=units3';
-import { updateAI } from './ai.js?v=units3';
-import { SFX } from './sfx.js?v=units3';
-import { FACTIONS, getFaction, describeModsList, getPlayerMods } from './factions.js?v=units3';
+} from './core/constants.js';
+import { getFactionSignatureL3, getSpecialUnitName, getSpecialUnitIcon } from './data/factions.js';
+import { FACTION_UNITS_BY_CODE, FACTION_UNIT_STATS } from './data/factionUnits.js';
+import { TUTORIAL_PAGES } from './ui/tutorial.js';
+import { getMissionById, CAMPAIGN_MISSIONS } from './data/campaignData.js';
+import { loadCampaignProgress, canStartMission, markMissionBeaten } from './data/campaignProgress.js';
+import { applyCampaignScenario, m1BuildTutorialCheckPlace, m1OnBuildPlaced } from './data/campaignScenarios.js';
+import { Input } from './ui/input.js';
+import { updateAI } from './ai/ai.js';
+import { SFX } from './render/sfx.js';
+import { FACTIONS, getFaction, describeModsList, getPlayerMods } from './data/factions.js';
 import {
     FACTION_BANNERS,
     PLACEHOLDER_LEADER_PORTRAIT,
     getSpecialUnitBlurb,
     getLeaderPerkText,
-} from './factionsDisplay.js?v=units3';
+} from './ui/factionsDisplay.js';
+// Side-effect import: wires up draggable/collapsible HUD panels once #app is shown.
+import './ui/uiPanels.js';
 
 // ============================================================================
 //  DOM

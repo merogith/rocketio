@@ -1,6 +1,7 @@
 // Interactive HUD panels: draggable, collapsible, closeable.
 // Persists position + collapsed/hidden state per panel in localStorage.
-// Pure DOM script (no module). Loaded after main.js.
+// Imported for side effects by main.js. Self-defers via MutationObserver until
+// the in-game #app container becomes visible, so import order does not matter.
 
 (function () {
     'use strict';

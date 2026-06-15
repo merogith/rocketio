@@ -1,8 +1,8 @@
-import { UNIT_STATS, COLORS, GAME_CONFIG, DIFFICULTY, DIPLOMACY, govGoldForDistance } from './constants.js?v=units3';
-import { getPlayerMods, getSpecialUnitLabelForPlayer, getFactionSignatureL3 } from './factions.js?v=units3';
-import { FACTION_UNIT_STATS, FACTION_UNITS_BY_CODE, isFactionUnit, factionUnitCategory } from './factionUnits.js?v=fu1';
-import { Hex } from './hexGrid.js?v=units3';
-import { SFX } from './sfx.js?v=units3';
+import { UNIT_STATS, COLORS, GAME_CONFIG, DIFFICULTY, DIPLOMACY, govGoldForDistance } from './constants.js';
+import { getPlayerMods, getSpecialUnitLabelForPlayer, getFactionSignatureL3 } from '../data/factions.js';
+import { FACTION_UNIT_STATS, FACTION_UNITS_BY_CODE, isFactionUnit, factionUnitCategory } from '../data/factionUnits.js';
+import { Hex } from './hexGrid.js';
+import { SFX } from '../render/sfx.js';
 
 function relKey(a, b) {
     const x = Math.min(a, b),

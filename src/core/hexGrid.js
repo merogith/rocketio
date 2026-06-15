@@ -1,5 +1,5 @@
-import { UNIT_STATS, GAME_CONFIG, govGoldForDistance } from './constants.js?v=sig3';
-import { REAL_WORLD_MAPS, parseTemplate, isRealWorldMap } from './realWorldMaps.js?v=rw1';
+import { UNIT_STATS, GAME_CONFIG, govGoldForDistance } from './constants.js';
+import { REAL_WORLD_MAPS, parseTemplate, isRealWorldMap } from '../data/realWorldMaps.js';
 
 export class Hex {
     constructor(q, r) {
