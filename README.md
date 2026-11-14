@@ -8,6 +8,12 @@ Command one of **14 world powers**, each with its own doctrine, leader perks, an
 
 ---
 
+## Try it
+
+[Play RocketIO](https://merogith.github.io/rocketio/) on a desktop browser at 1280 × 720 or larger. Choose **How to Play** for the tutorial, or start a skirmish from the main menu.
+
+For the engineering behind the game, see the [balance methodology](docs/BALANCE.md) and the [headless simulation test](tests/smoke.test.js). They show how I compared unit efficiency within each role, corrected an outlier, and added a regression check for future changes.
+
 ## Highlights
 
 - **14 playable factions**, each with 5 faction-unique units (70 total) layered on a shared 20-structure tech tree — economy, defense, offense, ground, and navy.
