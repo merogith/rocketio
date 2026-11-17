@@ -41,29 +41,29 @@ export const TUTORIAL_PAGES = [
         <div class="tut-steps">
             <div class="tut-step">
                 <span class="tut-step-num">1</span>
-                <div><b>Build a Missile Factory</b> <span class="tut-dim">($${L1.MF.cost}) — press <span class="key-badge">2</span></span><br>You start with one. Build a second immediately — rockets need ammo.</div>
+                <div><b>Build a Missile Factory</b> <span class="tut-dim">($${L1.MF.cost}) — press <span class="key-badge">{key:build_MF}</span></span><br>You start with one. Build a second immediately — rockets need ammo.</div>
             </div>
             <div class="tut-step">
                 <span class="tut-step-num">2</span>
-                <div><b>Build Rocket Launchers</b> <span class="tut-dim">($${L1.RL.cost}) — press <span class="key-badge">9</span></span><br>Your main damage dealers. Place 2–3 near your border.</div>
+                <div><b>Build Rocket Launchers</b> <span class="tut-dim">($${L1.RL.cost}) — press <span class="key-badge">{key:build_RL}</span></span><br>Your main damage dealers. Place 2–3 near your border.</div>
             </div>
             <div class="tut-step">
                 <span class="tut-step-num">3</span>
-                <div><b>Build an Anti-Air System</b> <span class="tut-dim">($${L1.AAS.cost}) — press <span class="key-badge">5</span></span><br>Intercepts enemy missiles. Protect your Government!</div>
+                <div><b>Build an Anti-Air System</b> <span class="tut-dim">($${L1.AAS.cost}) — press <span class="key-badge">{key:build_AAS}</span></span><br>Intercepts enemy missiles. Protect your Government!</div>
             </div>
             <div class="tut-step">
                 <span class="tut-step-num">4</span>
-                <div><b>Expand with a new Government</b> <span class="tut-dim">($${L1.G.cost}) — press <span class="key-badge">1</span></span><br>More territory = more gold income. Spread them out.</div>
+                <div><b>Expand with a new Government</b> <span class="tut-dim">($${L1.G.cost}) — press <span class="key-badge">{key:build_G}</span></span><br>More territory = more gold income. Spread them out.</div>
             </div>
         </div>
 
         <div class="tut-controls">
-            <div class="tut-ctrl"><span class="key-badge">WASD</span> Pan camera</div>
+            <div class="tut-ctrl"><span class="key-badge">{key:pan_up}{key:pan_left}{key:pan_down}{key:pan_right}</span> Pan camera</div>
             <div class="tut-ctrl"><span class="key-badge">Scroll</span> Zoom</div>
-            <div class="tut-ctrl"><span class="key-badge">1–0 / F2–F10</span> Quick build</div>
-            <div class="tut-ctrl"><span class="key-badge">Space</span> Upgrade</div>
-            <div class="tut-ctrl"><span class="key-badge">X</span> Demolish</div>
-            <div class="tut-ctrl"><span class="key-badge">ESC</span> Menu</div>
+            <div class="tut-ctrl"><span class="key-badge">Build palette</span> Current hotkeys on each button</div>
+            <div class="tut-ctrl"><span class="key-badge">{key:upgrade}</span> Upgrade</div>
+            <div class="tut-ctrl"><span class="key-badge">{key:demolish}</span> Demolish</div>
+            <div class="tut-ctrl"><span class="key-badge">{key:cancel}</span> Menu</div>
         </div>
     `,
 
@@ -162,12 +162,12 @@ export const TUTORIAL_PAGES = [
 
         <div class="tut-tactic">
             <div class="tut-tactic-title">⬆️ Upgrade > Spam</div>
-            <div class="tut-tactic-body">Higher tiers beat spammed Lv1s. Upgrades save <b>${upgradeSavePct}%</b> vs buying that tier at list price. Use <span class="key-badge">Space</span> to quick-upgrade.</div>
+            <div class="tut-tactic-body">Higher tiers beat spammed Lv1s. Upgrades save <b>${upgradeSavePct}%</b> vs buying that tier at list price. Use <span class="key-badge">{key:upgrade}</span> to quick-upgrade.</div>
         </div>
 
         <div class="tut-tactic">
             <div class="tut-tactic-title">♻️ Recycle</div>
-            <div class="tut-tactic-body">Press <span class="key-badge">X</span> to demolish a structure for <b>${demolishPct}%</b> of what you spent on it back. Move your defenses as the front line shifts.</div>
+            <div class="tut-tactic-body">Press <span class="key-badge">{key:demolish}</span> to demolish a structure for <b>${demolishPct}%</b> of what you spent on it back. Move your defenses as the front line shifts.</div>
         </div>
 
         <div class="tip-box">
@@ -219,11 +219,11 @@ export const TUTORIAL_PAGES = [
         </div>
 
         <div class="tut-shortcut-grid">
-            <div class="tut-sc"><span class="key-badge">H</span> Center on your Gov</div>
-            <div class="tut-sc"><span class="key-badge">J</span> Jump to last hit</div>
-            <div class="tut-sc"><span class="key-badge">P</span> Pause / Resume</div>
-            <div class="tut-sc"><span class="key-badge">L</span> Toggle combat log</div>
-            <div class="tut-sc"><span class="key-badge">Q</span> Select all of type</div>
+            <div class="tut-sc"><span class="key-badge">{key:center_cap}</span> Center on your Gov</div>
+            <div class="tut-sc"><span class="key-badge">{key:center_last_hit}</span> Jump to last hit</div>
+            <div class="tut-sc"><span class="key-badge">{key:pause}</span> Pause / Resume</div>
+            <div class="tut-sc"><span class="key-badge">{key:toggle_log}</span> Toggle combat log</div>
+            <div class="tut-sc"><span class="key-badge">{key:select_all_type}</span> Select all of type</div>
             <div class="tut-sc"><span class="key-badge">Ctrl+Click</span> Multi-select</div>
         </div>
 

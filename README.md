@@ -10,7 +10,7 @@ Command one of **14 world powers**, each with its own doctrine, leader perks, an
 
 ## Try it
 
-[Play RocketIO](https://merogith.github.io/rocketio/) on a desktop browser at 1280 × 720 or larger. Choose **How to Play** for the tutorial, or start a skirmish from the main menu.
+[Play RocketIO](https://merogith.github.io/rocketio/) on a desktop browser at 1280 × 720 or larger. Choose **Play the guided demo** for a two-operation training arc: launch an attack, learn interception, then finish training and choose a custom skirmish. **How to Play** is the reference guide. Campaign progress stays on this device; the training arc ends after Bunkerline.
 
 For the engineering behind the game, see the [balance methodology](docs/BALANCE.md) and the [headless simulation test](tests/smoke.test.js). They show how I compared unit efficiency within each role, corrected an outlier, and added a regression check for future changes.
 
@@ -21,7 +21,7 @@ For the engineering behind the game, see the [balance methodology](docs/BALANCE.
 - **Five victory modes** — Conquest, Domination, Regime Change, Blitz, and Last Stand — with adjustable parameters.
 - **Real missile economy** — factories produce missiles, launchers consume them, and anti-air batteries intercept incoming volleys. Supply, not just gold, gates your offense.
 - **Procedural everything** — hex terrain (gradient-noise continents, archipelagos, inland seas) plus hand-authored coastlines (Mediterranean, British Isles, Japan, Caribbean); ZzFX sound effects and an adaptive WebAudio score that tightens with on-screen threat.
-- **Fog of war** with a remembered last-known-enemy layer, draggable/collapsible HUD panels, a single-player campaign, and a full tutorial.
+- **Fog of war** with a remembered last-known-enemy layer, draggable/collapsible HUD panels, a complete two-operation training campaign, and a full tutorial.
 
 ## Run it locally
 
