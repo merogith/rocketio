@@ -5,7 +5,7 @@ import { getEffectiveMapRadius, UNIT_STATS } from '../src/core/constants.js';
 import { CAMPAIGN_MISSIONS, getTrainingOutcome } from '../src/data/campaignData.js';
 import { applyCampaignScenario, m1BuildTutorialCheckPlace, m1OnBuildPlaced } from '../src/data/campaignScenarios.js';
 import { canStartMission, loadCampaignProgress, markMissionBeaten } from '../src/data/campaignProgress.js';
-import { formatInstructions } from '../src/ui/instructions.js';
+import { formatInstructions, keyLabel } from '../src/ui/instructions.js';
 
 function seededWorld(mission, seed) {
     vi.spyOn(Math, 'random').mockImplementation(() => {
@@ -75,6 +75,8 @@ describe('Sentinel training', () => {
         expect(rendered).toContain('Rocket Launchers (key R)');
         expect(rendered).not.toContain('{key:');
         expect(formatInstructions('{key:build_RL}', { build_RL: '' })).toContain('build palette');
+        expect(keyLabel('speed_up')).toBe('+');
+        expect(keyLabel('cycle_minimap_stats')).toBe(']');
     });
 
     for (const mission of CAMPAIGN_MISSIONS) {
