@@ -5,7 +5,7 @@
 import { CAMPAIGN_MISSIONS } from './campaignData.js';
 
 const STORAGE_KEY = 'rocketio_campaign_v1';
-const MAX_ID = 10;
+const MAX_ID = Math.max(...CAMPAIGN_MISSIONS.map((m) => m.id));
 
 /**
  * @returns {{ v: number, beaten: boolean[] }}
@@ -58,7 +58,7 @@ export function getClearedPrefixLength(beaten) {
  * May start mission m: next in line, or any already cleared (replay).
  */
 export function canStartMission(m, beaten) {
-    if (m < 1 || m > MAX_ID) return false;
+    if (!CAMPAIGN_MISSIONS.some((mission) => mission.id === m && mission.implemented)) return false;
     const prefix = getClearedPrefixLength(beaten);
     if (m <= prefix + 1) return true;
     if (beaten[m]) return true;

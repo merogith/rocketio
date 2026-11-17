@@ -26,10 +26,11 @@ import {
 import { getFactionSignatureL3, getSpecialUnitName, getSpecialUnitIcon } from './data/factions.js';
 import { FACTION_UNITS_BY_CODE, FACTION_UNIT_STATS } from './data/factionUnits.js';
 import { TUTORIAL_PAGES } from './ui/tutorial.js';
-import { getMissionById, CAMPAIGN_MISSIONS } from './data/campaignData.js';
+import { getMissionById, CAMPAIGN_MISSIONS, getTrainingOutcome } from './data/campaignData.js';
 import { loadCampaignProgress, canStartMission, markMissionBeaten } from './data/campaignProgress.js';
 import { applyCampaignScenario, m1BuildTutorialCheckPlace, m1OnBuildPlaced } from './data/campaignScenarios.js';
 import { Input } from './ui/input.js';
+import { formatInstructions, keyLabel } from './ui/instructions.js';
 import { updateAI } from './ai/ai.js';
 import { SFX } from './render/sfx.js';
 import { FACTIONS, getFaction, describeModsList, getPlayerMods } from './data/factions.js';
@@ -140,11 +141,12 @@ let prevSpeedBeforePause = 1;
 /** @type {{ missionId: number } | null} */
 let activeCampaign = null;
 let endReturnTarget = 'home';
+let trainingOutcome = null;
 
 function campaignLineToHtml(line) {
     if (!line) return '';
     const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    return esc(line).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    return esc(formatInstructions(line, Input.getKeybinds())).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
 }
 
 function showCampaignQuestPanel(m) {
@@ -192,6 +194,26 @@ function syncCampaignBuildQuestPanel() {
     }
 }
 
+function syncBuildKeyLabels() {
+    const bindings = Input.getKeybinds();
+    document.querySelectorAll('[data-key-action]').forEach((el) => {
+        el.textContent = keyLabel(el.dataset.keyAction, bindings);
+    });
+    document.querySelectorAll('[data-key-actions]').forEach((el) => {
+        el.textContent = el.dataset.keyActions
+            .split(' ')
+            .map((action) => keyLabel(action, bindings))
+            .join(' / ');
+    });
+    buildBtns.forEach((btn) => {
+        const action = `build_${btn.dataset.type}`;
+        if (!(action in bindings)) return;
+        const tag = btn.querySelector('.shortcut-tag');
+        if (tag) tag.textContent = bindings[action] ? keyLabel(action, bindings) : '·';
+        btn.title = btn.title.replace(/^\[[^\]]*\]/, `[${keyLabel(action, bindings)}]`);
+    });
+}
+
 function updateSignatureBuildButton(factionId) {
     const btn = document.querySelector('.build-btn[data-type="SU"]');
     if (!btn) return;
@@ -202,7 +224,7 @@ function updateSignatureBuildButton(factionId) {
     const nameEl = btn.querySelector('.name');
     if (iconEl) iconEl.textContent = icon;
     if (nameEl) nameEl.textContent = sn;
-    btn.title = `[F10] ${sn} — faction signature. L3 “${sig.label}”: ${sig.desc}`;
+    btn.title = `[${keyLabel('build_SU', Input.getKeybinds())}] ${sn} — faction signature. L3 “${sig.label}”: ${sig.desc}`;
 }
 
 /**
@@ -236,7 +258,11 @@ function m1AutoselectBuild() {
     const st = game?.campaign?.buildTutorial?.steps[game.campaign?.buildTutorial?.step];
     if (!st) return;
     const btn = document.querySelector(`.build-btn[data-type="${st.type}"]`);
-    if (btn) btn.click();
+    if (btn && selectedBuildType !== st.type) btn.click();
+    // Keep the next teaching target in view even on maps with distant capitals.
+    const pos = grid.hexToPixel(st.q, st.r);
+    camera.x = -pos.x;
+    camera.y = -pos.y;
 }
 
 function updateM1BuildButtonLock() {
@@ -337,6 +363,12 @@ function startCampaignMission(missionId) {
 function renderCampaignMissionList() {
     if (!campaignMissionListEl) return;
     const prog = loadCampaignProgress();
+    const complete = CAMPAIGN_MISSIONS.every((m) => prog.beaten[m.id]);
+    const tagline = document.getElementById('campaign-tagline');
+    if (tagline)
+        tagline.textContent = complete
+            ? 'Training complete — replay an operation or command your own skirmish.'
+            : 'Two operations · Supply, interception and the counter-attack · Progress saved on this device';
     campaignMissionListEl.innerHTML = '';
     for (const m of CAMPAIGN_MISSIONS) {
         const btn = document.createElement('button');
@@ -442,6 +474,7 @@ function initWorld(
     game = new Game(grid);
     game.aiDifficulty = difficulty;
     game.diplomacyEnabled = campaign ? false : Input.getSetting('diplomacyEnabled') !== false;
+    syncBuildKeyLabels();
     renderer = new Renderer(canvas, grid, camera);
     renderer.settings.screenShake = Input.getSetting('screenShake');
     renderer.settings.threatRings = Input.getSetting('threatRings') !== false;
@@ -696,6 +729,8 @@ document.getElementById('play-btn')?.addEventListener('click', () => {
     });
 });
 
+document.getElementById('quick-start-btn')?.addEventListener('click', () => startCampaignMission(1));
+
 campaignBackBtn?.addEventListener('click', () => {
     closeCampaignScreen();
     homepageEl.classList.remove('hidden');
@@ -718,7 +753,7 @@ document.getElementById('settings-btn-home')?.addEventListener('click', () => op
 let tutStep = 0;
 function renderTutorial(step) {
     tutStep = Math.max(0, Math.min(TUTORIAL_PAGES.length - 1, step));
-    tutBody.innerHTML = TUTORIAL_PAGES[tutStep];
+    tutBody.innerHTML = formatInstructions(TUTORIAL_PAGES[tutStep], Input.getKeybinds());
     tutStepLabel.textContent = `${tutStep + 1} / ${TUTORIAL_PAGES.length}`;
     tutProgressFill.style.width = `${((tutStep + 1) / TUTORIAL_PAGES.length) * 100}%`;
     tutPrev.disabled = tutStep === 0;
@@ -760,6 +795,10 @@ function closeSettings() {
     settingsOverlay.classList.add('hidden');
     Input.stopRebind();
     settingsOpen = false;
+
+    syncCampaignBuildQuestPanel();
+    syncBuildKeyLabels();
+    if (!tutorialOverlay.classList.contains('hidden')) renderTutorial(tutStep);
 
     // Return directly to the game (no forced trip through Resume).
     if (game) setPaused(false);
@@ -1004,11 +1043,16 @@ canvas.addEventListener('mousedown', (e) => {
                     } else {
                         const m1n = m1OnBuildPlaced(game, selectedBuildType, tile, true);
                         game.recomputeFog();
-                        if (m1n?.nudge === 'next')
-                            showNoti('Next: Missile Factory — key 4, then the new pulsing hex.', 'info');
+                        if (m1n?.nudge === 'next') {
+                            const next = game.campaign.buildTutorial.steps[game.campaign.buildTutorial.step];
+                            showNoti(
+                                `Next: ${next.label} — ${keyLabel(next.action, Input.getKeybinds())}, then the pulsing hex.`,
+                                'info'
+                            );
+                        }
                         if (m1n?.nudge === 'complete') {
                             showNoti(
-                                'Training complete. Main objective is in the op panel — take their Government.',
+                                'Build drill complete. Main objective is in the op panel — take their Government.',
                                 'success'
                             );
                         }
@@ -1414,7 +1458,10 @@ function handleInput() {
             if (game.campaign?.buildTutorial?.active) {
                 const st = game.campaign.buildTutorial.steps[game.campaign.buildTutorial.step];
                 if (st && type !== st.type) {
-                    showNoti(`Training: use the ${st.label} hotkey (key ${st.key}) first.`, 'error');
+                    showNoti(
+                        `Training: use the ${st.label} hotkey (key ${keyLabel(st.action, Input.getKeybinds())}) first.`,
+                        'error'
+                    );
                     return;
                 }
             }
@@ -1596,12 +1643,16 @@ buildBtns.forEach((btn) => {
         if (game?.campaign?.buildTutorial?.active) {
             const st = game.campaign.buildTutorial.steps[game.campaign.buildTutorial.step];
             if (st && type !== st.type) {
-                showNoti(`Training: select ${st.label} only (key ${st.key}).`, 'error');
+                showNoti(
+                    `Training: select ${st.label} only (key ${keyLabel(st.action, Input.getKeybinds())}).`,
+                    'error'
+                );
                 return;
             }
         }
         if (selectedBuildType === type) {
-            resetSelection();
+            // Guided builds are preselected; pressing the displayed shortcut must keep them selected.
+            if (!game?.campaign?.buildTutorial?.active) resetSelection();
             return;
         }
         buildBtns.forEach((b) => b.classList.remove('active'));
@@ -2811,6 +2862,7 @@ function maybeShowEndGame() {
         if (game.campaign && humanWon) {
             markMissionBeaten(game.campaign.missionId);
         }
+        applyTrainingOutcome(humanWon);
         renderEndStats();
         endOverlay.classList.remove('hidden');
     } else if (game.defeated.has(1)) {
@@ -2818,8 +2870,18 @@ function maybeShowEndGame() {
         endTitle.textContent = 'DEFEAT';
         endTitle.className = 'end-title loss';
         endSub.textContent = game.campaign?.mission?.defeat || 'Your government has fallen.';
+        applyTrainingOutcome(false);
         renderEndStats();
         endOverlay.classList.remove('hidden');
+    }
+}
+
+function applyTrainingOutcome(won) {
+    trainingOutcome = game.campaign ? getTrainingOutcome(game.campaign.missionId, won) : null;
+    endRestart.textContent = trainingOutcome?.action || 'RETURN TO MENU';
+    if (trainingOutcome) {
+        endTitle.textContent = trainingOutcome.title;
+        endSub.textContent = trainingOutcome.message.replace(/\*\*/g, '');
     }
 }
 
@@ -2850,13 +2912,20 @@ function renderEndStats() {
 }
 
 endRestart.addEventListener('click', () => {
+    const nextMissionId = trainingOutcome?.nextMissionId;
+    const finishedTraining = trainingOutcome && nextMissionId === null;
+    trainingOutcome = null;
     endOverlay.classList.add('hidden');
+    if (nextMissionId) {
+        startCampaignMission(nextMissionId);
+        return;
+    }
     endShown = false;
     endOutcomeAt = 0;
     appEl.classList.add('hidden');
     closeCampaignBriefingInGame();
     hideCampaignQuestPanel();
-    if (endReturnTarget === 'campaign' && activeCampaign) {
+    if (!finishedTraining && endReturnTarget === 'campaign' && activeCampaign) {
         homepageEl.classList.add('hidden');
         openCampaignScreen();
     } else {
@@ -3055,7 +3124,10 @@ function loop(time) {
             hasMissileLauncher
         ) {
             game._m1MfNag = true;
-            showNoti('Missile Factories (key 4) resupply launchers. No missiles = your rockets sit idle.', 'info');
+            showNoti(
+                `Missile Factories (key ${keyLabel('build_MF', Input.getKeybinds())}) resupply launchers. No missiles = your rockets sit idle.`,
+                'info'
+            );
         }
 
         const threat = computeThreat();

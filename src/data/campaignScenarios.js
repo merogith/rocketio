@@ -34,7 +34,7 @@ export function m1BuildTutorialCheckPlace(game, type, tile) {
         return { ok: true };
     }
     if (type !== step.type) {
-        return { ok: false, msg: `Training: only build your ${step.label} (key ${step.key}).` };
+        return { ok: false, msg: `Training: only build your ${step.label} — use its button in the build palette.` };
     }
     if (tile.q !== step.q || tile.r !== step.r) {
         return { ok: false, msg: 'Not that tile — build on the pulsing cyan hex.' };
@@ -195,10 +195,10 @@ function applyMission1(game, grid) {
             level: 0,
             q: slots[0].q,
             r: slots[0].r,
-            key: 9,
+            action: 'build_RL',
             label: 'Rocket Launcher (Lv1)',
             questPrimary:
-                'TRAINING — **1/2** · Press **[9]** then click the **pulsing cyan hex** to drop a Rocket Launcher.',
+                'TRAINING — **1/2** · Press **[{key:build_RL}]** then click the **pulsing cyan hex** to drop a Rocket Launcher.',
             questHint:
                 'Rocket Launchers spend a missile per shot. The pulsing tile is **already in range** of the enemy Government.',
         },
@@ -207,7 +207,7 @@ function applyMission1(game, grid) {
             level: 0,
             q: slots[1].q,
             r: slots[1].r,
-            key: 9,
+            action: 'build_RL',
             label: 'Rocket Launcher (Lv1)',
             questPrimary:
                 'TRAINING — **2/2** · Drop a **second Rocket Launcher** on the next pulsing hex — saturate the target.',
@@ -255,9 +255,23 @@ function applyMission2(game, grid) {
     clearEnemyStructure(game, enemyId, 'MF');
     enemyGov = downgradeEnemyGovToLv1(game, enemyId) || enemyGov;
 
+    // Keep this teaching encounter close enough for both sides to engage. Random
+    // skirmish capitals can be too far apart for the promised counter-attack.
+    const trainingTarget = [...grid.tiles.values()]
+        .filter((t) => t.buildable && !t.structure && Hex.distance(t, humanGov) === 10)
+        .sort((a, b) => Hex.distance(a, enemyGov) - Hex.distance(b, enemyGov))[0];
+    if (trainingTarget) {
+        game.destroyStructure(enemyGov, null, true);
+        trainingTarget.owner = enemyId;
+        trainingTarget.contested = false;
+        game.buildStructure(trainingTarget, 'G', enemyId, 0, true);
+        enemyGov = trainingTarget;
+        game.updateBorders();
+    }
+
     // AAS tile: adjacent to player's Government, on the side facing the enemy.
     const aasTile =
-        humanGov
+        new Hex(humanGov.q, humanGov.r)
             .getNeighbors()
             .map((h) => grid.getTile(h.q, h.r))
             .filter((t) => t && t.owner === 1 && t.buildable && !t.structure)
@@ -276,10 +290,10 @@ function applyMission2(game, grid) {
                 level: 0,
                 q: aasTile.q,
                 r: aasTile.r,
-                key: 5,
+                action: 'build_AAS',
                 label: 'Anti-Air System (Lv1)',
                 questPrimary:
-                    'TRAINING — **1/2** · Press **[5]** then click the **pulsing hex** next to your Government to drop an AAS.',
+                    'TRAINING — **1/2** · Press **[{key:build_AAS}]** then click the **pulsing hex** next to your Government to drop an AAS.',
                 questHint:
                     'AAS auto-intercepts incoming missiles in range. Build this first or you eat the enemy salvo.',
             },
@@ -288,10 +302,10 @@ function applyMission2(game, grid) {
                 level: 0,
                 q: barracksTile.q,
                 r: barracksTile.r,
-                key: 'F3',
+                action: 'build_B',
                 label: 'Barracks (Lv1)',
                 questPrimary:
-                    'TRAINING — **2/2** · Press **[F3]** then click the **forward pulsing hex** for a Barracks.',
+                    'TRAINING — **2/2** · Press **[{key:build_B}]** then click the **forward pulsing hex** for a Barracks.',
                 questHint:
                     'Barracks are tanky and push your border forward — they anchor your Rocket Launchers for the counter-attack.',
             },
@@ -312,14 +326,17 @@ function applyMission2(game, grid) {
     // Two forward enemy Rocket Launchers, both in range of the player's Gov, spaced apart.
     const cand = [];
     for (const t of grid.tiles.values()) {
-        if (t.owner !== enemyId || !t.buildable || t.structure) continue;
-        if (Hex.distance(t, humanGov) <= rlRange) cand.push(t);
+        if (!t.buildable || t.structure) continue;
+        const humanDistance = Hex.distance(t, humanGov);
+        if (humanDistance >= 6 && humanDistance <= rlRange && Hex.distance(t, enemyGov) <= rlRange) cand.push(t);
     }
     cand.sort((a, b) => Hex.distance(a, humanGov) - Hex.distance(b, humanGov));
     const placed = [];
     for (const t of cand) {
         if (placed.length >= 2) break;
         if (placed.some((p) => Hex.distance(p, t) < 2)) continue;
+        t.owner = enemyId;
+        t.contested = false;
         if (game.buildStructure(t, 'RL', enemyId, 0, true)) placed.push(t);
     }
 

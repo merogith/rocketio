@@ -54,6 +54,12 @@
                 </div>
 
                 <div class="menu-card">
+                    <button type="button" id="quick-start-btn" class="play-button">▶ PLAY THE GUIDED DEMO</button>
+                    <p class="input-hint">
+                        Start with two guided operations: supply an attack, intercept a salvo, then take command in a
+                        skirmish. Keyboard + mouse recommended.
+                    </p>
+                    <h2 class="campaign-mission-h3">CUSTOM SKIRMISH</h2>
                     <div class="input-group">
                         <label for="player-name">COMMANDER NAME</label>
                         <input
@@ -67,7 +73,7 @@
                     </div>
 
                     <div class="input-group">
-                        <label>OPPONENTS</label>
+                        <label>PLAYERS (INCLUDING YOU)</label>
                         <div class="option-row" id="player-count-row">
                             <button class="option-btn" data-value="2">2</button>
                             <button class="option-btn" data-value="3">3</button>
@@ -216,10 +222,10 @@
                         type="button"
                         id="campaign-btn"
                         class="play-button campaign-entry-btn"
-                        title="Single-player campaign (linear ops, local progress)"
+                        title="Two-mission training campaign (local progress)"
                         onclick="return rocketioCampaignEntry(event);"
                     >
-                        <span class="play-icon" aria-hidden="true">◈</span> SENTINEL CAMPAIGN
+                        <span class="play-icon" aria-hidden="true">◈</span> SENTINEL TRAINING
                     </button>
 
                     <div class="menu-bottom-row">
@@ -239,7 +245,9 @@
             <div class="homepage-content">
                 <div class="logo-section">
                     <h1 class="game-title">SENTINEL <span class="accent">OPS</span></h1>
-                    <p class="tagline" id="campaign-tagline">Linear campaign · same-PC progress</p>
+                    <p class="tagline" id="campaign-tagline">
+                        Two operations · Supply, interception and the counter-attack
+                    </p>
                 </div>
                 <div class="menu-card campaign-mission-card">
                     <h3 class="campaign-mission-h3">SELECT OPERATION</h3>
@@ -735,28 +743,34 @@
             <div id="instructions" class="glass hidden">
                 <div class="help-section">
                     <div class="help-head">CAMERA</div>
-                    <p><b>WASD</b> pan · <b>Scroll</b> zoom · <b>H</b> center on Gov · <b>J</b> last hit</p>
+                    <p>
+                        <b data-key-actions="pan_up pan_left pan_down pan_right">WASD</b> pan · <b>Scroll</b> zoom ·
+                        <b data-key-action="center_cap">H</b> center on Gov ·
+                        <b data-key-action="center_last_hit">J</b> last hit
+                    </p>
                 </div>
                 <div class="help-section">
                     <div class="help-head">BUILD</div>
+                    <p>Use the current shortcut shown on each build button. Select a button to build with the mouse.</p>
                     <p>
-                        <b>1–0</b> quick build (Economy → Offense) · <b>I</b> ICBM · <b>F2–F10</b> Sig &amp; Ground
-                        &amp; Navy
+                        <b data-key-action="upgrade">Space</b> upgrade · <b data-key-action="upgrade_all">U</b> upgrade
+                        all · <b data-key-action="demolish">X</b> demolish
                     </p>
-                    <p><b>Space</b> upgrade · <b>U</b> upgrade all · <b>X</b> demolish</p>
                 </div>
                 <div class="help-section">
                     <div class="help-head">SELECT &amp; CONTROL</div>
                     <p>
-                        <b>Q</b> select all of type · <b>Ctrl+Click</b> multi-select · Drag from attacker to assign
-                        target
+                        <b data-key-action="select_all_type">Q</b> select all of type · <b>Ctrl+Click</b> multi-select ·
+                        Drag from attacker to assign target
                     </p>
                 </div>
                 <div class="help-section">
                     <div class="help-head">GAME</div>
                     <p>
-                        <b>P</b> pause · <b>+ / −</b> speed · <b>L</b> log · <b>]</b> cycle minimap intel ·
-                        <b>ESC</b> menu
+                        <b data-key-action="pause">P</b> pause · <b data-key-action="speed_up">+</b> /
+                        <b data-key-action="speed_down">−</b> speed · <b data-key-action="toggle_log">L</b> log ·
+                        <b data-key-action="cycle_minimap_stats">]</b> cycle minimap intel ·
+                        <b data-key-action="cancel">ESC</b> menu
                     </p>
                 </div>
             </div>
@@ -764,7 +778,7 @@
             <!-- PAUSE OVERLAY -->
             <div id="pause-overlay" class="hidden">
                 <div class="pause-text">PAUSED</div>
-                <p class="pause-sub">Press P to resume</p>
+                <p class="pause-sub">Press <span data-key-action="pause">P</span> to resume</p>
             </div>
 
             <!-- CAMPAIGN BRIEFING (in-game) -->
